@@ -94,11 +94,15 @@
   --font-display: var(--font-kraut), Georgia, "Times New Roman", serif;
 
   /* `--font-sans` carries controls and dense information: field labels, size
-     buttons, add-to-cart, spec lists, shipping copy. The draft sets these
-     light-weight and widely letterspaced — the tracking token below is the
-     spacing half of that voice, applied per component. */
-  --font-sans:
-    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+     buttons, spec lists, shipping copy. Copperplate Gothic Std 30 AB is an
+     all-caps glyphic face, so the uppercase look is the FONT, not a
+     text-transform; the tracking token below is the letterspacing half of
+     that voice, applied per component.
+
+     Unlike --font-display this does NOT need a rescue family for accents:
+     the face was measured at U+0020-007E plus U+00A0-00FF, which covers the
+     whole Spanish set. The generic tail is a load-failure fallback only. */
+  --font-sans: var(--font-copperplate), ui-serif, Georgia, serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-display);
 

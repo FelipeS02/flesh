@@ -31,6 +31,18 @@ describe("globals.css — single theme", () => {
   });
 });
 
+describe("globals.css — body font", () => {
+  it("binds --font-sans to the local Copperplate face, not to a generic stack", () => {
+    // Copperplate Gothic Std 30 AB IS the body voice — the all-caps glyphic
+    // face the descriptions are set in. Falling back to a system sans would
+    // not degrade gracefully, it would silently render a different design.
+    const match = globalsCss.match(/--font-sans:\s*([^;]+);/);
+
+    expect(match).not.toBeNull();
+    expect(match![1]).toContain("var(--font-copperplate)");
+  });
+});
+
 describe("globals.css — display font stack", () => {
   it("declares --font-display as a stack, not a single family", () => {
     // Kraut covers only U+0020-007E (measured, see the comment in

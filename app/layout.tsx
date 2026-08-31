@@ -1,16 +1,28 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Copperplate Gothic Std 30 AB (Adobe), the body voice: the all-caps glyphic
+// face the product descriptions, spec lists and size labels are set in.
+//
+// No unicode-range is declared here, and that is a measurement, not an
+// oversight:
+//
+//   fc-query --format='%{charset}\n' app/fonts/copperplate-gothic-30ab.ttf
+//   -> 20-7e a0-ff 131 141-142 152-153 ... (Latin-1 Supplement and beyond)
+//
+// `a0-ff` covers á é í ó ú ñ ¿ ¡, so unlike Kraut this face renders the whole
+// Spanish copy on its own and needs no fallback family to patch accents.
+const copperplate = localFont({
+  src: "./fonts/copperplate-gothic-30ab.ttf",
+  variable: "--font-copperplate",
+  display: "swap",
 });
 
 // Kraut-type-a-fuck (Mr.Fisk, 2003), the display face.
@@ -41,7 +53,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es"
-      className={`${geistSans.variable} ${geistMono.variable} ${kraut.variable} h-full antialiased`}
+      className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
