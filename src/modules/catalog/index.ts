@@ -20,6 +20,7 @@ export type {
   Money,
   OptionAxis,
   ProductView,
+  SafeHtml,
   VariantView,
 } from "./domain/product";
 

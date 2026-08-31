@@ -169,6 +169,26 @@ describe("mapToProductView — images", () => {
   });
 });
 
+describe("mapToProductView — description sanitisation", () => {
+  it("sanitises merchant HTML at the mapper, so no consumer ever holds raw markup", () => {
+    // The mapper is the only place the wire description is read, which makes
+    // it the only place sanitisation can be guaranteed rather than merely
+    // remembered at each render site.
+    const wire = buildWireProduct({
+      description: {
+        en: "<p>hi</p>",
+        es: '<p>hola</p><script>alert("xss")</script>',
+        pt: "<p>oi</p>",
+      },
+      variants: [buildWireVariant({ values: [] })],
+    });
+
+    const result = mapToProductView(wire);
+
+    expect(result.descriptionHtml).toBe("<p>hola</p>");
+  });
+});
+
 describe("mapToProductView — sold-out requires explicit stock management", () => {
   it("is sold out when stock_management is true and stock <= 0", () => {
     const wire = buildWireProduct({
