@@ -67,7 +67,8 @@ describe("ProductSchema", () => {
   });
 
   it("throws ZodError when id is missing", () => {
-    const { id: _id, ...malformed } = wellFormedProduct;
+    const malformed: Record<string, unknown> = { ...wellFormedProduct };
+    delete malformed.id;
 
     expect(() => ProductSchema.parse(malformed)).toThrow(ZodError);
   });
