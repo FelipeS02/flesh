@@ -1,26 +1,155 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* FLESH runs ONE theme. The site is black in every state — there is no light
+   mode, so there is no second token set and no `.dark` block.
+
+   This custom-variant is kept on purpose even though nothing ever carries the
+   `.dark` class. Without it, Tailwind's `dark:` utilities fall back to their
+   default `prefers-color-scheme` behaviour, which would let the OS retune a
+   shadcn component through the back door — the exact thing the single-theme
+   decision removes. Bound to a class that is never applied, `dark:` utilities
+   are inert instead. */
+@custom-variant dark (&:is(.dark *));
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Ground and type. Pure black, not shadcn's near-black: the existing
+     storefront draft's header band and page ground are true #000. */
+  --background: oklch(0 0 0);
+  --foreground: oklch(1 0 0);
+
+  /* Product cards are light grey panels floating on black — oklch(0.873 0 0)
+     is #d5d5d5, sampled from the draft. Text on them is black. */
+  --card: oklch(0.873 0 0);
+  --card-foreground: oklch(0 0 0);
+
+  /* Overlays stay part of the black ground rather than borrowing the card's
+     grey, so a popover never reads as a floating product panel. */
+  --popover: oklch(0.145 0 0);
+  --popover-foreground: oklch(1 0 0);
+
+  /* Brand red as a FILLED treatment. This is what makes add-to-cart red. */
+  --primary: oklch(0.577 0.245 27.325);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(1 0 0);
+  --secondary-foreground: oklch(0 0 0);
+
+  --muted: oklch(0.269 0 0);
+  /* Struck-through original prices. */
+  --muted-foreground: oklch(0.708 0 0);
+
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(1 0 0);
+
+  /* Destructive is the SAME red family as --primary, one step lighter and
+     less saturated: it is drawn as an outline on black, where a fill-weight
+     red reads muddy at 1px and at small text sizes. Hierarchy is carried by
+     fill weight, not by hue — otherwise "remove from cart" and "add to cart"
+     become the same button. */
+  --destructive: oklch(0.704 0.191 22.216);
+
+  --border: oklch(1 0 0 / 15%);
+  --input: oklch(1 0 0 / 15%);
+  /* Focus ring is brand red: on a black ground it is the most visible token
+     available, and it doubles as identity. */
+  --ring: oklch(0.577 0.245 27.325);
+
+  --radius: 0.625rem;
+
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+
+  --sidebar: oklch(0.145 0 0);
+  --sidebar-foreground: oklch(1 0 0);
+  --sidebar-primary: oklch(0.577 0.245 27.325);
+  --sidebar-primary-foreground: oklch(1 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(1 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+
+  /* The type system splits by FUNCTION, not by hierarchy.
+
+     `--font-display` carries identity and content: nav, product titles,
+     prices, footer links. It MUST stay a multi-family stack. Kraut covers
+     only U+0020-007E (measured — see `app/layout.tsx`), so every accented
+     character in the Spanish copy falls out of range and resolves against
+     the NEXT family listed. With a single family those characters land on
+     an arbitrary browser default instead.
+
+     The fallbacks are system serifs on purpose. They render accented
+     characters only, so pulling a webfont down for that job would cost a
+     download to draw a handful of glyphs — and a high-contrast serif is the
+     brand's own second voice anyway (the FLESH wordmark is a serif). */
+  --font-display: var(--font-kraut), Georgia, "Times New Roman", serif;
+
+  /* `--font-sans` carries controls and dense information: field labels, size
+     buttons, add-to-cart, spec lists, shipping copy. The draft sets these
+     light-weight and widely letterspaced — the tracking token below is the
+     spacing half of that voice, applied per component. */
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-display);
+
+  --tracking-control: 0.18em;
+
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }
