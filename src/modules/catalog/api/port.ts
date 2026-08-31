@@ -1,4 +1,4 @@
-import type { TiendanubeProduct } from "./types";
+import type { ProductView } from "../domain/product";
 
 // The ONE interface a future Tiendanube client and today's mock data source
 // must both satisfy. This is the formal swap point: a later
@@ -6,18 +6,16 @@ import type { TiendanubeProduct } from "./types";
 // contract, provably interchangeable with the mock rather than merely
 // similarly named.
 //
-// Naming note: the design's domain view type (`Product`/`ProductView`,
-// produced by the mapper in PR4b) does not exist yet in this slice — the
-// mapper that turns wire-shaped data into that domain view is explicitly
-// out of scope here. This port is therefore typed over the schema-derived
-// wire type (`TiendanubeProduct`, see `./types.ts`), which is the only
-// "product" type that exists at this point in the chain. The mapper (PR4b)
-// composes on top of this port's output.
+// The port is typed over the DOMAIN view, not the wire type. Mapping is part
+// of what an implementation owes its callers — a live client that returned
+// raw Tiendanube payloads would push `{en,es,pt}` objects and price strings
+// into every consumer, which is exactly what design decision 1 exists to
+// prevent. Wire types stay private to `api/**`.
 export interface CatalogPort {
-  getProducts(): Promise<TiendanubeProduct[]> | TiendanubeProduct[];
+  getProducts(): Promise<ProductView[]> | ProductView[];
   getProductByHandle(
     slug: string,
-  ): Promise<TiendanubeProduct | null> | TiendanubeProduct | null;
+  ): Promise<ProductView | null> | ProductView | null;
 }
 
 // Reference documentation only — NOT implemented in this change. Recorded
