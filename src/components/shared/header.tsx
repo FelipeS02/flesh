@@ -18,7 +18,9 @@ export function Header() {
         aria-label="FLESH — inicio"
         className="col-start-2 justify-self-center"
       >
-        <FleshLogotype className="h-11.25 w-28 md:h-18.5 md:w-46.25" />
+        {/* Width alone: the SVG carries `viewBox` with no width/height, so
+            the height follows the 575:229 ratio at every breakpoint. */}
+        <FleshLogotype className="w-28" />
       </Link>
     </header>
   );
