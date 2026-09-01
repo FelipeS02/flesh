@@ -39,7 +39,7 @@ function isExternalHref(href: string): boolean {
 export function Nav() {
   return (
     <nav aria-label="Principal">
-      <ul className="flex flex-wrap items-center gap-4 md:gap-6.5">
+      <ul className="flex flex-wrap items-center justify-center gap-4 md:gap-6.5">
         {NAV_ITEMS.map((item, index) => {
           const external = isExternalHref(item.href);
 
