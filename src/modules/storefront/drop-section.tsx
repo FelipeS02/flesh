@@ -14,7 +14,9 @@ type DropSectionProps = {
  * One volume of the drop. Sync server component.
  *
  * The cards sit in a plain centred row, not a grid: the drop is two or three
- * garments, and a grid would promise columns that never fill.
+ * garments, and a grid would promise columns that never fill. On mobile they
+ * stack one per row — a deliberate departure from the artboard, which draws
+ * two 172px cards side by side there.
  */
 export function DropSection({ group, titled }: DropSectionProps) {
   const heading = titled ? group.title : null;
@@ -29,7 +31,11 @@ export function DropSection({ group, titled }: DropSectionProps) {
           {heading}
         </h2>
       )}
-      <div className="flex justify-center gap-3.5 md:gap-14">
+      {/* `items-center` centres the stack horizontally on mobile; from md the
+          same property would centre the cards against EACH OTHER vertically,
+          so a card with a swatch row would drag its shorter neighbour's title
+          out of line. Cards hang from the top of the row instead. */}
+      <div className="flex w-full flex-col items-center gap-10 md:w-auto md:flex-row md:items-start md:justify-center md:gap-14">
         {group.products.map((product) => (
           <ProductCard key={product.id} product={product} />
         ))}

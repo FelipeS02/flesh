@@ -27,7 +27,7 @@ export function ProductCard({ product }: ProductCardProps) {
   const href = `/producto/${product.slug}`;
 
   return (
-    <article className="flex w-43 flex-col gap-3 md:w-75.25 md:gap-5">
+    <article className="flex w-full max-w-sm flex-col gap-3 md:w-75.25 md:max-w-none md:gap-5">
       {/* The image links to the same place the title does, so it is hidden
           from assistive tech and from the tab order rather than announced as
           a second, identically-named link to the same product. Its `alt` is
@@ -37,13 +37,16 @@ export function ProductCard({ product }: ProductCardProps) {
           href={href}
           tabIndex={-1}
           aria-hidden="true"
-          className="relative block h-50 md:h-85"
+          className="relative block aspect-43/50 md:aspect-auto md:h-85"
         >
+          {/* Mobile keeps the artboard's 172x200 card-to-image proportion as
+              a ratio rather than a fixed height, because the card is now as
+              wide as the viewport allows instead of a fixed 172px. */}
           <Image
             src={image.src}
             alt=""
             fill
-            sizes="(min-width: 768px) 301px, 172px"
+            sizes="(min-width: 768px) 301px, 100vw"
             className="object-contain"
           />
         </Link>
@@ -68,11 +71,12 @@ export function ProductCard({ product }: ProductCardProps) {
             <span className="font-display text-base text-muted-foreground md:text-[22px]">
               {formatMoney(variant.price)}
             </span>
-            {/* Stacked on mobile, side by side from md. The artboard draws
-                one row at both sizes, but 172px of card cannot hold a 22px
-                price beside a 17-character label letterspaced at 0.18em —
-                pen.dev does not wrap, so the overflow is invisible there. */}
-            <div className="flex flex-col items-start gap-0.5 md:flex-row md:items-center md:gap-2">
+            {/* Wraps rather than switching at a breakpoint: the label only
+                fits beside the price when the card is wide enough, and how
+                wide the card is depends on the column count, not on the
+                viewport. A 17-character label letterspaced at 0.18em next to
+                a 22px price needs more room than a narrow card has. */}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
               <span className="font-display text-[22px] text-foreground md:text-3xl">
                 {formatMoney(transferPrice(variant.price))}
               </span>

@@ -21,7 +21,7 @@ export default async function Home() {
   const products = await getProducts();
 
   return (
-    <div className="relative flex min-h-screen flex-1 flex-col justify-between px-4 md:px-0">
+    <div className="relative flex min-h-screen flex-1 flex-col justify-between gap-10 px-4 md:px-0">
       <BackgroundPlate />
       <Header />
       <main>
