@@ -6,6 +6,12 @@ import type { TiendanubeProduct } from "../types";
 // JSON import would infer a wide structural type and let contract drift
 // compile clean. `satisfies` both checks against the schema-derived type and
 // preserves the literal types.
+//
+// One deliberate departure from a live payload: image `src` values are paths
+// into `public/` rather than absolute CDN URLs, so the mock renders the real
+// garments in `next dev` instead of broken images. A live Tiendanube response
+// carries absolute URLs here — that swap will also need `images.remotePatterns`
+// in `next.config.ts` before `next/image` will load them.
 export const products = [
   {
     id: 101,
@@ -64,13 +70,13 @@ export const products = [
       {
         id: 301,
         product_id: 101,
-        src: "https://example.com/remera-classic-1.jpg",
+        src: "/products/1.png",
         position: 1,
       },
       {
         id: 302,
         product_id: 101,
-        src: "https://example.com/remera-classic-2.jpg",
+        src: "/products/2.png",
         position: 2,
       },
     ],
@@ -128,7 +134,7 @@ export const products = [
       {
         id: 303,
         product_id: 102,
-        src: "https://example.com/buzo-oversize-1.jpg",
+        src: "/products/4.webp",
         position: 1,
       },
     ],
@@ -184,7 +190,7 @@ export const products = [
       {
         id: 304,
         product_id: 103,
-        src: "https://example.com/gorra-limitada-1.jpg",
+        src: "/products/3.webp",
         position: 1,
       },
     ],
