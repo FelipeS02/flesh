@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 // No unicode-range is declared here, and that is a measurement, not an
 // oversight:
 //
-//   fc-query --format='%{charset}\n' app/fonts/copperplate-gothic-30ab.ttf
+//   fc-query --format='%{charset}\n' src/app/fonts/copperplate-gothic-30ab.ttf
 //   -> 20-7e a0-ff 131 141-142 152-153 ... (Latin-1 Supplement and beyond)
 //
 // `a0-ff` covers á é í ó ú ñ ¿ ¡, so unlike Kraut this face renders the whole
@@ -29,7 +29,7 @@ const copperplate = localFont({
 //
 // The unicode-range below is MEASURED from the binary, never guessed:
 //
-//   fc-query --format='%{charset}\n' app/fonts/kraut.ttf
+//   fc-query --format='%{charset}\n' src/app/fonts/kraut.ttf
 //   -> 20-7e e000-e001
 //
 // That is printable ASCII plus two private-use glyphs, and NOTHING else. The
