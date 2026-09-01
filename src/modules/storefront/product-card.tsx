@@ -49,11 +49,17 @@ export function ProductCard({ product }: ProductCardProps) {
         </Link>
       )}
 
-      <div className="flex flex-col gap-2 md:gap-2.5">
+      <div className="flex flex-col gap-4">
         {/* The card's own heading level, not the page's: the volume section
             above owns h2, so a card cannot claim it without breaking the
-            outline for anyone navigating by headings. */}
-        <h3 className="min-h-11 font-display text-lg leading-[1.15] text-primary md:min-h-14.5 md:text-2xl">
+            outline for anyone navigating by headings.
+
+            No reserved title height: the artboard fixes it at 58px so that
+            two-line titles keep every card's price on the same baseline, but
+            with the short titles the catalogue actually carries that reads as
+            a hole above the price. Cards with titles of different lengths
+            will now misalign their price rows. */}
+        <h3 className="font-display text-lg leading-[1.15] text-primary md:text-2xl">
           <Link href={href}>{product.title}</Link>
         </h3>
 
@@ -62,7 +68,11 @@ export function ProductCard({ product }: ProductCardProps) {
             <span className="font-display text-base text-muted-foreground md:text-[22px]">
               {formatMoney(variant.price)}
             </span>
-            <div className="flex items-center gap-2">
+            {/* Stacked on mobile, side by side from md. The artboard draws
+                one row at both sizes, but 172px of card cannot hold a 22px
+                price beside a 17-character label letterspaced at 0.18em —
+                pen.dev does not wrap, so the overflow is invisible there. */}
+            <div className="flex flex-col items-start gap-0.5 md:flex-row md:items-center md:gap-2">
               <span className="font-display text-[22px] text-foreground md:text-3xl">
                 {formatMoney(transferPrice(variant.price))}
               </span>
