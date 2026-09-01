@@ -21,10 +21,16 @@ type DropSectionProps = {
 export function DropSection({ group, titled }: DropSectionProps) {
   const heading = titled ? group.title : null;
 
+  // The section's own `w-full` is load-bearing. Its parent centres its
+  // children, and centring shrinks an unsized section to its content — so
+  // without it the cards' `w-full` resolves against that shrunken width
+  // rather than the page, and the column renders about half as wide as the
+  // viewport allows. Invisible on desktop, where cards are a fixed 301px.
+
   return (
     <section
       aria-label={group.title ?? undefined}
-      className="flex flex-col items-center gap-5 md:gap-8"
+      className="flex w-full flex-col items-center gap-5 md:gap-8"
     >
       {heading && (
         <h2 className="font-display text-2xl text-foreground md:text-4xl">
