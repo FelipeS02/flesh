@@ -56,7 +56,12 @@ export function parseMoney(raw: string, currency: string = DEFAULT_CURRENCY): Mo
  * formatter a better fit than a locale-aware library.
  *
  * Format: dot as thousands separator, comma as decimal separator, e.g.
- * `formatMoney({ amount: 2_500_000, currency: "ARS" })` -> "$25.000,00".
+ * `formatMoney({ amount: 2_500_000, currency: "ARS" })` -> "$25.000".
+ *
+ * A zero fraction is dropped, matching every price in the artboards
+ * ("$27.000", never "$27.000,00") — ARS prices at this scale are whole
+ * pesos. Non-zero cents are still printed: the transfer discount can produce
+ * them, and hiding a real remainder would misstate the price.
  */
 export function formatMoney({ amount, currency }: Money): string {
   const exponent = currencyExponent(currency);
@@ -69,6 +74,10 @@ export function formatMoney({ amount, currency }: Money): string {
   const groupedInteger = integerUnits
     .toString()
     .replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+  if (fractionUnits === 0) {
+    return `${sign}$${groupedInteger}`;
+  }
+
   const fraction = fractionUnits.toString().padStart(exponent, "0");
 
   return `${sign}$${groupedInteger},${fraction}`;
