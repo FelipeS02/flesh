@@ -26,12 +26,9 @@ export type { CatalogPort } from "./api/port";
 export { getPricingPolicy } from "./api/pricing";
 export type { PricingPolicy } from "./api/pricing";
 
-// `applyRate`/`transferBreakdown` are pure and carry no server-only
-// dependency — a client component could import them safely. They are NOT
-// re-exported from `./client` here: task 1a.5 scopes this change to
-// `index.ts` only, and the cart's summary consumer does not exist yet in
-// this slice. If a future client-side consumer needs them before `client.ts`
-// is revisited, that is a scope call for that slice, not this one.
-export { applyRate, transferBreakdown } from "./lib/pricing";
-
+// `applyRate`, `transferBreakdown` and `TRANSFER_RATE_BP` are pure and carry
+// no server-only dependency, so they live in `./client` and arrive here
+// through the re-export below. That placement is forced, not chosen: the
+// storefront's price display runs in the client bundle and needs them, and
+// reaching them through this entry would drag `server-only` into the browser.
 export * from "./client";

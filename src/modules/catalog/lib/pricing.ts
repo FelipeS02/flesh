@@ -2,17 +2,31 @@ import type { Money } from "./money";
 
 /**
  * The transfer-discount rate, expressed in basis points (1000 bp === 10%),
- * never a float. `TRANSFER_DISCOUNT_RATE = 0.1` (see
- * `modules/storefront/pricing.ts`) is exactly the mistake `money.ts` is
- * hand-rolled to avoid: `amount * 0.1` on an integer minor-unit count risks
- * the same float drift `parseMoney` exists to sidestep. Basis points keep
- * every step of the arithmetic an integer until the single, deliberate
- * `Math.round`.
+ * never a float. A float rate is exactly the mistake `money.ts` is hand-rolled
+ * to avoid: `amount * 0.1` on an integer minor-unit count risks the same drift
+ * `parseMoney` exists to sidestep. Basis points keep every step of the
+ * arithmetic an integer until the single, deliberate `Math.round`.
  *
- * Both functions are pure and take the rate as a parameter — the value
- * itself is never a module constant here (see `catalog/api/pricing.ts`'s
- * `PricingPolicyPort`), so a call site can never hardcode it.
+ * Both functions are pure and take the rate as a PARAMETER, so no call site
+ * can hardcode it. `getPricingPolicy()` in `catalog/api/pricing.ts` is where
+ * the value comes from on the server, and is the seam a live Tiendanube
+ * store-settings read replaces.
  */
+
+/**
+ * The rate itself — the ONE place 10% is written down in this repo.
+ *
+ * It lives in the pure layer, not next to the port, for a reason that is
+ * mechanical rather than aesthetic: the storefront's own price display runs
+ * inside the client bundle, and `api/pricing.ts` carries `import "server-only"`.
+ * A client component reaching for the rate through the port is a build error,
+ * so the constant has to be reachable from `catalog/client.ts`.
+ *
+ * This is a stand-in, not the destination. The rate is a Tiendanube store
+ * setting, and once `CartProvider` carries it down from the server (task 2b.7)
+ * the display components should take it as data and this export should go.
+ */
+export const TRANSFER_RATE_BP = 1000;
 
 /**
  * The price after the rate is taken off a single Money value — the figure

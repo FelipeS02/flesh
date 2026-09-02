@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { discountPercent, TRANSFER_DISCOUNT_RATE, transferPrice } from "./pricing";
+import { applyRate, TRANSFER_RATE_BP } from "@/modules/catalog/client";
+import { discountPercent, transferPrice } from "./pricing";
 
 const ars = (amount: number) => ({ amount, currency: "ARS" });
 
@@ -18,7 +19,31 @@ describe("transferPrice", () => {
   });
 
   it("is a discount of exactly the published rate", () => {
-    expect(TRANSFER_DISCOUNT_RATE).toBe(0.1);
+    expect(TRANSFER_RATE_BP).toBe(1000);
+  });
+
+  /**
+   * The regression that made this file delegate instead of computing.
+   *
+   * `Math.round(amount * 0.9)` and `amount - Math.round(amount * 0.1)` are not
+   * the same function: they disagree on every amount whose tenth lands exactly
+   * on a half cent, which is 10% of all amounts — 5, 15, 25, 35, 45 and so on.
+   * $19,95 is the first one a merchant would plausibly type.
+   *
+   * While the storefront computed its own price, the PDP could show $17,96 for
+   * a garment the cart totalled at $17,95.
+   */
+  it("agrees with the catalog policy on a half-cent amount, to the minor unit", () => {
+    const halfCent = ars(1995);
+
+    expect(transferPrice(halfCent)).toEqual(applyRate(halfCent, TRANSFER_RATE_BP));
+    expect(transferPrice(halfCent).amount).toBe(1795);
+  });
+
+  it("agrees with the catalog policy across every amount that can disagree", () => {
+    for (let amount = 5; amount <= 100_005; amount += 10) {
+      expect(transferPrice(ars(amount))).toEqual(applyRate(ars(amount), TRANSFER_RATE_BP));
+    }
   });
 });
 

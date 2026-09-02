@@ -3,6 +3,7 @@
 // establishes that boundary now, on the local stand-in, before a live fetch
 // layer exists, mirroring `source.ts` (task 4a.14).
 import "server-only";
+import { TRANSFER_RATE_BP } from "../lib/pricing";
 
 /**
  * The rate is NEVER a module constant read at call sites (binding answer 1:
@@ -22,7 +23,9 @@ export interface PricingPolicyPort {
 }
 
 function getPricingPolicy(): PricingPolicy {
-  return { transferRateBp: 1000 };
+  // Reads the shared constant rather than restating 1000. Two literals is how
+  // the float and the basis-point rate came to disagree in the first place.
+  return { transferRateBp: TRANSFER_RATE_BP };
 }
 
 export { getPricingPolicy };
