@@ -1,15 +1,47 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
 
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Copperplate Gothic Std 30 AB (Adobe), the body voice: the all-caps glyphic
+// face the product descriptions, spec lists and size labels are set in.
+//
+// No unicode-range is declared here, and that is a measurement, not an
+// oversight:
+//
+//   fc-query --format='%{charset}\n' app/fonts/copperplate-gothic-30ab.ttf
+//   -> 20-7e a0-ff 131 141-142 152-153 ... (Latin-1 Supplement and beyond)
+//
+// `a0-ff` covers á é í ó ú ñ ¿ ¡, so unlike Kraut this face renders the whole
+// Spanish copy on its own and needs no fallback family to patch accents.
+const copperplate = localFont({
+  src: "./fonts/copperplate-gothic-30ab.ttf",
+  variable: "--font-copperplate",
+  display: "swap",
+});
+
+// Kraut-type-a-fuck (Mr.Fisk, 2003), the display face.
+//
+// The unicode-range below is MEASURED from the binary, never guessed:
+//
+//   fc-query --format='%{charset}\n' app/fonts/kraut.ttf
+//   -> 20-7e e000-e001
+//
+// That is printable ASCII plus two private-use glyphs, and NOTHING else. The
+// font has no accented Latin coverage at all: no á é í ó ú ñ, no ¿ ¡. Since
+// the UI copy is Spanish, declaring the range is what makes the browser fall
+// through to the next family in `--font-display` for those characters instead
+// of stretching Kraut over glyphs it does not have.
+const kraut = localFont({
+  src: "./fonts/kraut.ttf",
+  variable: "--font-kraut",
+  display: "swap",
+  declarations: [{ prop: "unicode-range", value: "U+0020-007E, U+E000-E001" }],
 });
 
 export const metadata: Metadata = {
@@ -20,8 +52,8 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="es"
+      className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>
