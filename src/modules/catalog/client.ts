@@ -29,3 +29,10 @@ export type {
 } from "./domain/selectors";
 
 export { formatMoney, formatMoneyDecimal } from "./lib/money";
+
+// The transfer-discount policy's PURE half. `getPricingPolicy` stays behind
+// `./index.ts` because it is `server-only` and is where the rate will come
+// from once it is a real store setting; the arithmetic and the stand-in rate
+// have to be reachable from here because the price display on the card and
+// on the PDP both render inside the client bundle.
+export { applyRate, transferBreakdown, TRANSFER_RATE_BP } from "./lib/pricing";

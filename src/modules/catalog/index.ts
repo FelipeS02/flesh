@@ -19,4 +19,16 @@
 export { getProducts, getProductByHandle } from "./api/source";
 export type { CatalogPort } from "./api/port";
 
+// The pricing policy port follows the same server-only pattern as the
+// catalog port above: today's rate is a local stand-in, tomorrow's is a
+// Tiendanube store-settings fetch, and no cart or PDP call site is touched
+// either way (see `api/pricing.ts` and design decision D2).
+export { getPricingPolicy } from "./api/pricing";
+export type { PricingPolicy } from "./api/pricing";
+
+// `applyRate`, `transferBreakdown` and `TRANSFER_RATE_BP` are pure and carry
+// no server-only dependency, so they live in `./client` and arrive here
+// through the re-export below. That placement is forced, not chosen: the
+// storefront's price display runs in the client bundle and needs them, and
+// reaching them through this entry would drag `server-only` into the browser.
 export * from "./client";

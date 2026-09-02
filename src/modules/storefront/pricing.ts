@@ -1,29 +1,26 @@
 // The client entry — see the note in `./swatches.ts`; `transferPrice` is on
 // the PDP's client side too.
-import type { Money } from "@/modules/catalog/client";
-
-/**
- * FLESH takes 10% off for bank-transfer payment. This is a fixed brand
- * policy today, which is why it is a constant here and not a per-product
- * field — but it lives as a store setting on Tiendanube, so the eventual
- * live integration reads it from there. This constant is that seam: one
- * place to change, and the only place the rate is written down.
- */
-export const TRANSFER_DISCOUNT_RATE = 0.1;
+import { applyRate, TRANSFER_RATE_BP, type Money } from "@/modules/catalog/client";
 
 /**
  * The price shown next to "CON TRANSFERENCIA".
  *
- * Rounds to a whole minor unit: `Money.amount` is an integer count of cents
- * by contract (see `catalog/lib/money.ts`), and a fractional cent would
- * silently break the formatter's grouping as well as any arithmetic done
- * downstream.
+ * Delegates rather than computing. It used to own `TRANSFER_DISCOUNT_RATE = 0.1`
+ * and multiply by it, which read as harmless until the cart's basis-point
+ * policy landed beside it: `Math.round(amount * 0.9)` and
+ * `amount - Math.round(amount * 0.1)` disagree by one minor unit on every
+ * amount whose tenth falls on a half cent — 10% of all amounts, starting at
+ * $19,95. Two implementations of one brand policy is one too many, and the
+ * one that keeps its arithmetic in integers is the one that survived.
+ *
+ * This function stays as the storefront's own name for the idea, so the two
+ * call sites keep reading as prices rather than as arithmetic. It is the rate
+ * argument that is temporary: once `CartProvider` carries the real store
+ * setting down from the server (task 2b.7), the display components should take
+ * it as data and call `applyRate` directly.
  */
-export function transferPrice({ amount, currency }: Money): Money {
-  return {
-    amount: Math.round(amount * (1 - TRANSFER_DISCOUNT_RATE)),
-    currency,
-  };
+export function transferPrice(price: Money): Money {
+  return applyRate(price, TRANSFER_RATE_BP);
 }
 
 /**

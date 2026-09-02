@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { getProductByHandle, getProducts } from ".";
+import {
+  applyRate,
+  getPricingPolicy,
+  getProductByHandle,
+  getProducts,
+  transferBreakdown,
+} from ".";
 
 // This suite guards the module boundary itself, not the mapper (that is
 // `domain/map.test.ts`). The question it answers is narrower and structural:
@@ -41,5 +47,30 @@ describe("catalog module index — the single crossing point", () => {
 
   it("returns null for an unknown handle", () => {
     expect(getProductByHandle("no-existe")).toBeNull();
+  });
+});
+
+// Task 1a.5: the pricing policy port and its pure helpers cross the same
+// single crossing point as the catalog port, not a second entry point.
+describe("catalog module index — pricing re-exports", () => {
+  it("exposes the pricing policy at the same rate api/pricing.ts returns", () => {
+    expect(getPricingPolicy()).toEqual({ transferRateBp: 1000 });
+  });
+
+  it("exposes applyRate/transferBreakdown as the same pure functions lib/pricing.ts defines", () => {
+    const subtotal = { amount: 8_100_000, currency: "ARS" };
+    const { transferRateBp } = getPricingPolicy();
+
+    const breakdown = transferBreakdown(subtotal, transferRateBp);
+    const applied = applyRate(subtotal, transferRateBp);
+
+    // These figures are the artboard case from lib/pricing.test.ts — proving
+    // this is not a second, divergent implementation reachable via the
+    // barrel, but the exact same one.
+    expect(breakdown).toEqual({
+      discount: { amount: 810_000, currency: "ARS" },
+      total: { amount: 7_290_000, currency: "ARS" },
+    });
+    expect(applied).toEqual({ amount: 7_290_000, currency: "ARS" });
   });
 });
