@@ -40,12 +40,24 @@ describe("currencyExponent", () => {
 
 describe("formatMoney", () => {
   it("formats without a thousands separator below 1000 units", () => {
-    expect(formatMoney({ amount: 2500, currency: "ARS" })).toBe("$25,00");
+    expect(formatMoney({ amount: 2500, currency: "ARS" })).toBe("$25");
   });
 
-  it("formats with a dot thousands separator and comma decimal separator", () => {
-    expect(formatMoney({ amount: 2_500_000, currency: "ARS" })).toBe(
-      "$25.000,00",
+  it("formats with a dot thousands separator", () => {
+    expect(formatMoney({ amount: 2_500_000, currency: "ARS" })).toBe("$25.000");
+  });
+
+  // Every price in the artboards reads "$27.000", never "$27.000,00" — ARS
+  // prices at this scale are whole pesos. Cents are not decoration to drop,
+  // though: the transfer discount can produce them, so they are shown
+  // whenever they are non-zero and hidden only when they carry no meaning.
+  it("omits a zero fraction, which is how the artboards price everything", () => {
+    expect(formatMoney({ amount: 2_430_000, currency: "ARS" })).toBe("$24.300");
+  });
+
+  it("keeps the fraction when the amount actually has cents", () => {
+    expect(formatMoney({ amount: 1_799_999, currency: "ARS" })).toBe(
+      "$17.999,99",
     );
   });
 });
