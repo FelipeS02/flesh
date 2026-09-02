@@ -6,7 +6,7 @@ import { Nav } from "@/components/shared/nav";
  */
 export function Footer() {
   return (
-    <footer className="pb-6.5 md:pb-10">
+    <footer className="pb-6.5">
       <Nav />
     </footer>
   );
