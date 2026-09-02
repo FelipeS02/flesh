@@ -155,5 +155,41 @@
   }
   html {
     @apply font-sans;
+    /* Lets a height transition run TO `auto`. Without it the browser has no
+       start-and-end pair to interpolate between and the box just snaps, which
+       is why the accordion below animates from a keyword rather than from a
+       hardcoded height nobody can keep in sync with the copy. */
+    interpolate-size: allow-keywords;
+  }
+}
+
+/* The PDP's info accordion, opened and closed by the browser itself.
+
+   `<details>` carries the state and `name` makes the group exclusive, so the
+   whole component stays a server component with no JavaScript. The animation
+   is the last piece that would normally force a client bundle — `::details-
+   content` is what removes that need.
+
+   `content-visibility` is what actually hides a closed panel, and it is a
+   discrete property: `allow-discrete` is what makes it flip at the END of the
+   collapse instead of at its start, which is the difference between a panel
+   that folds away and one that vanishes and then animates nothing.
+
+   Unsupported browsers lose the animation and keep the accordion. */
+details[data-accordion]::details-content {
+  block-size: 0;
+  overflow: hidden;
+  transition:
+    block-size 240ms ease,
+    content-visibility 240ms ease allow-discrete;
+}
+
+details[data-accordion][open]::details-content {
+  block-size: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  details[data-accordion]::details-content {
+    transition: none;
   }
 }

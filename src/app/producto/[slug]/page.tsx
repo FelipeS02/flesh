@@ -3,6 +3,7 @@ import { BackgroundPlate } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import { getProductByHandle } from "@/modules/catalog";
+import { InfoAccordions } from "@/modules/product-detail/accordions/info-accordions";
 import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
 import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
 import { FitScale } from "@/modules/product-detail/garment/fit-scale";
@@ -49,7 +50,14 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             widths: they add up to 1296 only at a 1440 viewport, and every
             narrower desktop has to take the difference out of both columns
             proportionally instead of overflowing. */}
-        <div className="md:min-w-0 md:basis-160">
+        {/* Sticky on desktop only. The panel column is the taller of the two
+            and the one worth scrolling — the garment should stay in view while
+            you read its measurements, not scroll away above them. `self-start`
+            is what makes it work: a stretched flex item is as tall as the row,
+            and an element that tall has nothing left to stick within.
+
+            Mobile stacks the two columns, so there is nothing to stay beside. */}
+        <div className="md:sticky md:top-10 md:min-w-0 md:basis-160 md:self-start">
           <ProductGallery images={product.images} title={product.title} />
         </div>
 
@@ -72,17 +80,13 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
 
           {cut && <FitScale fit={cut.fit} />}
 
-          {/* The artboard files this copy inside the first accordion, which
-              PR8b builds. It renders plainly here so the page is not shipped
-              with its description missing; PR8b moves this node, it does not
-              add a second one.
-
-              `descriptionHtml` is a `SafeHtml`, and only `catalog/lib/sanitize`
-              can mint one — that brand is what makes this the single call site
-              of `dangerouslySetInnerHTML` a safe one. */}
-          <div
-            className="font-sans text-xs leading-relaxed text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+          {/* The description moved INTO the first accordion rather than being
+              duplicated beside it — the artboard always filed it there, and
+              PR8a only rendered it plainly so the page never shipped without
+              it. Same node, new home. */}
+          <InfoAccordions
+            product={{ descriptionHtml: product.descriptionHtml, axes: product.axes }}
+            cut={cut}
           />
         </div>
       </main>

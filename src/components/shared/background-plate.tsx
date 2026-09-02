@@ -22,19 +22,22 @@ type BackgroundPlateProps = {
  * `scrim`). This is therefore a shared page background, not a landing-only
  * hero.
  *
- * Positioning: `absolute inset-0` with a negative `z-index`, meant to live
- * inside a `relative` page wrapper spanning the full page content height —
- * on the PDP the plate is 1708px tall (the whole document), not the
- * viewport. Deliberately NOT `fixed` and NOT `h-screen`. The page wrapper
- * itself is out of scope here (wired in PR6b for the landing, PR8a for the
- * PDP).
+ * Positioning: `fixed inset-0` with a negative `z-index`. The plate is pinned
+ * to the VIEWPORT and the page scrolls over it, which is the only way one
+ * video can back a document of any height — an absolute plate has to stretch
+ * to the full content height, and a stretched `object-cover` video re-crops
+ * itself as the page grows, so the same frame is composed differently on a
+ * long PDP than on a short landing.
+ *
+ * `fixed` takes its containing block from the viewport, so it no longer needs
+ * a `relative` page wrapper to size against.
  *
  * No poster image exists in this project; the artboard frame's own
  * `$background` (pure black) shows through before the video paints.
  */
 export function BackgroundPlate({ scrim = LANDING_SCRIM }: BackgroundPlateProps) {
   return (
-    <div className="absolute inset-0 -z-10" aria-hidden="true">
+    <div className="fixed inset-0 -z-10" aria-hidden="true">
       <video
         className="h-full w-full object-cover motion-reduce:hidden"
         autoPlay

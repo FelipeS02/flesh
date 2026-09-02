@@ -34,6 +34,14 @@ describe("BackgroundPlate", () => {
     expect(video?.getAttribute("tabindex")).toBe("-1");
   });
 
+  it("pins the plate to the viewport rather than stretching it over the document", () => {
+    const { container } = render(<BackgroundPlate />);
+
+    // The page scrolls OVER the plate. Stretching it to the content height
+    // instead would re-crop the same `object-cover` frame per page length.
+    expect(container.firstElementChild?.className).toContain("fixed");
+  });
+
   it("applies the landing scrim strength (75% black) by default", () => {
     const { container } = render(<BackgroundPlate />);
 
