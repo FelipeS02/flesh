@@ -8,14 +8,14 @@ const FleshLogotype = SvgComponent(
         fill='#D10101'
       />
       <path
-        fill-rule='evenodd'
-        clip-rule='evenodd'
+        fillRule='evenodd'
+        clipRule='evenodd'
         d='M96.8359 129.078L97.2992 203.852L84.7855 228.383L134.356 228.383L121.762 203.852L121.772 129.078L96.8359 129.078Z'
         fill='#D10101'
       />
       <path
-        fill-rule='evenodd'
-        clip-rule='evenodd'
+        fillRule='evenodd'
+        clipRule='evenodd'
         d='M96.8359 129.078L97.2992 203.852L84.7855 228.383L134.356 228.383L121.762 203.852L121.772 129.078L96.8359 129.078Z'
         fill='#D10101'
       />
@@ -24,14 +24,14 @@ const FleshLogotype = SvgComponent(
         fill='#D10101'
       />
       <path
-        fill-rule='evenodd'
-        clip-rule='evenodd'
+        fillRule='evenodd'
+        clipRule='evenodd'
         d='M22.7551 99.092L22.7447 114.21L22.7551 128.912L9.74742 137.734L0.00976195 144.202L0.00976153 114.382L0.00976109 84.1026L22.7551 99.092Z'
         fill='#D10101'
       />
       <path
-        fill-rule='evenodd'
-        clip-rule='evenodd'
+        fillRule='evenodd'
+        clipRule='evenodd'
         d='M67.7507 23.9652L51.8462 54.7851L51.8462 0.378584L134.356 0.37858L121.762 24.9087L121.772 99.092L97.3096 99.092L97.2993 23.9652L67.7507 23.9652Z'
         fill='#D10101'
       />
