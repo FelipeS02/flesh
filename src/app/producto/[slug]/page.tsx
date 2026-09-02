@@ -4,6 +4,8 @@ import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import { getProductByHandle } from "@/modules/catalog";
 import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
+import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
+import { FitScale } from "@/modules/product-detail/garment/fit-scale";
 import { PurchasePanel } from "@/modules/product-detail/purchase/purchase-panel";
 
 /** PDP artboard scrim: 70% black, one step lighter than the landing's. */
@@ -28,6 +30,11 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
   if (!product) {
     notFound();
   }
+
+  // Garment content, resolved on the server from the product's `corte-` tag.
+  // A product with no cut — or two — renders no fit scale at all rather than
+  // a guessed one.
+  const cut = findGarmentCut(product);
 
   return (
     // `relative` with no fixed height: the plate covers the whole DOCUMENT
@@ -62,6 +69,8 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             product={{ axes: product.axes, variants: product.variants }}
             defaultVariantId={product.defaultVariantId}
           />
+
+          {cut && <FitScale fit={cut.fit} />}
 
           {/* The artboard files this copy inside the first accordion, which
               PR8b builds. It renders plainly here so the page is not shipped
