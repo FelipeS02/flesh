@@ -13,6 +13,20 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
   ]),
+  // `src/components/ui/**` is vendored: shadcn COPIES these files in, and
+  // `shadcn add --overwrite` will hand them back verbatim. Patching the
+  // carousel's `setState`-in-effect to satisfy the React Compiler rule would
+  // therefore be undone silently by the next component we pull.
+  //
+  // Only that one rule is lifted, and only here. The folder still ships to
+  // the browser, so everything else — unused code, the catalog import ban,
+  // the accessibility rules — keeps applying to it.
+  {
+    files: ["src/components/ui/**"],
+    rules: {
+      "react-hooks/set-state-in-effect": "off",
+    },
+  },
   // The catalog module's wire layer (`api/**`) is private. `index.ts` not
   // re-exporting it is encapsulation by CONVENTION only — a deep import
   // still compiles. This rule is what makes it fail. The module itself is
