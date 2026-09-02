@@ -1,4 +1,5 @@
 import { formatMoney, type VariantView } from "@/modules/catalog/client";
+import { DiscountBadge } from "@/modules/storefront/discount-badge";
 import { discountPercent, transferPrice } from "@/modules/storefront/pricing";
 
 type PriceBlockProps = {
@@ -46,12 +47,7 @@ export function PriceBlock({ variant }: PriceBlockProps) {
               the transfer discount is a labelled price two lines up, never a
               percentage, because one red badge cannot mean two things and
               still be read correctly. */}
-          {promo !== null && (
-            <span className="self-center bg-primary px-1.5 py-0.5 font-sans text-[9px] tracking-control text-primary-foreground md:text-[10px] tabular-nums">
-              <span aria-hidden="true">-{promo}%</span>
-              <span className="sr-only">{promo}% de descuento</span>
-            </span>
-          )}
+          {promo !== null && <DiscountBadge percent={promo} className="self-center" />}
         </span>
         <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
           3 y 6 cuotas sin interes

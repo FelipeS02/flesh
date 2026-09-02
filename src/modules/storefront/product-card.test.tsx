@@ -99,6 +99,54 @@ describe("ProductCard", () => {
     expect(container.querySelector("[data-swatch-row]")).toBeNull();
   });
 
+  it("badges a tagged product over its photo", () => {
+    render(<ProductCard product={makeProduct({ tags: ["drop-1", "nuevo"] })} />);
+
+    expect(screen.getByText("Nuevo")).not.toBeNull();
+  });
+
+  it("dims a sold-out garment and says why", () => {
+    const { container } = render(
+      <ProductCard
+        product={makeProduct({ variants: [makeVariant({ inStock: false })] })}
+      />,
+    );
+
+    expect(screen.getByText("Agotado")).not.toBeNull();
+    expect(container.querySelector("img")?.className).toContain("opacity-40");
+  });
+
+  it("badges a markdown with its percentage and strikes the original", () => {
+    render(
+      <ProductCard
+        product={makeProduct({
+          variants: [
+            makeVariant({
+              price: { amount: 1_890_000, currency: "ARS" },
+              compareAt: { amount: 2_700_000, currency: "ARS" },
+            }),
+          ],
+        })}
+      />,
+    );
+
+    expect(screen.getByText("-30%")).not.toBeNull();
+    expect(screen.getByText("$27.000").tagName).toBe("S");
+  });
+
+  it("keeps the badge reachable, outside the image's hidden link", () => {
+    const { container } = render(
+      <ProductCard product={makeProduct({ tags: ["nuevo"] })} />,
+    );
+
+    // The image link is `aria-hidden`, so a badge nested inside it would be
+    // the one thing on the card a screen reader could not read.
+    const badge = container.querySelector("[data-card-badge]");
+
+    expect(badge).not.toBeNull();
+    expect(badge?.closest("[aria-hidden='true']")).toBeNull();
+  });
+
   it("renders the leading image as decorative, since the title link already names the product", () => {
     const { container } = render(
       <ProductCard

@@ -1,6 +1,7 @@
 // The client entry — see the note in `./swatches.ts`; the PDP resolves a
 // product's state on the server, but the type crosses into client props.
-import type { ProductView } from "@/modules/catalog/client";
+import type { ProductView, VariantView } from "@/modules/catalog/client";
+import { discountPercent } from "./pricing";
 
 /**
  * The one thing a badge says about a garment.
@@ -45,4 +46,45 @@ export function productState(
   const tags = new Set(product.tags.map((tag) => tag.trim().toLowerCase()));
 
   return TAGGED_STATES.find(([tag]) => tags.has(tag))?.[1] ?? null;
+}
+
+/** What a catalogue card puts in its ONE badge slot over the photo. */
+export type CardBadge =
+  | { kind: "state"; state: ProductState }
+  | { kind: "discount"; percent: number };
+
+/**
+ * The single badge a catalogue card shows.
+ *
+ * The card has one slot — the artboard never draws two — so unlike the PDP,
+ * where the state sits over the photo and the markdown sits against the price,
+ * here the two compete and the order has to be decided:
+ *
+ * 1. **Gone beats everything.** A discount on a garment you cannot buy is not
+ *    an offer.
+ * 2. **A markdown beats being featured.** A card competes in a grid, and how
+ *    much less you would pay is a fact about the price; `destacado` is the
+ *    brand's opinion about the garment.
+ * 3. Otherwise, whatever state there is.
+ *
+ * The PDP does not need this function: it has room to show both, in the two
+ * different places each one belongs.
+ */
+export function cardBadge(
+  product: Pick<ProductView, "tags" | "inStock">,
+  variant: Pick<VariantView, "price" | "compareAt"> | undefined,
+): CardBadge | null {
+  const state = productState(product);
+
+  if (state === "soldOut") {
+    return { kind: "state", state };
+  }
+
+  const percent = variant ? discountPercent(variant.price, variant.compareAt) : null;
+
+  if (percent !== null) {
+    return { kind: "discount", percent };
+  }
+
+  return state ? { kind: "state", state } : null;
 }
