@@ -152,6 +152,7 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
+   
   }
   html {
     @apply font-sans;
@@ -160,6 +161,14 @@
        is why the accordion below animates from a keyword rather than from a
        hardcoded height nobody can keep in sync with the copy. */
     interpolate-size: allow-keywords;
+
+     ::-webkit-scrollbar {
+      @apply size-2;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      @apply bg-muted rounded-md;
+    }
   }
 }
 

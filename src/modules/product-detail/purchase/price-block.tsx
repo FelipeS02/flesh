@@ -20,7 +20,7 @@ export function PriceBlock({ variant }: PriceBlockProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="font-display text-3xl text-foreground md:text-[38px]">
+        <span className="font-display tabular-nums text-3xl text-foreground md:text-[38px]">
           {formatMoney(transferPrice(variant.price))}
         </span>
         {/* Copperplate Gothic is an all-caps face, so the artboard's uppercase
@@ -31,7 +31,7 @@ export function PriceBlock({ variant }: PriceBlockProps) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground md:text-[21px]">
+        <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground tabular-nums md:text-[21px]">
           {formatMoney(variant.price)}
           {/* `<s>` and not a strikethrough class: the original price is
               factually no longer correct, which is exactly what the element
@@ -47,7 +47,7 @@ export function PriceBlock({ variant }: PriceBlockProps) {
               percentage, because one red badge cannot mean two things and
               still be read correctly. */}
           {promo !== null && (
-            <span className="self-center bg-primary px-1.5 py-0.5 font-sans text-[9px] tracking-control text-primary-foreground md:text-[10px]">
+            <span className="self-center bg-primary px-1.5 py-0.5 font-sans text-[9px] tracking-control text-primary-foreground md:text-[10px] tabular-nums">
               <span aria-hidden="true">-{promo}%</span>
               <span className="sr-only">{promo}% de descuento</span>
             </span>
