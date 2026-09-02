@@ -1,5 +1,5 @@
 import { formatMoney, type VariantView } from "@/modules/catalog/client";
-import { transferPrice } from "@/modules/storefront/pricing";
+import { discountPercent, transferPrice } from "@/modules/storefront/pricing";
 
 type PriceBlockProps = {
   variant: VariantView;
@@ -15,6 +15,8 @@ type PriceBlockProps = {
  * second copy here would be a second place to forget when it changes.
  */
 export function PriceBlock({ variant }: PriceBlockProps) {
+  const promo = discountPercent(variant.price, variant.compareAt);
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -38,6 +40,17 @@ export function PriceBlock({ variant }: PriceBlockProps) {
             <s className="text-[13px] text-muted-foreground md:text-[18px]">
               {formatMoney(variant.compareAt)}
             </s>
+          )}
+          {/* The badge sits next to the price it is computed FROM, not up on
+              the transfer row. It reports the markdown and only the markdown —
+              the transfer discount is a labelled price two lines up, never a
+              percentage, because one red badge cannot mean two things and
+              still be read correctly. */}
+          {promo !== null && (
+            <span className="self-center bg-primary px-1.5 py-0.5 font-sans text-[9px] tracking-control text-primary-foreground md:text-[10px]">
+              <span aria-hidden="true">-{promo}%</span>
+              <span className="sr-only">{promo}% de descuento</span>
+            </span>
           )}
         </span>
         <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
