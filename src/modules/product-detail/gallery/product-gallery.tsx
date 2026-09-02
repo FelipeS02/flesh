@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import {
   Carousel,
@@ -12,6 +12,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import type { ImageView } from "@/modules/catalog";
 import { slideBlurValues } from "./slide-blur";
+import { useWheelNavigation } from "./use-wheel-navigation";
 
 /** The `md` breakpoint, spelled the way Tailwind spells it. */
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -37,6 +38,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [api, setApi] = useState<CarouselApi>();
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const stage = useRef<HTMLDivElement>(null);
 
   // `position` is the wire's ordering field. The array order it arrives in
   // is incidental and has already been wrong once, so sort rather than trust.
@@ -98,6 +100,10 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
     };
   }, [api]);
 
+  // Desktop only: the wheel is a mouse, and the vertical axis is the one it
+  // reads as "next photo". A phone scrolls the page with the same gesture.
+  useWheelNavigation({ api, target: stage, enabled: isDesktop });
+
   const orientation = isDesktop ? "vertical" : "horizontal";
 
   // One image is not a carousel. Without this the rail would render a single
@@ -116,11 +122,21 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
   return (
     <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
       <div
+        ref={stage}
         data-gallery-stage
         data-orientation={orientation}
         className="relative w-full md:w-140"
       >
-        <Carousel orientation={orientation} setApi={setApi} className="w-full">
+        {/* `duration` is embla's own transition, in its internal units, not
+            milliseconds — 25 is the default. Trimmed because the wheel can
+            now queue a step every 90ms, and a transition slower than the
+            gesture driving it reads as lag. */}
+        <Carousel
+          opts={{ duration: 20 }}
+          orientation={orientation}
+          setApi={setApi}
+          className="w-full"
+        >
           {/* The height lives on the TRACK, not on a wrapper: embla measures
               the overflow container, and that container takes its height from
               this element. A vertical carousel with an auto-height viewport
