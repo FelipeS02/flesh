@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/carousel";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
-import type { ImageView } from "@/modules/catalog";
+import type { ImageView } from "@/modules/catalog/client";
 import { slideBlurValues } from "./slide-blur";
 import { useWheelNavigation } from "./use-wheel-navigation";
 
@@ -121,11 +121,15 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
 
   return (
     <div className="flex w-full flex-col gap-4 md:flex-row md:items-start">
+      {/* 560px is the artboard's stage width at a 1440 viewport, so it is a
+          CEILING, not a fixed size: on any narrower desktop the two-column PDP
+          has less than 1296px to divide between gallery and panel, and a rigid
+          stage would push the purchase panel off the right edge. */}
       <div
         ref={stage}
         data-gallery-stage
         data-orientation={orientation}
-        className="relative w-full md:w-140"
+        className="relative w-full md:max-w-140 md:min-w-0 md:flex-1"
       >
         {/* `duration` is embla's own transition, in its internal units, not
             milliseconds — 25 is the default. Trimmed because the wheel can
@@ -153,7 +157,12 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
                     fill
                     sizes="(min-width: 768px) 560px, 100vw"
                     className="object-contain"
-                    priority={index === 0}
+                    // `priority` is deprecated as of Next 16 (see
+                    // `docs/.../image.md#priority`). The first slide is the
+                    // PDP's LCP element, and the docs prefer `loading="eager"`
+                    // over `preload` for an element the markup already
+                    // discovers this early.
+                    loading={index === 0 ? "eager" : "lazy"}
                   />
                 </div>
               </CarouselItem>
