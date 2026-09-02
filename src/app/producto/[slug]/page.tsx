@@ -8,6 +8,8 @@ import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery
 import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
 import { FitScale } from "@/modules/product-detail/garment/fit-scale";
 import { PurchasePanel } from "@/modules/product-detail/purchase/purchase-panel";
+import { productState } from "@/modules/storefront/product-state";
+import { StateBadge } from "@/modules/storefront/state-badge";
 
 /** PDP artboard scrim: 70% black, one step lighter than the landing's. */
 const PDP_SCRIM = "#000000B3";
@@ -37,6 +39,10 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
   // a guessed one.
   const cut = findGarmentCut(product);
 
+  // One badge, decided in one place — stock outranks any tag the merchant
+  // wrote, because being new is not news about a garment you cannot buy.
+  const state = productState(product);
+
   return (
     // `relative` with no fixed height: the plate covers the whole DOCUMENT
     // here, which on the PDP artboard is 1708px — taller than the viewport, so
@@ -58,7 +64,15 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
 
             Mobile stacks the two columns, so there is nothing to stay beside. */}
         <div className="md:sticky md:top-10 md:min-w-0 md:basis-160 md:self-start">
-          <ProductGallery images={product.images} title={product.title} />
+          <ProductGallery
+            images={product.images}
+            title={product.title}
+            // Resolved here and passed as a rendered node, so the tag rules and
+            // the badge copy stay on the server rather than crossing into the
+            // gallery's client bundle.
+            badge={<StateBadge state={state} />}
+            dimmed={state === "soldOut"}
+          />
         </div>
 
         {/* The 40px nudge lines the panel up with the GARMENT rather than with

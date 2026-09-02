@@ -175,12 +175,15 @@ describe("PurchasePanel", () => {
     expect(addToCart.getAttribute("disabled")).toBeNull();
   });
 
-  it("disables add-to-cart while the selection resolves to nothing buyable", () => {
+  it("says the garment is gone rather than offering a dead add-to-cart", () => {
     renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
 
-    const addToCart = screen.getByRole("button", { name: /agregar al carrito/i });
+    // A disabled button still reading "Agregar al carrito" reads as a broken
+    // site. Naming the reason is what makes the disabled state legible.
+    const cta = screen.getByRole("button", { name: /sin stock/i });
 
-    expect((addToCart as HTMLButtonElement).disabled).toBe(true);
+    expect((cta as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByRole("button", { name: /agregar al carrito/i })).toBeNull();
   });
 
   it("shows the transfer price, its label and the list price", () => {

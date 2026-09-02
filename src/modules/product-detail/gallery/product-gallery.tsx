@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Image from "next/image";
 import {
   Carousel,
@@ -21,6 +21,15 @@ type ProductGalleryProps = {
   images: ImageView[];
   /** Names the garment in each slide's `alt`; the gallery renders no text. */
   title: string;
+  /**
+   * Rendered over the top-left of the stage. Taken as a NODE rather than as a
+   * state the gallery would have to interpret: the badge is static server
+   * content, and passing it in keeps it on the server instead of dragging the
+   * tag rules and their copy across this client boundary.
+   */
+  badge?: ReactNode;
+  /** Fades the stage, for a garment that is not for sale. */
+  dimmed?: boolean;
 };
 
 /**
@@ -34,7 +43,7 @@ type ProductGalleryProps = {
  * the two layouts disagree about (which side the rail sits on, whether the
  * counter shows) is plain CSS below.
  */
-export function ProductGallery({ images, title }: ProductGalleryProps) {
+export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [api, setApi] = useState<CarouselApi>();
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -139,7 +148,9 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
           opts={{ duration: 20 }}
           orientation={orientation}
           setApi={setApi}
-          className="w-full"
+          // The photo fades, the badge over it does not — the badge is the
+          // thing explaining WHY the photo is faded.
+          className={cn("w-full", dimmed && "opacity-40")}
         >
           {/* The height lives on the TRACK, not on a wrapper: embla measures
               the overflow container, and that container takes its height from
@@ -170,6 +181,12 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
           </CarouselContent>
         </Carousel>
 
+        {badge && (
+          <div data-gallery-badge className="absolute top-3 left-3 md:top-4 md:left-4">
+            {badge}
+          </div>
+        )}
+
         {/* Mobile only, by CSS. Desktop needs no counter because the rail
             beside the photo already shows which image is on screen — on a
             phone the rail is below the fold of the stage. */}
@@ -198,7 +215,7 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
                   aria-label={`Ver imagen ${index + 1} de ${ordered.length}`}
                   onClick={() => select(index)}
                   className={cn(
-                    "relative block h-15.5 w-14 overflow-hidden border border-transparent transition-opacity md:h-18 md:w-16",
+                    "relative block h-15.5 w-14 overflow-hidden border border-transparent transition-[border-color,opacity] md:h-18 md:w-16",
                     active ? "border-foreground" : "opacity-50",
                   )}
                 >

@@ -7,7 +7,10 @@ import {
   type ProductView,
   type Selection,
 } from "@/modules/catalog";
+import { DiscountBadge } from "./discount-badge";
 import { transferPrice } from "./pricing";
+import { cardBadge } from "./product-state";
+import { StateBadge } from "./state-badge";
 import { findSwatchAxis, swatchColor } from "./swatches";
 
 type ProductCardProps = {
@@ -25,31 +28,49 @@ export function ProductCard({ product }: ProductCardProps) {
     product.variants[0];
   const image = product.images[0];
   const href = `/producto/${product.slug}`;
+  const badge = cardBadge(product, variant);
+  const soldOut = !product.inStock;
 
   return (
     <article className="flex w-full max-w-sm flex-col gap-3 md:w-75.25 md:max-w-none md:gap-5">
-      {/* The image links to the same place the title does, so it is hidden
-          from assistive tech and from the tab order rather than announced as
-          a second, identically-named link to the same product. Its `alt` is
-          empty for the same reason: the title below already names it. */}
       {image && (
-        <Link
-          href={href}
-          tabIndex={-1}
-          aria-hidden="true"
-          className="relative block aspect-43/50 md:aspect-auto md:h-85"
-        >
-          {/* Mobile keeps the artboard's 172x200 card-to-image proportion as
-              a ratio rather than a fixed height, because the card is now as
-              wide as the viewport allows instead of a fixed 172px. */}
-          <Image
-            src={image.src}
-            alt=""
-            fill
-            sizes="(min-width: 768px) 301px, 100vw"
-            className="object-contain"
-          />
-        </Link>
+        // The badge is a SIBLING of the link, not a child: the link is
+        // `aria-hidden`, and a badge buried inside it would be the one thing
+        // on the card a screen reader could not reach.
+        <div className="relative">
+          {/* The image links to the same place the title does, so it is hidden
+              from assistive tech and from the tab order rather than announced
+              as a second, identically-named link to the same product. Its
+              `alt` is empty for the same reason: the title below already names
+              it. */}
+          <Link
+            href={href}
+            tabIndex={-1}
+            aria-hidden="true"
+            className="relative block aspect-43/50 md:aspect-auto md:h-85"
+          >
+            {/* Mobile keeps the artboard's 172x200 card-to-image proportion as
+                a ratio rather than a fixed height, because the card is now as
+                wide as the viewport allows instead of a fixed 172px. */}
+            <Image
+              src={image.src}
+              alt=""
+              fill
+              sizes="(min-width: 768px) 301px, 100vw"
+              className={cn("object-contain", soldOut && "opacity-40")}
+            />
+          </Link>
+
+          {badge && (
+            <div data-card-badge className="absolute top-3 left-3">
+              {badge.kind === "state" ? (
+                <StateBadge state={badge.state} />
+              ) : (
+                <DiscountBadge percent={badge.percent} />
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       <div className="flex flex-col gap-4">
@@ -68,8 +89,19 @@ export function ProductCard({ product }: ProductCardProps) {
 
         {variant && (
           <div className="flex flex-col gap-px md:gap-0.5">
-            <span className="font-display text-base text-muted-foreground md:text-[22px]">
+            <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground md:text-[22px]">
               {formatMoney(variant.price)}
+              {/* `<s>` and not a strikethrough class, for the same reason the
+                  PDP uses one: the original price is factually no longer
+                  correct, which is what the element means. The percentage is
+                  NOT repeated here — it is already the badge over the photo,
+                  and saying it twice on a 301px card is saying it once too
+                  many. */}
+              {variant.compareAt && (
+                <s className="text-xs md:text-base">
+                  {formatMoney(variant.compareAt)}
+                </s>
+              )}
             </span>
             {/* Wraps rather than switching at a breakpoint: the label only
                 fits beside the price when the card is wide enough, and how

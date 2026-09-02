@@ -64,6 +64,16 @@ export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps)
   const priced = selected ?? defaultVariant;
   const canAddToCart = selected?.inStock === true;
 
+  // Three different facts deserve three different sentences. A dead button
+  // reading "Agregar al carrito" tells you the site is broken; one reading
+  // "Sin stock" tells you the garment is gone, which is the truth and is also
+  // what makes the disabled state make sense.
+  const ctaLabel = !selected
+    ? "No disponible"
+    : selected.inStock
+      ? "Agregar al carrito"
+      : "Sin stock";
+
   return (
     <div className="flex w-full flex-col gap-5">
       {priced && <PriceBlock variant={priced} />}
@@ -87,9 +97,13 @@ export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps)
       <button
         type="button"
         disabled={!canAddToCart}
-        className="h-14 w-full bg-primary font-display text-xl text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40 md:h-16 md:text-2xl"
+        // The artboard turns the whole block muted rather than fading the red:
+        // red at 40% is still red, and a washed-out version of the one control
+        // you are meant to press reads as a rendering fault rather than a
+        // deliberate state.
+        className="h-14 w-full bg-primary font-display text-xl text-primary-foreground transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 md:h-16 md:text-2xl"
       >
-        Agregar al carrito
+        {ctaLabel}
       </button>
     </div>
   );

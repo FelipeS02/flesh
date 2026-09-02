@@ -1,5 +1,6 @@
 import { formatMoney, type VariantView } from "@/modules/catalog/client";
-import { transferPrice } from "@/modules/storefront/pricing";
+import { DiscountBadge } from "@/modules/storefront/discount-badge";
+import { discountPercent, transferPrice } from "@/modules/storefront/pricing";
 
 type PriceBlockProps = {
   variant: VariantView;
@@ -15,10 +16,12 @@ type PriceBlockProps = {
  * second copy here would be a second place to forget when it changes.
  */
 export function PriceBlock({ variant }: PriceBlockProps) {
+  const promo = discountPercent(variant.price, variant.compareAt);
+
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="font-display text-3xl text-foreground md:text-[38px]">
+        <span className="font-display tabular-nums text-3xl text-foreground md:text-[38px]">
           {formatMoney(transferPrice(variant.price))}
         </span>
         {/* Copperplate Gothic is an all-caps face, so the artboard's uppercase
@@ -29,7 +32,7 @@ export function PriceBlock({ variant }: PriceBlockProps) {
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground md:text-[21px]">
+        <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground tabular-nums md:text-[21px]">
           {formatMoney(variant.price)}
           {/* `<s>` and not a strikethrough class: the original price is
               factually no longer correct, which is exactly what the element
@@ -39,6 +42,12 @@ export function PriceBlock({ variant }: PriceBlockProps) {
               {formatMoney(variant.compareAt)}
             </s>
           )}
+          {/* The badge sits next to the price it is computed FROM, not up on
+              the transfer row. It reports the markdown and only the markdown —
+              the transfer discount is a labelled price two lines up, never a
+              percentage, because one red badge cannot mean two things and
+              still be read correctly. */}
+          {promo !== null && <DiscountBadge percent={promo} className="self-center" />}
         </span>
         <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
           3 y 6 cuotas sin interes
