@@ -86,6 +86,11 @@ describe("ProductSchema", () => {
     for (const product of products) {
       expect(() => ProductSchema.parse(product)).not.toThrow();
     }
-    expect(products.length).toBe(3);
+
+    // Guards the loop against passing vacuously. It is deliberately NOT an
+    // exact count: what makes this test true is that every fixture parses, and
+    // pinning the total would make adding a review fixture look like a schema
+    // regression.
+    expect(products.length).toBeGreaterThan(0);
   });
 });

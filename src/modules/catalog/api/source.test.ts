@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { products } from "./fixtures/products";
 import { getProductByHandle, getProducts } from "./source";
 
 // These assertions moved from wire fields to domain fields when the port
@@ -11,7 +12,15 @@ describe("getProducts", () => {
   it("returns only products with visibility 'visible', excluding unlisted ones", () => {
     const result = getProducts();
 
-    expect(result.length).toBe(2);
+    // The count is DERIVED from the fixtures, not written down: the review
+    // catalogue exists to grow a product per state, and a hardcoded number
+    // turns every one of those into a failure that says nothing about the
+    // filter this test is here to check.
+    const visible = products.filter(
+      (product) => product.visibility === "visible",
+    ).length;
+
+    expect(result.length).toBe(visible);
     expect(result.some((product) => product.slug === "gorra-limitada")).toBe(
       false,
     );
