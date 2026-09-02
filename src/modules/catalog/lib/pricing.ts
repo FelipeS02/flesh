@@ -37,9 +37,7 @@ export const TRANSFER_RATE_BP = 1000;
  * is a decision the caller makes, not this function.
  */
 export function applyRate(money: Money, rateBp: number): Money {
-  const discountAmount = Math.round((money.amount * rateBp) / 10_000);
-
-  return { amount: money.amount - discountAmount, currency: money.currency };
+  return { amount: money.amount - discountAmount(money, rateBp), currency: money.currency };
 }
 
 /**
@@ -52,13 +50,30 @@ export function transferBreakdown(
   subtotal: Money,
   rateBp: number,
 ): { discount: Money; total: Money } {
-  const discountAmount = Math.round((subtotal.amount * rateBp) / 10_000);
+  const amount = discountAmount(subtotal, rateBp);
 
   return {
-    discount: { amount: discountAmount, currency: subtotal.currency },
+    discount: { amount, currency: subtotal.currency },
     total: {
-      amount: subtotal.amount - discountAmount,
+      amount: subtotal.amount - amount,
       currency: subtotal.currency,
     },
   };
+}
+
+/**
+ * The ONE rounding site in this module, and the reason both exported functions
+ * delegate to it rather than each writing the expression out.
+ *
+ * The two of them differ only in what they return — a net price, or the
+ * discount and the total as a pair — never in how the discount is computed.
+ * Written twice, that shared meaning is a coincidence a future edit can break
+ * silently; this file exists precisely because two copies of one policy drifted
+ * apart once already.
+ *
+ * Integer multiply first, one deliberate `Math.round` on the divide. The
+ * intermediate `amount * rateBp` stays an integer, so nothing rounds twice.
+ */
+function discountAmount({ amount }: Money, rateBp: number): number {
+  return Math.round((amount * rateBp) / 10_000);
 }
