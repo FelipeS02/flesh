@@ -18,6 +18,17 @@ export type AxisValueState = "available" | "soldOut" | "nonexistent";
 export type AxisValueView = { value: string; state: AxisValueState };
 
 /**
+ * The only part of a product these selectors read.
+ *
+ * Narrower than `ProductView` on purpose: the PDP's purchase panel is a client
+ * component, and handing it the whole product would serialise
+ * `descriptionHtml` into the RSC payload a second time for nothing. A
+ * `ProductView` still satisfies this structurally, so every server-side caller
+ * keeps passing one unchanged.
+ */
+export type VariantMatrix = Pick<ProductView, "axes" | "variants">;
+
+/**
  * Computes, for every value of one axis, whether picking it would lead to a
  * buyable variant given what is already selected on the OTHER axes.
  *
@@ -25,7 +36,7 @@ export type AxisValueView = { value: string; state: AxisValueState };
  * an index map pure ceremony at this scale.
  */
 export function deriveAxisStates(
-  product: ProductView,
+  product: VariantMatrix,
   selection: Selection,
   axisIndex: number,
 ): AxisValueView[] {
@@ -60,7 +71,7 @@ export function deriveAxisStates(
  * empty selection, so price and stock still have something to read.
  */
 export function resolveVariant(
-  product: ProductView,
+  product: VariantMatrix,
   selection: Selection,
 ): VariantView | null {
   // Both guards are needed: `some(null)` catches a chosen-but-incomplete

@@ -1,4 +1,6 @@
-import type { Money } from "@/modules/catalog";
+// The client entry — see the note in `./swatches.ts`; `transferPrice` is on
+// the PDP's client side too.
+import type { Money } from "@/modules/catalog/client";
 
 /**
  * FLESH takes 10% off for bank-transfer payment. This is a fixed brand
