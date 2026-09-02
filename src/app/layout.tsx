@@ -47,6 +47,15 @@ const kraut = localFont({
   declarations: [{ prop: "unicode-range", value: "U+0020-007E, U+E000-E001" }],
 });
 
+/**
+ * The line under the brand name in a search result, and on a shared link.
+ *
+ * The drop's name, not a description of the shop: this is what a person sees
+ * before deciding to click, and "ya disponible" is the only thing on the page
+ * that is time-sensitive. It changes when the drop does.
+ */
+const TAGLINE = "VOLUMEN 1: ADRENALINE ya disponible";
+
 export const metadata: Metadata = {
   // The origin every relative canonical and OpenGraph image below resolves
   // against. Without it, a relative URL in a metadata field is a BUILD ERROR,
@@ -60,7 +69,10 @@ export const metadata: Metadata = {
     default: BRAND,
     template: `%s — ${BRAND}`,
   },
+  description: TAGLINE,
   openGraph: {
+    title: BRAND,
+    description: TAGLINE,
     siteName: BRAND,
     locale: BRAND_LOCALE,
     type: "website",
