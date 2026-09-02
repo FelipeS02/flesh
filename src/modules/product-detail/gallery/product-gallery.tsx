@@ -215,7 +215,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
                   aria-label={`Ver imagen ${index + 1} de ${ordered.length}`}
                   onClick={() => select(index)}
                   className={cn(
-                    "relative block h-15.5 w-14 overflow-hidden border border-transparent transition-[border-color,opacity,filter] md:h-18 md:w-16",
+                    "relative block h-15.5 w-14 overflow-hidden border border-transparent transition-[border-color,opacity] md:h-18 md:w-16",
                     active ? "border-foreground" : "opacity-50",
                   )}
                 >
