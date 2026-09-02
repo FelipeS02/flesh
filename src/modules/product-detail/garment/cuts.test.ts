@@ -18,7 +18,7 @@ describe("findGarmentCut", () => {
     const cut = findGarmentCut(productWith(["nuevo", "drop-1", "corte-remera-oversize"]));
 
     expect(cut?.key).toBe("remera-oversize");
-    expect(cut?.fit).toBe("baggy");
+    expect(cut?.fit).toBe(65);
   });
 
   it("returns nothing when the product carries no cut tag", () => {
@@ -71,6 +71,15 @@ describe("findSizeAxis", () => {
 });
 
 describe("the cut registry's own consistency", () => {
+  it("keeps every fit on the scale it is drawn against", () => {
+    for (const cut of Object.values(CUTS)) {
+      expect({ cut: cut.key, onScale: cut.fit >= 0 && cut.fit <= 100 }).toEqual({
+        cut: cut.key,
+        onScale: true,
+      });
+    }
+  });
+
   it("gives every measurement a value for every size the cut lists", () => {
     for (const cut of Object.values(CUTS)) {
       for (const measurement of cut.measurements) {

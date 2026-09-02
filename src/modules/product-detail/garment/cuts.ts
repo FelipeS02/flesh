@@ -23,11 +23,16 @@ import type { OptionAxis, ProductView } from "@/modules/catalog/client";
 const CUT_TAG = /^corte-(.+)$/i;
 
 /**
- * Where a cut sits on the PDP's fit scale. Three positions, matching the
- * artboard's three labels — a closed set rather than free text, so a cut
- * cannot introduce a fourth stop the scale has nowhere to draw.
+ * Where a cut sits on the PDP's fit scale, as a percentage of the travel from
+ * slim (0) to oversized (100).
+ *
+ * A CONTINUUM, not three buckets. An earlier version of this modelled it as
+ * `"slim" | "true" | "baggy"`, and that was wrong: a gently relaxed tee and an
+ * extremely dropped one are both "baggy" and are not the same garment. The
+ * three labels the scale prints are its legend — the axis you read the mark
+ * against — not the set of values a cut may take.
  */
-export type FitPosition = "slim" | "true" | "baggy";
+export type FitPosition = number;
 
 export type Measurement = {
   /** Row label on the size table, e.g. "Largo". */
@@ -39,6 +44,7 @@ export type Measurement = {
 export type GarmentCut = {
   /** The tag's value, e.g. `"remera-oversize"`. */
   key: string;
+  /** 0 = slim, 50 = true to size, 100 = oversized. Anything in between. */
   fit: FitPosition;
   measurements: Measurement[];
 };
@@ -55,7 +61,9 @@ export type GarmentCut = {
 export const CUTS: Record<string, GarmentCut> = {
   "remera-oversize": {
     key: "remera-oversize",
-    fit: "baggy",
+    // Relaxed, not extreme — the brand's own read on its block. The whole
+    // reason this is a number: "oversize" alone could mean 65 or 95.
+    fit: 65,
     measurements: [
       { label: "Largo", bySize: { S: 63, M: 68, L: 73, XL: 78 } },
       { label: "Ancho", bySize: { S: 52, M: 56, L: 61, XL: 65 } },
