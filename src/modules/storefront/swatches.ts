@@ -1,4 +1,7 @@
-import type { OptionAxis, ProductView } from "@/modules/catalog";
+// The client entry, not the barrel: `swatchColor` is used by the PDP's
+// `'use client'` purchase panel as well as by the server-rendered card, and
+// the barrel drags `server-only` into whatever imports it.
+import type { OptionAxis, ProductView } from "@/modules/catalog/client";
 
 /**
  * The drop's colourway names, mapped to the swatch fills sampled from the

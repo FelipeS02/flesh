@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -55,7 +56,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="es"
       className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* `useQueryState` throws without an adapter mounted above it, and the
+          PDP's variant selection is the first consumer. The adapter puts its
+          own `useSearchParams` reader behind an internal `<Suspense>`, so
+          mounting it at the root does NOT opt every page into dynamic
+          rendering. */}
+      <body className="min-h-full flex flex-col">
+        <NuqsAdapter>{children}</NuqsAdapter>
+      </body>
     </html>
   );
 }

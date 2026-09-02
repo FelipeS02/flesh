@@ -88,7 +88,9 @@ export const products = [
         subcategories: [],
       },
     ],
-    tags: "nuevo,drop-1",
+    // `corte-*` names the PATTERN this garment is cut from, and both the fit
+    // scale and the size table hang off it (see `product-detail/garment/cuts`).
+    tags: "nuevo,drop-1,corte-remera-oversize",
     published: true,
     visibility: "visible",
     created_at: "2026-01-01T00:00:00Z",
