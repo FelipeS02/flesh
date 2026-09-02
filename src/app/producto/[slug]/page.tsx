@@ -50,7 +50,14 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             widths: they add up to 1296 only at a 1440 viewport, and every
             narrower desktop has to take the difference out of both columns
             proportionally instead of overflowing. */}
-        <div className="md:min-w-0 md:basis-160">
+        {/* Sticky on desktop only. The panel column is the taller of the two
+            and the one worth scrolling — the garment should stay in view while
+            you read its measurements, not scroll away above them. `self-start`
+            is what makes it work: a stretched flex item is as tall as the row,
+            and an element that tall has nothing left to stick within.
+
+            Mobile stacks the two columns, so there is nothing to stay beside. */}
+        <div className="md:sticky md:top-10 md:min-w-0 md:basis-160 md:self-start">
           <ProductGallery images={product.images} title={product.title} />
         </div>
 
