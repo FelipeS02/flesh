@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BackgroundPlate } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
@@ -8,11 +9,28 @@ import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery
 import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
 import { FitScale } from "@/modules/product-detail/garment/fit-scale";
 import { PurchasePanel } from "@/modules/product-detail/purchase/purchase-panel";
+import { productMetadata } from "@/modules/product-detail/seo/product-metadata";
 import { productState } from "@/modules/storefront/product-state";
 import { StateBadge } from "@/modules/storefront/state-badge";
 
 /** PDP artboard scrim: 70% black, one step lighter than the landing's. */
 const PDP_SCRIM = "#000000B3";
+
+/**
+ * Per-product metadata: title, description, canonical and the share card.
+ *
+ * A missing product returns bare metadata rather than throwing — the page
+ * component below is what owns the 404, and duplicating that decision here
+ * would mean two places deciding what "not found" means.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps<"/producto/[slug]">): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductByHandle(slug);
+
+  return product ? productMetadata(product) : {};
+}
 
 /**
  * The product detail page.
