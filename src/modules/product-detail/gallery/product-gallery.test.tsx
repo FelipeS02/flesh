@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ImageView } from "@/modules/catalog";
 import { setViewport } from "../../../../test/fixtures/viewport";
 import { ProductGallery } from "./product-gallery";
+import { MAX_BLUR_PX } from "./slide-blur";
 
 /**
  * Deliberately shuffled: `position` is the wire's ordering field, and the
@@ -99,6 +100,24 @@ describe("ProductGallery", () => {
     act(() => setViewport("desktop"));
 
     expect(orientation()).toBe("vertical");
+  });
+
+  // How the blur behaves *between* snaps is `slide-blur.test.ts`'s job —
+  // jsdom has no layout for embla to scroll through. What this proves is the
+  // wiring: the effect found the slide nodes and wrote a filter onto them.
+  it("blurs every slide that is not the resting one", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    const filters = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-slot="carousel-item"]'),
+    ).map((slide) => slide.style.filter);
+
+    expect(filters).toEqual([
+      "blur(0px)",
+      ...Array<string>(4).fill(`blur(${MAX_BLUR_PX}px)`),
+    ]);
   });
 
   it("renders neither a rail nor a counter for a single-image product", () => {

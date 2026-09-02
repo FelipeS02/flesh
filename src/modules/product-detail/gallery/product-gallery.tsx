@@ -11,6 +11,7 @@ import {
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import type { ImageView } from "@/modules/catalog";
+import { slideBlurValues } from "./slide-blur";
 
 /** The `md` breakpoint, spelled the way Tailwind spells it. */
 const DESKTOP_QUERY = "(min-width: 768px)";
@@ -58,6 +59,42 @@ export function ProductGallery({ images, title }: ProductGalleryProps) {
     return () => {
       api.off("select", sync);
       api.off("reInit", sync);
+    };
+  }, [api]);
+
+  // The blur is written straight to the slide nodes rather than rendered
+  // from state: `scroll` fires every animation frame, and a `setState` per
+  // frame would re-render the whole gallery to change one filter string.
+  //
+  // This effect is the ONLY writer of `style.filter` on a slide. Nothing
+  // renders one, which does mean the server's markup is unblurred — but the
+  // only slide the server's markup can show is the first one, and that one
+  // is sharp at rest anyway.
+  useEffect(() => {
+    if (!api) return;
+
+    const paint = () => {
+      const slides = api.slideNodes();
+      const blurs = slideBlurValues(api.scrollProgress(), slides.length);
+
+      slides.forEach((slide, index) => {
+        slide.style.filter = `blur(${blurs[index]}px)`;
+      });
+    };
+
+    paint();
+    api.on("scroll", paint);
+    // Both ends of a motion, because `scroll` stops one frame short of the
+    // resting position often enough to leave a sliver of blur on the photo.
+    api.on("settle", paint);
+    // The axis swap at `md` re-measures every snap, so yesterday's progress
+    // describes nothing.
+    api.on("reInit", paint);
+
+    return () => {
+      api.off("scroll", paint);
+      api.off("settle", paint);
+      api.off("reInit", paint);
     };
   }, [api]);
 
