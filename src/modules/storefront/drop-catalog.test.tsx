@@ -61,4 +61,22 @@ describe("DropCatalog", () => {
 
     expect(screen.queryAllByRole("article")).toHaveLength(0);
   });
+
+  it("lays six cards out in three columns rather than four and a stub", () => {
+    const { container } = render(
+      <DropCatalog
+        products={Array.from({ length: 6 }, (_, index) =>
+          makeProduct({ id: 101 + index }),
+        )}
+      />,
+    );
+
+    const row = container.querySelector<HTMLElement>("[data-drop-row]");
+
+    // jsdom does no layout, so the column count can only be observed where it
+    // enters the DOM: the variable the grid template reads. `balancedColumns`
+    // owns the arithmetic and is tested on its own — this asserts the wiring,
+    // which is the part that silently breaks.
+    expect(row?.style.getPropertyValue("--drop-columns")).toBe("3");
+  });
 });
