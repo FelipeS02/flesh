@@ -18,29 +18,29 @@ export function PriceBlock({ variant }: PriceBlockProps) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="font-display text-4xl text-foreground md:text-5xl">
+        <span className="font-display text-3xl text-foreground md:text-[38px]">
           {formatMoney(transferPrice(variant.price))}
         </span>
         {/* Copperplate Gothic is an all-caps face, so the artboard's uppercase
             is the FONT — not a text-transform to add here. */}
-        <span className="font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">
+        <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
           Con transferencia
         </span>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="flex items-baseline gap-2 font-display text-xl text-muted-foreground md:text-[26px]">
+        <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground md:text-[21px]">
           {formatMoney(variant.price)}
           {/* `<s>` and not a strikethrough class: the original price is
               factually no longer correct, which is exactly what the element
               means, and assistive tech announces it as such. */}
           {variant.compareAt && (
-            <s className="text-base text-muted-foreground md:text-[22px]">
+            <s className="text-[13px] text-muted-foreground md:text-[18px]">
               {formatMoney(variant.compareAt)}
             </s>
           )}
         </span>
-        <span className="font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">
+        <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
           3 y 6 cuotas sin interes
         </span>
       </div>

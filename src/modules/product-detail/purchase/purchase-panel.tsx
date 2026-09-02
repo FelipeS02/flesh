@@ -87,7 +87,7 @@ export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps)
       <button
         type="button"
         disabled={!canAddToCart}
-        className="h-14 w-full bg-primary font-display text-2xl text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40 md:h-16 md:text-3xl"
+        className="h-14 w-full bg-primary font-display text-xl text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40 md:h-16 md:text-2xl"
       >
         Agregar al carrito
       </button>
@@ -113,7 +113,7 @@ function AxisSelector({ axis, values, selected, onSelect }: AxisSelectorProps) {
 
   return (
     <div className="flex flex-col gap-4">
-      <p className="flex items-center gap-2 font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">
+      <p className="flex items-center gap-2 font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
         <span>Seleccionar {axis.label}</span>
         {/* A dot cannot say its own name, so the swatch axis prints the chosen
             value beside its label. A box already shows the value it carries. */}
@@ -193,7 +193,7 @@ function AxisOption({
       disabled={isDisabled}
       onClick={() => onSelect(value)}
       className={cn(
-        "size-13 font-sans text-lg transition-colors md:text-xl",
+        "size-13 font-sans text-sm transition-colors md:text-base",
         // An option can be selected AND unbuyable at once — a shared link
         // carries a combination that has since sold out. The filled
         // "selected" treatment is reserved for something you can actually

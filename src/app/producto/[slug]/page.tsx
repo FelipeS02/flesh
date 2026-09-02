@@ -46,8 +46,12 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
           <ProductGallery images={product.images} title={product.title} />
         </div>
 
-        <div className="flex w-full flex-col gap-6 md:min-w-0 md:basis-150">
-          <h1 className="font-display text-3xl leading-[1.05] text-primary md:text-[56px]">
+        {/* The 40px nudge lines the panel up with the GARMENT rather than with
+            the gallery box. The stage is a fixed 722px tall and the photo is
+            `object-contain`, so a portrait shot letterboxes and its visible top
+            edge sits about that far below the box it lives in. */}
+        <div className="flex w-full flex-col gap-6 md:min-w-0 md:basis-150 md:pt-10">
+          <h1 className="font-display text-2xl leading-[1.05] text-primary md:text-[45px]">
             {product.title}
           </h1>
 
@@ -68,7 +72,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
               can mint one — that brand is what makes this the single call site
               of `dangerouslySetInnerHTML` a safe one. */}
           <div
-            className="font-sans text-sm leading-relaxed text-muted-foreground"
+            className="font-sans text-xs leading-relaxed text-muted-foreground"
             dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
           />
         </div>
