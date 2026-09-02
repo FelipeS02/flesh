@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { toSafeHtml } from "../lib/sanitize";
 import type { ProductView, VariantView } from "./product";
 import { deriveAxisStates, resolveVariant } from "./selectors";
 
@@ -17,7 +18,9 @@ function buildProductView(overrides: Partial<ProductView> = {}): ProductView {
     id: 900,
     slug: "prueba",
     title: "Prueba",
-    descriptionHtml: "<p>desc</p>",
+    // Minted through the real sanitiser rather than cast: the brand only
+    // means something if the tests respect it too.
+    descriptionHtml: toSafeHtml("<p>desc</p>"),
     images: [],
     axes: [],
     variants: [],

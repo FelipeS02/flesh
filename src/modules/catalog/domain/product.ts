@@ -1,6 +1,7 @@
 import type { Money } from "../lib/money";
+import type { SafeHtml } from "../lib/sanitize";
 
-export type { Money };
+export type { Money, SafeHtml };
 
 // The domain view — deliberately contains NO language-keyed ({en,es,pt})
 // objects and NO price strings. That is the whole point of the mapper
@@ -37,11 +38,11 @@ export type ProductView = {
   id: number;
   slug: string;
   title: string;
-  // Plain, locale-resolved HTML string. NOT yet the branded `SafeHtml` type
-  // — PR4c's sanitiser (`catalog/lib/sanitize.ts`) is what mints that brand
-  // and is wired in here at that point (see tasks 4c.0-4c.4). Until then,
-  // nothing consumes this field, so no unsanitised HTML reaches the DOM.
-  descriptionHtml: string;
+  // Locale-resolved AND sanitised. The brand is the load-bearing part: only
+  // `catalog/lib/sanitize.ts` can mint a `SafeHtml`, so the single call site
+  // of `dangerouslySetInnerHTML` cannot be handed raw merchant markup
+  // without failing to compile.
+  descriptionHtml: SafeHtml;
   images: ImageView[];
   axes: OptionAxis[];
   variants: VariantView[];

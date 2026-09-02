@@ -1,6 +1,7 @@
 import type { TiendanubeProduct, TiendanubeVariant } from "../api/types";
 import { pick } from "../lib/locale";
 import { parseMoney } from "../lib/money";
+import { toSafeHtml } from "../lib/sanitize";
 import {
   CatalogContractError,
   type ImageView,
@@ -44,7 +45,10 @@ export function mapToProductView(product: TiendanubeProduct): ProductView {
     id: product.id,
     slug: pick(product.handle),
     title: pick(product.name),
-    descriptionHtml: pick(product.description),
+    // Sanitised HERE, at the one place the wire description is ever read.
+    // Doing it at the render site instead would make it a thing to remember
+    // per component; doing it here makes it a thing the type system checks.
+    descriptionHtml: toSafeHtml(pick(product.description)),
     images,
     axes,
     variants,
