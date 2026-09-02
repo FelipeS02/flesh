@@ -19,4 +19,19 @@
 export { getProducts, getProductByHandle } from "./api/source";
 export type { CatalogPort } from "./api/port";
 
+// The pricing policy port follows the same server-only pattern as the
+// catalog port above: today's rate is a local stand-in, tomorrow's is a
+// Tiendanube store-settings fetch, and no cart or PDP call site is touched
+// either way (see `api/pricing.ts` and design decision D2).
+export { getPricingPolicy } from "./api/pricing";
+export type { PricingPolicy } from "./api/pricing";
+
+// `applyRate`/`transferBreakdown` are pure and carry no server-only
+// dependency — a client component could import them safely. They are NOT
+// re-exported from `./client` here: task 1a.5 scopes this change to
+// `index.ts` only, and the cart's summary consumer does not exist yet in
+// this slice. If a future client-side consumer needs them before `client.ts`
+// is revisited, that is a scope call for that slice, not this one.
+export { applyRate, transferBreakdown } from "./lib/pricing";
+
 export * from "./client";
