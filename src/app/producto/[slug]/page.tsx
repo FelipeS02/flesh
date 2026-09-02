@@ -3,6 +3,7 @@ import { BackgroundPlate } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import { getProductByHandle } from "@/modules/catalog";
+import { InfoAccordions } from "@/modules/product-detail/accordions/info-accordions";
 import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
 import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
 import { FitScale } from "@/modules/product-detail/garment/fit-scale";
@@ -72,17 +73,13 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
 
           {cut && <FitScale fit={cut.fit} />}
 
-          {/* The artboard files this copy inside the first accordion, which
-              PR8b builds. It renders plainly here so the page is not shipped
-              with its description missing; PR8b moves this node, it does not
-              add a second one.
-
-              `descriptionHtml` is a `SafeHtml`, and only `catalog/lib/sanitize`
-              can mint one — that brand is what makes this the single call site
-              of `dangerouslySetInnerHTML` a safe one. */}
-          <div
-            className="font-sans text-xs leading-relaxed text-muted-foreground"
-            dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+          {/* The description moved INTO the first accordion rather than being
+              duplicated beside it — the artboard always filed it there, and
+              PR8a only rendered it plainly so the page never shipped without
+              it. Same node, new home. */}
+          <InfoAccordions
+            product={{ descriptionHtml: product.descriptionHtml, axes: product.axes }}
+            cut={cut}
           />
         </div>
       </main>
