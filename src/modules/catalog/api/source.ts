@@ -5,6 +5,8 @@
 // now, on the mock, before the real fetch layer exists, so it is never
 // retrofitted later.
 import "server-only";
+import { mapToProductView } from "../domain/map";
+import type { ProductView } from "../domain/product";
 import { products as rawProducts } from "./fixtures/products";
 import { ProductSchema } from "./schema";
 import type { TiendanubeProduct } from "./types";
@@ -16,11 +18,19 @@ const parsedProducts: TiendanubeProduct[] = rawProducts.map((product) =>
   ProductSchema.parse(product),
 );
 
-function getProducts(): TiendanubeProduct[] {
-  return parsedProducts.filter((product) => product.visibility === "visible");
+// Mapping happens per call, not once at module load, so a product that
+// violates the mapper's contract throws where it is actually requested
+// rather than taking down the whole module at import time. `getProducts`
+// lets that throw propagate today — a tolerant policy (drop the malformed
+// product from listings) belongs at this same swap point later, and is a
+// documented seam, not something built now.
+function getProducts(): ProductView[] {
+  return parsedProducts
+    .filter((product) => product.visibility === "visible")
+    .map((product) => mapToProductView(product));
 }
 
-function getProductByHandle(slug: string): TiendanubeProduct | null {
+function getProductByHandle(slug: string): ProductView | null {
   // Pure in-memory scan over already-parsed fixture data — never touches
   // fs/path/network, so a traversal-shaped slug (e.g. "../../etc/passwd")
   // simply fails to match and returns null, the same as any other unknown
@@ -28,7 +38,8 @@ function getProductByHandle(slug: string): TiendanubeProduct | null {
   // routing-level lookup compares against the Spanish handle directly; the
   // general-purpose locale accessor for arbitrary domain fields is the
   // mapper's concern (PR4b), not this wire-boundary lookup.
-  return parsedProducts.find((product) => product.handle.es === slug) ?? null;
+  const product = parsedProducts.find((wire) => wire.handle.es === slug);
+  return product ? mapToProductView(product) : null;
 }
 
 // Provably interchangeable with a future `source.tiendanube.ts`, not just

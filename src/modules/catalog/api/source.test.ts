@@ -1,23 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { getProductByHandle, getProducts } from "./source";
 
+// These assertions moved from wire fields to domain fields when the port
+// started returning `ProductView` (task 4b.14): `handle.es` became `slug`,
+// and `visibility` is no longer observable from outside at all — it is a
+// wire-only concern, so the filter is now asserted by which products come
+// back, not by reading a field off them.
+
 describe("getProducts", () => {
   it("returns only products with visibility 'visible', excluding unlisted ones", () => {
     const result = getProducts();
 
     expect(result.length).toBe(2);
-    expect(result.every((product) => product.visibility === "visible")).toBe(
-      true,
+    expect(result.some((product) => product.slug === "gorra-limitada")).toBe(
+      false,
     );
-    expect(
-      result.some((product) => product.handle.es === "gorra-limitada"),
-    ).toBe(false);
   });
 
-  it("includes a known visible product by its Spanish handle", () => {
+  it("includes a known visible product by its Spanish slug", () => {
     const result = getProducts();
 
-    expect(result.some((product) => product.handle.es === "remera-classic")).toBe(
+    expect(result.some((product) => product.slug === "remera-classic")).toBe(
       true,
     );
   });
