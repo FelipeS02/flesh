@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { withNuqsTestingAdapter, type OnUrlUpdateFunction } from "nuqs/adapters/testing";
 import type { OptionAxis, VariantMatrix, VariantView } from "@/modules/catalog";
-import { PurchasePanel } from "./purchase-panel";
+import { PurchasePanel, PurchasePanelFallback } from "./purchase-panel";
 
 const ARS = "ARS";
 const LIST = { amount: 2_700_000, currency: ARS };
@@ -213,5 +213,42 @@ describe("PurchasePanel", () => {
     expect(struck.className).toContain("text-muted-foreground");
     expect(screen.getByText("$18.900")).toBeDefined();
     expect(screen.getByText("$17.010")).toBeDefined();
+  });
+});
+
+/**
+ * The fallback is what a crawler and a cold visitor actually receive: the PDP
+ * is prerendered, so this markup — not the hydrated panel — is the static HTML.
+ * It renders with NO nuqs adapter on purpose, because that is the whole reason
+ * it exists: reading the query string during a prerender is the bailout the
+ * `<Suspense>` boundary works around.
+ */
+describe("PurchasePanelFallback", () => {
+  it("prices the default variant, so the price is in the prerendered HTML", () => {
+    render(<PurchasePanelFallback product={TEE} defaultVariantId={201} />);
+
+    expect(screen.getByText("$27.000")).toBeDefined();
+  });
+
+  it("opens on the default variant's selection, not on an empty one", () => {
+    render(<PurchasePanelFallback product={TEE} defaultVariantId={204} />);
+
+    const sizes = within(screen.getByRole("group", { name: "Talle" }));
+    expect(sizes.getByRole("button", { name: "M" }).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
+  });
+
+  it("renders every axis, so the layout does not shift when the panel hydrates", () => {
+    render(<PurchasePanelFallback product={TEE} defaultVariantId={201} />);
+
+    expect(screen.getByRole("group", { name: "Talle" })).toBeDefined();
+    expect(screen.getByRole("group", { name: "Color" })).toBeDefined();
+  });
+
+  it("says what the default variant's CTA says", () => {
+    render(<PurchasePanelFallback product={TEE} defaultVariantId={202} />);
+
+    expect(screen.getByRole("button", { name: "Sin stock" })).toBeDefined();
   });
 });

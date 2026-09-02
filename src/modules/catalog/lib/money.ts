@@ -63,6 +63,32 @@ export function parseMoney(raw: string, currency: string = DEFAULT_CURRENCY): Mo
  * pesos. Non-zero cents are still printed: the transfer discount can produce
  * them, and hiding a real remainder would misstate the price.
  */
+/**
+ * The machine-readable form: minor units as a plain decimal string, no symbol,
+ * no grouping, and the fraction always written out ("27000.00").
+ *
+ * Separate from `formatMoney` rather than a flag on it, because the two answer
+ * to different readers. `formatMoney` writes for a shopper and drops a zero
+ * fraction to match the artboards; schema.org's `price` is a number paired with
+ * its own `priceCurrency`, so a "$" or a dot thousands separator would make it
+ * unparseable.
+ *
+ * String, not number: it is the exact inverse of `parseMoney`, and going
+ * through a float is precisely what that function exists to avoid.
+ */
+export function formatMoneyDecimal({ amount, currency }: Money): string {
+  const exponent = currencyExponent(currency);
+  const divisor = 10 ** exponent;
+  const absoluteAmount = Math.abs(amount);
+  const sign = amount < 0 ? "-" : "";
+  const integerUnits = Math.trunc(absoluteAmount / divisor);
+  const fraction = (absoluteAmount % divisor).toString().padStart(exponent, "0");
+
+  return exponent === 0
+    ? `${sign}${integerUnits}`
+    : `${sign}${integerUnits}.${fraction}`;
+}
+
 export function formatMoney({ amount, currency }: Money): string {
   const exponent = currencyExponent(currency);
   const divisor = 10 ** exponent;

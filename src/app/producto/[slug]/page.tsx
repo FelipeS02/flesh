@@ -1,18 +1,55 @@
+import { Suspense } from "react";
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { BackgroundPlate } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
-import { getProductByHandle } from "@/modules/catalog";
+import { siteUrl } from "@/lib/site-url";
+import { getProductByHandle, getProducts } from "@/modules/catalog";
 import { InfoAccordions } from "@/modules/product-detail/accordions/info-accordions";
 import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
 import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
 import { FitScale } from "@/modules/product-detail/garment/fit-scale";
-import { PurchasePanel } from "@/modules/product-detail/purchase/purchase-panel";
+import {
+  PurchasePanel,
+  PurchasePanelFallback,
+} from "@/modules/product-detail/purchase/purchase-panel";
+import { productJsonLd, serializeJsonLd } from "@/modules/product-detail/seo/product-jsonld";
+import { productMetadata } from "@/modules/product-detail/seo/product-metadata";
 import { productState } from "@/modules/storefront/product-state";
 import { StateBadge } from "@/modules/storefront/state-badge";
 
 /** PDP artboard scrim: 70% black, one step lighter than the landing's. */
 const PDP_SCRIM = "#000000B3";
+
+/**
+ * Prerenders every product at build time instead of resolving one per request.
+ *
+ * The catalogue is a fixed drop, so enumerating it is cheap and the crawler
+ * gets static HTML. It stays correct after the Tiendanube swap because it goes
+ * through the same `CatalogPort` the page does.
+ */
+export async function generateStaticParams() {
+  const products = await getProducts();
+
+  return products.map((product) => ({ slug: product.slug }));
+}
+
+/**
+ * Per-product metadata: title, description, canonical and the share card.
+ *
+ * A missing product returns bare metadata rather than throwing — the page
+ * component below is what owns the 404, and duplicating that decision here
+ * would mean two places deciding what "not found" means.
+ */
+export async function generateMetadata({
+  params,
+}: PageProps<"/producto/[slug]">): Promise<Metadata> {
+  const { slug } = await params;
+  const product = await getProductByHandle(slug);
+
+  return product ? productMetadata(product) : {};
+}
 
 /**
  * The product detail page.
@@ -22,9 +59,9 @@ const PDP_SCRIM = "#000000B3";
  * inside the catalog module.
  *
  * Nothing on this page reads `searchParams`. The variant selection lives in
- * the query string, but only the client-side panel reads it — which is what
- * keeps the SEO-relevant shell statically renderable instead of opting the
- * whole route into dynamic rendering at request time.
+ * the query string, but only the client-side panel reads it — and it reads it
+ * inside a `<Suspense>` boundary, which is what lets the rest of the route
+ * prerender to static HTML instead of resolving per request.
  */
 export default async function ProductPage({ params }: PageProps<"/producto/[slug]">) {
   const { slug } = await params;
@@ -48,6 +85,18 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
     // here, which on the PDP artboard is 1708px — taller than the viewport, so
     // `h-screen` would leave the page's lower half unpainted.
     <div className="relative flex min-h-screen flex-1 flex-col gap-10 px-4 md:px-0">
+      {/* Structured data, not content: this is what turns the listing into a
+          price-and-stock rich result. It is written absolute because Next
+          resolves `metadataBase` for metadata fields only — a JSON-LD block
+          reaches the crawler byte for byte, with no base to resolve against. */}
+      <script
+        type="application/ld+json"
+        // Escaped by `serializeJsonLd`, which is the only reason this is safe:
+        // merchant copy can contain a literal `</script>`.
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(productJsonLd(product, siteUrl())),
+        }}
+      />
       <BackgroundPlate scrim={PDP_SCRIM} />
       <Header />
 
@@ -84,13 +133,27 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             {product.title}
           </h1>
 
-          <PurchasePanel
-            // Only the variant matrix crosses the boundary — the panel has no
-            // use for `descriptionHtml`, which is already being sent once for
-            // the block below.
-            product={{ axes: product.axes, variants: product.variants }}
-            defaultVariantId={product.defaultVariantId}
-          />
+          {/* The one dynamic slot on an otherwise prerendered page. Reading
+              the query string during a static build is a CSR bailout, so the
+              reader has to sit inside a boundary — and the fallback renders
+              the DEFAULT selection rather than a skeleton, which is what keeps
+              the price in the prerendered HTML. */}
+          <Suspense
+            fallback={
+              <PurchasePanelFallback
+                product={{ axes: product.axes, variants: product.variants }}
+                defaultVariantId={product.defaultVariantId}
+              />
+            }
+          >
+            <PurchasePanel
+              // Only the variant matrix crosses the boundary — the panel has no
+              // use for `descriptionHtml`, which is already being sent once for
+              // the block below.
+              product={{ axes: product.axes, variants: product.variants }}
+              defaultVariantId={product.defaultVariantId}
+            />
+          </Suspense>
 
           {cut && <FitScale fit={cut.fit} />}
 

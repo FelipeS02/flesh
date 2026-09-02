@@ -37,7 +37,7 @@ type PurchasePanelProps = {
  * not round-trip to the server.
  */
 export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps) {
-  const { axes, variants } = product;
+  const { axes } = product;
 
   // Keyed by axis label, so a product with axes we have never seen still gets
   // readable params. Memoised because `useQueryStates` treats the key map as
@@ -48,6 +48,55 @@ export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps)
     [keys],
   );
   const [query, setQuery] = useQueryStates(keyMap);
+
+  return (
+    <PanelView
+      product={product}
+      defaultVariantId={defaultVariantId}
+      query={query}
+      onSelect={(index, value) => setQuery({ [keys[index]!]: paramValue(value) })}
+    />
+  );
+}
+
+/**
+ * The panel as the STATIC build can render it: no query, so every axis shows
+ * the default variant and the price is real HTML rather than a placeholder.
+ *
+ * This exists because `generateStaticParams` prerenders the PDP, and reading
+ * the query string during a prerender is a CSR bailout — Next requires the
+ * reader to sit inside a `<Suspense>`. What goes in that boundary's fallback
+ * is a design decision, not a formality: a skeleton would take the price out
+ * of the prerendered HTML, on the one page whose price is the point. The
+ * default selection is the honest answer, and it is also the one the canonical
+ * URL describes.
+ *
+ * Selecting does nothing until the real panel hydrates over it, which is the
+ * same fraction of a second any client component is inert for.
+ */
+export function PurchasePanelFallback({
+  product,
+  defaultVariantId,
+}: PurchasePanelProps) {
+  return (
+    <PanelView
+      product={product}
+      defaultVariantId={defaultVariantId}
+      query={{}}
+      onSelect={() => {}}
+    />
+  );
+}
+
+type PanelViewProps = PurchasePanelProps & {
+  query: Readonly<Record<string, string | null | undefined>>;
+  onSelect: (axisIndex: number, value: string) => void;
+};
+
+/** Everything the panel draws, given a selection somebody else read. */
+function PanelView({ product, defaultVariantId, query, onSelect }: PanelViewProps) {
+  const { axes, variants } = product;
+  const keys = axisParamKeys(axes);
 
   const defaultVariant =
     variants.find((variant) => variant.id === defaultVariantId) ?? variants[0];
@@ -86,7 +135,7 @@ export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps)
           axis={axis}
           values={deriveAxisStates(product, selection, index)}
           selected={selection[index] ?? null}
-          onSelect={(value) => setQuery({ [keys[index]!]: paramValue(value) })}
+          onSelect={(value) => onSelect(index, value)}
         />
       ))}
 

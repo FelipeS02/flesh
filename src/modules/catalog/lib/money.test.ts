@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { currencyExponent, formatMoney, parseMoney } from "./money";
+import {
+  currencyExponent,
+  formatMoney,
+  formatMoneyDecimal,
+  parseMoney,
+} from "./money";
 
 describe("parseMoney", () => {
   it("parses a wire price string into integer minor units, exactly", () => {
@@ -59,5 +64,24 @@ describe("formatMoney", () => {
     expect(formatMoney({ amount: 1_799_999, currency: "ARS" })).toBe(
       "$17.999,99",
     );
+  });
+});
+
+// The machine-readable half of the pair above. `formatMoney` writes for a
+// person and drops a zero fraction; schema.org reads a decimal number and a
+// separate `priceCurrency`, so it needs neither the symbol nor the grouping.
+describe("formatMoneyDecimal", () => {
+  it("writes minor units as a plain decimal, with no symbol or grouping", () => {
+    expect(formatMoneyDecimal({ amount: 2_700_000, currency: "ARS" })).toBe(
+      "27000.00",
+    );
+  });
+
+  it("keeps the zero fraction, unlike the display formatter", () => {
+    expect(formatMoneyDecimal({ amount: 2500, currency: "ARS" })).toBe("25.00");
+  });
+
+  it("round-trips whatever parseMoney read off the wire", () => {
+    expect(formatMoneyDecimal(parseMoney("19.99"))).toBe("19.99");
   });
 });
