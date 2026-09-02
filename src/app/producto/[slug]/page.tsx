@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { BackgroundPlate } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
+import { siteUrl } from "@/lib/site-url";
 import { getProductByHandle, getProducts } from "@/modules/catalog";
 import { InfoAccordions } from "@/modules/product-detail/accordions/info-accordions";
 import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
@@ -13,6 +14,7 @@ import {
   PurchasePanel,
   PurchasePanelFallback,
 } from "@/modules/product-detail/purchase/purchase-panel";
+import { productJsonLd, serializeJsonLd } from "@/modules/product-detail/seo/product-jsonld";
 import { productMetadata } from "@/modules/product-detail/seo/product-metadata";
 import { productState } from "@/modules/storefront/product-state";
 import { StateBadge } from "@/modules/storefront/state-badge";
@@ -83,6 +85,18 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
     // here, which on the PDP artboard is 1708px — taller than the viewport, so
     // `h-screen` would leave the page's lower half unpainted.
     <div className="relative flex min-h-screen flex-1 flex-col gap-10 px-4 md:px-0">
+      {/* Structured data, not content: this is what turns the listing into a
+          price-and-stock rich result. It is written absolute because Next
+          resolves `metadataBase` for metadata fields only — a JSON-LD block
+          reaches the crawler byte for byte, with no base to resolve against. */}
+      <script
+        type="application/ld+json"
+        // Escaped by `serializeJsonLd`, which is the only reason this is safe:
+        // merchant copy can contain a literal `</script>`.
+        dangerouslySetInnerHTML={{
+          __html: serializeJsonLd(productJsonLd(product, siteUrl())),
+        }}
+      />
       <BackgroundPlate scrim={PDP_SCRIM} />
       <Header />
 

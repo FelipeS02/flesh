@@ -28,4 +28,4 @@ export type {
   VariantMatrix,
 } from "./domain/selectors";
 
-export { formatMoney } from "./lib/money";
+export { formatMoney, formatMoneyDecimal } from "./lib/money";
