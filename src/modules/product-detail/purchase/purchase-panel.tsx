@@ -11,7 +11,6 @@ import {
   type Selection,
   type VariantMatrix,
 } from "@/modules/catalog/client";
-import { swatchColor } from "@/modules/storefront/swatches";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
 
@@ -166,23 +165,19 @@ type AxisSelectorProps = {
 };
 
 /**
- * One axis. Whether it draws as colour dots or as labelled boxes is decided by
- * the VALUES, never by the axis label: the label is merchant-typed free text,
- * so keying off it would be a hardcoded axis name in disguise.
+ * One axis, drawn as labelled boxes.
+ *
+ * There is no colour-dot branch here any more, and that is a consequence of
+ * the catalogue's shape rather than a styling choice: colours are separate
+ * products, so an axis on a product is a size, a length, a cut — something
+ * whose value is a word worth printing. The colour choice lives in
+ * `ColourwaySelector`, which navigates instead of setting state.
  */
 function AxisSelector({ axis, values, selected, onSelect }: AxisSelectorProps) {
-  const asSwatches =
-    values.length > 0 && values.every(({ value }) => swatchColor(value) !== null);
-
   return (
     <div className="flex flex-col gap-4">
       <p className="flex items-center gap-2 font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
         <span>Seleccionar {axis.label}</span>
-        {/* A dot cannot say its own name, so the swatch axis prints the chosen
-            value beside its label. A box already shows the value it carries. */}
-        {asSwatches && selected && (
-          <span className="text-foreground">{selected}</span>
-        )}
       </p>
 
       <div role="group" aria-label={axis.label} className="flex items-center gap-2.5">
@@ -193,7 +188,6 @@ function AxisSelector({ axis, values, selected, onSelect }: AxisSelectorProps) {
             value={value}
             state={state}
             isSelected={value === selected}
-            asSwatch={asSwatches}
             onSelect={onSelect}
           />
         ))}
@@ -207,7 +201,6 @@ type AxisOptionProps = {
   value: string;
   state: AxisValueView["state"];
   isSelected: boolean;
-  asSwatch: boolean;
   onSelect: (value: string) => void;
 };
 
@@ -216,7 +209,6 @@ function AxisOption({
   value,
   state,
   isSelected,
-  asSwatch,
   onSelect,
 }: AxisOptionProps) {
   // Both unbuyable states are unselectable, but only one of them is worth
@@ -224,29 +216,6 @@ function AxisOption({
   // was never offered has nothing to announce beyond being unavailable.
   const isDisabled = state !== "available";
   const label = state === "soldOut" ? `${axisLabel} ${value} — agotado` : undefined;
-
-  if (asSwatch) {
-    return (
-      <button
-        type="button"
-        aria-pressed={isSelected}
-        aria-label={label}
-        disabled={isDisabled}
-        onClick={() => onSelect(value)}
-        className={cn(
-          "flex size-12.5 items-center justify-center rounded-full",
-          isSelected && "ring-1 ring-inset ring-foreground",
-          isDisabled && "opacity-40",
-        )}
-      >
-        <span
-          className="block size-10 rounded-full border border-border"
-          style={{ backgroundColor: swatchColor(value) ?? undefined }}
-        />
-        <span className="sr-only">{value}</span>
-      </button>
-    );
-  }
 
   return (
     <button
