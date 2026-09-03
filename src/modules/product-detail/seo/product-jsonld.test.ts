@@ -6,21 +6,18 @@ import { productJsonLd, serializeJsonLd } from "./product-jsonld";
 const BASE = new URL("https://flesh.com.ar");
 
 /**
- * Two axes, two colourways, so the "one offer per colourway" rule has both a
- * grouping axis and a second axis it must NOT split on.
+ * One colourway sold in two sizes. Colours are separate PRODUCTS, so this is
+ * the shape the offer rule has to hold on: one offer for the garment, and a
+ * size axis it must NOT split into offers of its own.
  */
-function twoColourways(overrides: Partial<ProductView> = {}): ProductView {
+function oneColourway(overrides: Partial<ProductView> = {}): ProductView {
   return makeProduct({
     slug: "musculosa-demon",
-    axes: [
-      { index: 0, label: "Talle", values: ["M", "S"] },
-      { index: 1, label: "Color", values: ["Noir", "Bone"] },
-    ],
+    axes: [{ index: 0, label: "Talle", values: ["M", "S"] }],
+    colourway: { group: "musculosa-demon", hex: "#0A0A0A", name: "Noir" },
     variants: [
-      makeVariant({ id: 201, combination: ["M", "Noir"], price: money(2_700_000) }),
-      makeVariant({ id: 202, combination: ["S", "Noir"], price: money(3_000_000) }),
-      makeVariant({ id: 203, combination: ["M", "Bone"], price: money(3_100_000) }),
-      makeVariant({ id: 204, combination: ["S", "Bone"], price: money(3_100_000) }),
+      makeVariant({ id: 201, combination: ["M"], price: money(2_700_000) }),
+      makeVariant({ id: 202, combination: ["S"], price: money(3_000_000) }),
     ],
     ...overrides,
   });
@@ -82,15 +79,15 @@ describe("productJsonLd", () => {
     expect(jsonLd.url).toBe("https://flesh.com.ar/producto/musculosa-demon");
   });
 
-  it("emits one offer per colourway, not one per variant", () => {
-    const jsonLd = productJsonLd(twoColourways(), BASE);
+  it("emits ONE offer for the garment, not one per size", () => {
+    const jsonLd = productJsonLd(oneColourway(), BASE);
 
-    expect(jsonLd.offers).toHaveLength(2);
-    expect(jsonLd.offers.map((offer) => offer.name)).toEqual(["Noir", "Bone"]);
+    expect(jsonLd.offers).toHaveLength(1);
+    expect(jsonLd.offers[0]!.name).toBe("Noir");
   });
 
-  it("prices a colourway at its cheapest variant, in major units", () => {
-    const jsonLd = productJsonLd(twoColourways(), BASE);
+  it("prices the garment at its cheapest size, in major units", () => {
+    const jsonLd = productJsonLd(oneColourway(), BASE);
 
     expect(jsonLd.offers[0]).toMatchObject({
       "@type": "Offer",
@@ -99,32 +96,43 @@ describe("productJsonLd", () => {
     });
   });
 
-  it("keeps every offer on the canonical URL, since the variants share it", () => {
-    const jsonLd = productJsonLd(twoColourways(), BASE);
+  it("keeps the offer on the canonical URL, since the variants share it", () => {
+    const jsonLd = productJsonLd(oneColourway(), BASE);
 
-    for (const offer of jsonLd.offers) {
-      expect(offer.url).toBe("https://flesh.com.ar/producto/musculosa-demon");
-    }
+    expect(jsonLd.offers[0]!.url).toBe(
+      "https://flesh.com.ar/producto/musculosa-demon",
+    );
   });
 
-  it("marks a colourway in stock when any of its sizes is", () => {
+  it("marks the garment in stock when any of its sizes is", () => {
     const jsonLd = productJsonLd(
-      twoColourways({
+      oneColourway({
         variants: [
-          makeVariant({ combination: ["M", "Noir"], price: money(2_700_000), inStock: false }),
-          makeVariant({ combination: ["S", "Noir"], price: money(2_700_000), inStock: true }),
-          makeVariant({ combination: ["M", "Bone"], price: money(3_100_000), inStock: false }),
-          makeVariant({ combination: ["S", "Bone"], price: money(3_100_000), inStock: false }),
+          makeVariant({ id: 201, combination: ["M"], price: money(2_700_000), inStock: false }),
+          makeVariant({ id: 202, combination: ["S"], price: money(2_700_000), inStock: true }),
         ],
       }),
       BASE,
     );
 
     expect(jsonLd.offers[0]!.availability).toBe("https://schema.org/InStock");
-    expect(jsonLd.offers[1]!.availability).toBe("https://schema.org/OutOfStock");
   });
 
-  it("emits a single unnamed offer for a product with no colourway axis", () => {
+  it("marks it out of stock only when every size is gone", () => {
+    const jsonLd = productJsonLd(
+      oneColourway({
+        variants: [
+          makeVariant({ id: 201, combination: ["M"], price: money(2_700_000), inStock: false }),
+          makeVariant({ id: 202, combination: ["S"], price: money(2_700_000), inStock: false }),
+        ],
+      }),
+      BASE,
+    );
+
+    expect(jsonLd.offers[0]!.availability).toBe("https://schema.org/OutOfStock");
+  });
+
+  it("emits a single unnamed offer for a garment in no colour group", () => {
     const jsonLd = productJsonLd(
       makeProduct({
         axes: [{ index: 0, label: "Talle", values: ["M", "S"] }],

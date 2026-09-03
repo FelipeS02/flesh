@@ -5,11 +5,17 @@ import { BackgroundPlate } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import { siteUrl } from "@/lib/site-url";
-import { getProductByHandle, getProducts } from "@/modules/catalog";
+import {
+  colourwayLinks,
+  getColourwayIndex,
+  getProductByHandle,
+  getProducts,
+} from "@/modules/catalog";
 import { InfoAccordions } from "@/modules/product-detail/accordions/info-accordions";
 import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
 import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
 import { FitScale } from "@/modules/product-detail/garment/fit-scale";
+import { ColourwaySelector } from "@/modules/product-detail/purchase/colourway-selector";
 import {
   PurchasePanel,
   PurchasePanelFallback,
@@ -28,11 +34,28 @@ const PDP_SCRIM = "#000000B3";
  * The catalogue is a fixed drop, so enumerating it is cheap and the crawler
  * gets static HTML. It stays correct after the Tiendanube swap because it goes
  * through the same `CatalogPort` the page does.
+ *
+ * The listing is NOT the whole answer. A design's secondary colours are
+ * `unlisted` so the grid draws one card per design, which means `getProducts`
+ * filters out the exact pages every swatch row links to — they would fall back
+ * to on-demand rendering while the colour they sit beside is static. What gets
+ * prerendered is therefore what is REACHABLE: the listing plus every colourway
+ * in it.
  */
 export async function generateStaticParams() {
-  const products = await getProducts();
+  const [products, colourways] = await Promise.all([
+    getProducts(),
+    getColourwayIndex(),
+  ]);
 
-  return products.map((product) => ({ slug: product.slug }));
+  const slugs = new Set(products.map((product) => product.slug));
+  for (const links of colourways.values()) {
+    for (const link of links) {
+      slugs.add(link.slug);
+    }
+  }
+
+  return [...slugs].map((slug) => ({ slug }));
 }
 
 /**
@@ -65,7 +88,12 @@ export async function generateMetadata({
  */
 export default async function ProductPage({ params }: PageProps<"/producto/[slug]">) {
   const { slug } = await params;
-  const product = await getProductByHandle(slug);
+  // Two independent reads against the live API — the product and the colourway
+  // custom field — so they go out together rather than one after the other.
+  const [product, colourways] = await Promise.all([
+    getProductByHandle(slug),
+    getColourwayIndex(),
+  ]);
 
   if (!product) {
     notFound();
@@ -132,6 +160,15 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
           <h1 className="font-display text-2xl leading-[1.05] text-primary md:text-[45px]">
             {product.title}
           </h1>
+
+          {/* Above the panel, and server-rendered: choosing a colour LEAVES
+              this page, so it belongs beside the title rather than inside a
+              control that sets state. Nothing here reads the query string, so
+              it stays in the static HTML. */}
+          <ColourwaySelector
+            links={colourwayLinks(colourways, product)}
+            currentSlug={product.slug}
+          />
 
           {/* The one dynamic slot on an otherwise prerendered page. Reading
               the query string during a static build is a CSR bailout, so the
