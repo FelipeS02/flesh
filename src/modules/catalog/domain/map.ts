@@ -2,6 +2,7 @@ import type { TiendanubeProduct, TiendanubeVariant } from "../api/types";
 import { pick } from "../lib/locale";
 import { parseMoney } from "../lib/money";
 import { toSafeHtml } from "../lib/sanitize";
+import type { Colourway } from "./colourway";
 import {
   CatalogContractError,
   type ImageView,
@@ -17,7 +18,13 @@ import {
  * image ordering, stock semantics — so nothing downstream has to know the
  * wire shape exists.
  */
-export function mapToProductView(product: TiendanubeProduct): ProductView {
+export function mapToProductView(
+  product: TiendanubeProduct,
+  // Colours arrive from the product custom fields resource, a SEPARATE call
+  // (see `api/colourways.ts`), so they are passed in rather than read off the
+  // product. `null` is the ordinary case: a garment that comes one way.
+  colourway: Colourway | null = null,
+): ProductView {
   assertPositionalCorrelation(product);
 
   const axes: OptionAxis[] = product.attributes.map((attribute, index) => ({
@@ -58,6 +65,7 @@ export function mapToProductView(product: TiendanubeProduct): ProductView {
       .split(",")
       .map((tag) => tag.trim())
       .filter(Boolean),
+    colourway,
   };
 }
 
