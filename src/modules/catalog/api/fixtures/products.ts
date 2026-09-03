@@ -427,4 +427,119 @@ export const products = [
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-02T00:00:00Z",
   },
+
+  // ---------------------------------------------------------------------
+  // One design, two colourways — the pair the swatch row exists for.
+  //
+  // Colour is NOT an attribute here: 108 and 109 are separate products,
+  // because Tiendanube gives a variant a single `image_id` and never a
+  // gallery, so a colour only gets its own photographs by being its own
+  // product. Sizes stay on `attributes`, where they belong.
+  //
+  // 108 is `visible` and 109 is `unlisted`: the grid draws one card per
+  // design, and the second colour keeps a page of its own that the swatch
+  // links to. Nothing in the front-end filters the duplicate away — the
+  // visibility does, through `getProducts`.
+  //
+  // What ties them together is neither of these records: it is the `group`
+  // in the colourway custom field, which arrives from a separate resource
+  // (`./colourways.ts`).
+  // ---------------------------------------------------------------------
+
+  {
+    id: 108,
+    name: { en: "Cross Tee Noir", es: "Remera Cruz Noir", pt: "Camiseta Cruz Noir" },
+    description: {
+      en: "<p>The cross, printed on black.</p>",
+      es: "<p>La cruz, estampada sobre negro.</p>",
+      pt: "<p>A cruz, estampada sobre preto.</p>",
+    },
+    handle: {
+      en: "cross-tee-noir",
+      es: "remera-cruz-noir",
+      pt: "camiseta-cruz-noir",
+    },
+    attributes: [{ en: "Size", es: "Talle", pt: "Tamanho" }],
+    variants: [
+      {
+        id: 212,
+        product_id: 108,
+        price: "33.00",
+        promotional_price: null,
+        cost: "12.00",
+        stock: 4,
+        stock_management: true,
+        weight: "2.00",
+        values: [{ en: "M", es: "M", pt: "M" }],
+        sku: "CRUZ-NOIR-M",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-02T00:00:00Z",
+      },
+      {
+        id: 213,
+        product_id: 108,
+        price: "33.00",
+        promotional_price: null,
+        cost: "12.00",
+        stock: 2,
+        stock_management: true,
+        weight: "2.00",
+        values: [{ en: "L", es: "L", pt: "L" }],
+        sku: "CRUZ-NOIR-L",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-02T00:00:00Z",
+      },
+    ],
+    images: [{ id: 309, product_id: 108, src: "/products/1.png", position: 1 }],
+    categories: [],
+    tags: "drop-1,corte-remera-oversize",
+    published: true,
+    visibility: "visible",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-02T00:00:00Z",
+  },
+
+  {
+    // The secondary colourway: sold out, so the swatch row has a dot to draw
+    // in its sold-out state without inventing a third product.
+    id: 109,
+    name: { en: "Cross Tee Bone", es: "Remera Cruz Hueso", pt: "Camiseta Cruz Osso" },
+    description: {
+      en: "<p>The cross, printed on bone.</p>",
+      es: "<p>La cruz, estampada sobre hueso.</p>",
+      pt: "<p>A cruz, estampada sobre osso.</p>",
+    },
+    handle: {
+      en: "cross-tee-bone",
+      es: "remera-cruz-hueso",
+      pt: "camiseta-cruz-osso",
+    },
+    attributes: [{ en: "Size", es: "Talle", pt: "Tamanho" }],
+    variants: [
+      {
+        id: 214,
+        product_id: 109,
+        price: "33.00",
+        promotional_price: null,
+        cost: "12.00",
+        stock: 0,
+        stock_management: true,
+        weight: "2.00",
+        values: [{ en: "M", es: "M", pt: "M" }],
+        sku: "CRUZ-BONE-M",
+        created_at: "2026-01-01T00:00:00Z",
+        updated_at: "2026-01-02T00:00:00Z",
+      },
+    ],
+    images: [{ id: 310, product_id: 109, src: "/products/2.png", position: 1 }],
+    categories: [],
+    tags: "drop-1,corte-remera-oversize",
+    published: true,
+    // Unlisted, not hidden: no card in the grid, but the page the swatch
+    // links to must still resolve. `getProductByHandle` deliberately does not
+    // filter on visibility.
+    visibility: "unlisted",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-02T00:00:00Z",
+  },
 ] satisfies TiendanubeProduct[];

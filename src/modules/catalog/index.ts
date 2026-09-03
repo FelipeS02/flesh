@@ -16,7 +16,11 @@
 // 4b.15) is what makes a deep import such as
 // `import type {...} from "@/modules/catalog/api/types"` actually fail
 // instead of merely being discouraged.
-export { getProducts, getProductByHandle } from "./api/source";
+export {
+  getProducts,
+  getProductByHandle,
+  getColourwayIndex,
+} from "./api/source";
 export type { CatalogPort } from "./api/port";
 
 export * from "./client";
