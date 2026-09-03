@@ -1,7 +1,7 @@
 import { BackgroundPlate } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
-import { getProducts } from "@/modules/catalog";
+import { getColourwayIndex, getProducts } from "@/modules/catalog";
 import { DropCatalog } from "@/modules/storefront/drop-catalog";
 
 /**
@@ -18,14 +18,20 @@ import { DropCatalog } from "@/modules/storefront/drop-catalog";
  * cover.
  */
 export default async function Home() {
-  const products = await getProducts();
+  // Two reads, one round trip's worth of latency. Against the live API these
+  // are two independent endpoints — the catalogue and the colourway custom
+  // field — and neither depends on the other's result.
+  const [products, colourways] = await Promise.all([
+    getProducts(),
+    getColourwayIndex(),
+  ]);
 
   return (
     <div className="relative flex min-h-screen flex-1 flex-col justify-between gap-10 px-4 md:px-0">
       <BackgroundPlate />
       <Header />
       <main>
-        <DropCatalog products={products} />
+        <DropCatalog products={products} colourways={colourways} />
       </main>
       <Footer />
     </div>

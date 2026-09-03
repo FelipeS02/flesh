@@ -1,34 +1,43 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { buildColourwayIndex } from "@/modules/catalog/client";
 import { makeProduct, makeVariant } from "../../../test/fixtures/product-view";
 import { ProductCard } from "./product-card";
 
-const colourAxis = {
-  index: 1 as const,
-  label: "Color",
-  values: ["Noir", "Bone"],
-};
+/** A catalogue where nothing comes in more than one colour. */
+const NO_COLOURWAYS = buildColourwayIndex([]);
 
 const sizeAxis = { index: 0 as const, label: "Talle", values: ["M"] };
 
-function makeTwoColourProduct() {
-  const noir = makeVariant({ id: 201, combination: ["M", "Noir"] });
-  const bone = makeVariant({
-    id: 202,
-    combination: ["M", "Bone"],
-    inStock: false,
+/**
+ * One design in two colours — separate products, tied by `group`. The bone
+ * one is sold out, so the row has a dot to draw in each state.
+ */
+function makeColourGroup() {
+  const noir = makeProduct({
+    id: 101,
+    slug: "remera-cruz-noir",
+    colourway: { group: "remera-cruz", hex: "#0A0A0A", name: "Noir" },
   });
 
-  return makeProduct({
-    axes: [sizeAxis, colourAxis],
-    variants: [noir, bone],
-    defaultVariantId: noir.id,
+  const bone = makeProduct({
+    id: 102,
+    slug: "remera-cruz-hueso",
+    colourway: { group: "remera-cruz", hex: "#E8E4DA", name: "Bone" },
+    variants: [makeVariant({ id: 202, inStock: false })],
   });
+
+  return { noir, bone, colourways: buildColourwayIndex([noir, bone]) };
 }
 
 describe("ProductCard", () => {
   it("links the title to the product's own page", () => {
-    render(<ProductCard product={makeProduct({ slug: "musculosa-demon" })} />);
+    render(
+      <ProductCard
+        product={makeProduct({ slug: "musculosa-demon" })}
+        colourways={NO_COLOURWAYS}
+      />,
+    );
 
     const link = screen.getByRole("link", {
       name: "Musculosa Demon Wash Black",
@@ -45,6 +54,7 @@ describe("ProductCard", () => {
             makeVariant({ price: { amount: 2_700_000, currency: "ARS" } }),
           ],
         })}
+        colourways={NO_COLOURWAYS}
       />,
     );
 
@@ -66,33 +76,71 @@ describe("ProductCard", () => {
           variants: [cheap, chosen],
           defaultVariantId: chosen.id,
         })}
+        colourways={NO_COLOURWAYS}
       />,
     );
 
     expect(screen.getByText("$10.000")).not.toBeNull();
   });
 
-  it("renders one swatch per colour value, naming each for screen readers", () => {
-    render(<ProductCard product={makeTwoColourProduct()} />);
+  it("renders one swatch per colour in the group, naming each for screen readers", () => {
+    const { noir, colourways } = makeColourGroup();
+
+    render(<ProductCard product={noir} colourways={colourways} />);
 
     expect(screen.getByText("Noir")).not.toBeNull();
     expect(screen.getByText(/Bone/)).not.toBeNull();
   });
 
-  it("marks a colour with no purchasable variant as sold out", () => {
-    render(<ProductCard product={makeTwoColourProduct()} />);
+  it("marks a sold-out colour as such", () => {
+    const { noir, colourways } = makeColourGroup();
+
+    render(<ProductCard product={noir} colourways={colourways} />);
 
     expect(screen.getByText(/Bone.*agotado/i)).not.toBeNull();
     expect(screen.getByText("Noir")).not.toBeNull();
   });
 
-  it("renders no swatch row for a product whose axes are not colours", () => {
+  it("links a sibling colour to its own page, since each colour is its own product", () => {
+    const { noir, colourways } = makeColourGroup();
+
+    render(<ProductCard product={noir} colourways={colourways} />);
+
+    expect(screen.getByRole("link", { name: /Bone/ }).getAttribute("href")).toBe(
+      "/producto/remera-cruz-hueso",
+    );
+  });
+
+  it("leaves the current colour inert — a link back to this page promises a change it cannot make", () => {
+    const { noir, colourways } = makeColourGroup();
+
+    render(<ProductCard product={noir} colourways={colourways} />);
+
+    expect(screen.queryByRole("link", { name: "Noir" })).toBeNull();
+    expect(screen.getByText("Noir")).not.toBeNull();
+  });
+
+  it("renders no swatch row for a design that comes in one colour", () => {
+    const lone = makeProduct({
+      slug: "remera-cruz-noir",
+      colourway: { group: "remera-cruz", hex: "#0A0A0A", name: "Noir" },
+    });
+
+    const { container } = render(
+      <ProductCard product={lone} colourways={buildColourwayIndex([lone])} />,
+    );
+
+    expect(container.querySelector("[data-swatch-row]")).toBeNull();
+  });
+
+  it("renders no swatch row for a product in no colour group at all", () => {
     const { container } = render(
       <ProductCard
         product={makeProduct({
           axes: [sizeAxis],
           variants: [makeVariant({ combination: ["M"] })],
         })}
+        colourways={NO_COLOURWAYS}
       />,
     );
 
@@ -100,7 +148,12 @@ describe("ProductCard", () => {
   });
 
   it("badges a tagged product over its photo", () => {
-    render(<ProductCard product={makeProduct({ tags: ["drop-1", "nuevo"] })} />);
+    render(
+      <ProductCard
+        product={makeProduct({ tags: ["drop-1", "nuevo"] })}
+        colourways={NO_COLOURWAYS}
+      />,
+    );
 
     expect(screen.getByText("Nuevo")).not.toBeNull();
   });
@@ -109,6 +162,7 @@ describe("ProductCard", () => {
     const { container } = render(
       <ProductCard
         product={makeProduct({ variants: [makeVariant({ inStock: false })] })}
+        colourways={NO_COLOURWAYS}
       />,
     );
 
@@ -127,6 +181,7 @@ describe("ProductCard", () => {
             }),
           ],
         })}
+        colourways={NO_COLOURWAYS}
       />,
     );
 
@@ -136,7 +191,10 @@ describe("ProductCard", () => {
 
   it("keeps the badge reachable, outside the image's hidden link", () => {
     const { container } = render(
-      <ProductCard product={makeProduct({ tags: ["nuevo"] })} />,
+      <ProductCard
+        product={makeProduct({ tags: ["nuevo"] })}
+        colourways={NO_COLOURWAYS}
+      />,
     );
 
     // The image link is `aria-hidden`, so a badge nested inside it would be
@@ -156,6 +214,7 @@ describe("ProductCard", () => {
             { id: 302, src: "/products/2.png", position: 2 },
           ],
         })}
+        colourways={NO_COLOURWAYS}
       />,
     );
 
