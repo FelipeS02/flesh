@@ -1,10 +1,12 @@
 import type { CSSProperties } from "react";
+import type { ColourwayIndex } from "@/modules/catalog";
 import { balancedColumns } from "./columns";
 import { ProductCard } from "./product-card";
 import type { VolumeGroup } from "./volume";
 
 type DropSectionProps = {
   group: VolumeGroup;
+  colourways: ColourwayIndex;
   /**
    * Whether the volume names itself. False while the drop is the only one on
    * the page — a heading over the single group there names nothing.
@@ -20,7 +22,7 @@ type DropSectionProps = {
  * — a deliberate departure from the artboard, which draws two 172px cards side
  * by side there.
  */
-export function DropSection({ group, titled }: DropSectionProps) {
+export function DropSection({ group, titled, colourways }: DropSectionProps) {
   const heading = titled ? group.title : null;
   const columns = balancedColumns(group.products.length);
 
@@ -64,7 +66,11 @@ export function DropSection({ group, titled }: DropSectionProps) {
         style={{ "--drop-columns": columns } as CSSProperties}
       >
         {group.products.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard
+            key={product.id}
+            product={product}
+            colourways={colourways}
+          />
         ))}
       </div>
     </section>

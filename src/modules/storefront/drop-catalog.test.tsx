@@ -1,12 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
+import { buildColourwayIndex } from "@/modules/catalog/client";
 import { makeProduct } from "../../../test/fixtures/product-view";
 import { DropCatalog } from "./drop-catalog";
+
+/** This suite is about volume grouping and layout, not colour. */
+const NO_COLOURWAYS = buildColourwayIndex([]);
 
 describe("DropCatalog", () => {
   it("renders one card per visible product", () => {
     render(
       <DropCatalog
+        colourways={NO_COLOURWAYS}
         products={[
           makeProduct({ id: 101, title: "Musculosa Demon Wash Black" }),
           makeProduct({ id: 102, title: "Musculosa Cross Wash Black" }),
@@ -21,6 +26,7 @@ describe("DropCatalog", () => {
   it("shows no volume heading while a single volume exists", () => {
     render(
       <DropCatalog
+        colourways={NO_COLOURWAYS}
         products={[
           makeProduct({ id: 101, tags: ["drop-1"] }),
           makeProduct({ id: 102, tags: ["drop-1"] }),
@@ -34,6 +40,7 @@ describe("DropCatalog", () => {
   it("titles every volume once a second one exists", () => {
     render(
       <DropCatalog
+        colourways={NO_COLOURWAYS}
         products={[
           makeProduct({ id: 101, tags: ["drop-1"] }),
           makeProduct({ id: 201, tags: ["drop-2"] }),
@@ -50,14 +57,17 @@ describe("DropCatalog", () => {
 
   it("carries the anchor the nav's Catalogo link points at", () => {
     const { container } = render(
-      <DropCatalog products={[makeProduct({ id: 101 })]} />,
+      <DropCatalog
+        colourways={NO_COLOURWAYS}
+        products={[makeProduct({ id: 101 })]}
+      />,
     );
 
     expect(container.querySelector("#catalogo")).not.toBeNull();
   });
 
   it("renders nothing rather than an empty shell when the catalogue is empty", () => {
-    render(<DropCatalog products={[]} />);
+    render(<DropCatalog products={[]} colourways={NO_COLOURWAYS} />);
 
     expect(screen.queryAllByRole("article")).toHaveLength(0);
   });
@@ -65,6 +75,7 @@ describe("DropCatalog", () => {
   it("lays six cards out in three columns rather than four and a stub", () => {
     const { container } = render(
       <DropCatalog
+        colourways={NO_COLOURWAYS}
         products={Array.from({ length: 6 }, (_, index) =>
           makeProduct({ id: 101 + index }),
         )}

@@ -1,9 +1,14 @@
-import type { ProductView } from "@/modules/catalog";
+import type { ColourwayIndex, ProductView } from "@/modules/catalog";
 import { DropSection } from "./drop-section";
 import { groupByVolume } from "./volume";
 
 type DropCatalogProps = {
   products: ProductView[];
+  /**
+   * Passed down rather than read here: this component is sync and the index
+   * is fetched, and the page is already the app's one async boundary.
+   */
+  colourways: ColourwayIndex;
 };
 
 /**
@@ -14,7 +19,7 @@ type DropCatalogProps = {
  * reach, so every decision worth testing — which volumes exist, whether they
  * name themselves — has to sit below it.
  */
-export function DropCatalog({ products }: DropCatalogProps) {
+export function DropCatalog({ products, colourways }: DropCatalogProps) {
   const volumes = groupByVolume(products);
 
   return (
@@ -24,6 +29,7 @@ export function DropCatalog({ products }: DropCatalogProps) {
           key={volume.key}
           group={volume}
           titled={volumes.length > 1}
+          colourways={colourways}
         />
       ))}
     </div>

@@ -2,19 +2,25 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
-  deriveAxisStates,
+  type ColourwayIndex,
+  type ColourwayLink,
+  colourwayLinks,
   formatMoney,
   type ProductView,
-  type Selection,
 } from "@/modules/catalog";
 import { DiscountBadge } from "./discount-badge";
 import { transferPrice } from "./pricing";
 import { cardBadge } from "./product-state";
 import { StateBadge } from "./state-badge";
-import { findSwatchAxis, swatchColor } from "./swatches";
 
 type ProductCardProps = {
   product: ProductView;
+  /**
+   * The whole catalogue's colour groups. Required rather than optional: a
+   * card that silently drew no swatches because a caller forgot to pass them
+   * is the exact failure this data went looking for in the first place.
+   */
+  colourways: ColourwayIndex;
 };
 
 /**
@@ -22,7 +28,7 @@ type ProductCardProps = {
  * a click, because choosing a variant is the PDP's job — the card shows the
  * default variant's price and which colourways the drop came in.
  */
-export function ProductCard({ product }: ProductCardProps) {
+export function ProductCard({ product, colourways }: ProductCardProps) {
   const variant =
     product.variants.find((candidate) => candidate.id === product.defaultVariantId) ??
     product.variants[0];
@@ -121,73 +127,94 @@ export function ProductCard({ product }: ProductCardProps) {
           </div>
         )}
 
-        <SwatchRow product={product} />
+        <SwatchRow
+          links={colourwayLinks(colourways, product)}
+          currentSlug={product.slug}
+        />
       </div>
     </article>
   );
 }
 
+type SwatchRowProps = {
+  links: ColourwayLink[];
+  currentSlug: string;
+};
+
 /**
- * The colourway row. Renders nothing at all unless an axis is made entirely
- * of known colours — see `findSwatchAxis`.
+ * The colourway row: one dot per colour the design comes in.
  *
- * Colour is never the only channel: each dot carries its colour name, and a
- * sold-out one says so, both for screen readers and for anyone who cannot
- * tell two dark swatches apart.
+ * Every dot but the current one is a LINK, because a colour is its own
+ * product here — separate photographs, separate stock, separate page. The
+ * current colour is drawn ringed and inert: it is where you already are, and
+ * a link back to the page you are on is a link that promises a change and
+ * delivers none.
+ *
+ * The fill is the merchant's own hex, never guessed from the colour's name.
+ * And colour is never the only channel: each dot carries its name, and a
+ * sold-out one says so, for screen readers and for anyone who cannot tell two
+ * dark swatches apart.
  */
-function SwatchRow({ product }: ProductCardProps) {
-  const axis = findSwatchAxis(product);
-  if (!axis) {
+function SwatchRow({ links, currentSlug }: SwatchRowProps) {
+  if (links.length === 0) {
     return null;
   }
 
-  const unselected: Selection = product.axes.map(() => null);
-  const values = deriveAxisStates(product, unselected, axis.index);
-  const selected = product.variants.find(
-    (variant) => variant.id === product.defaultVariantId,
-  )?.combination[axis.index];
-
   return (
-    <ul data-swatch-row className="flex items-center gap-2" aria-label={axis.label}>
-      {values.map(({ value, state }) => (
+    <ul data-swatch-row className="flex items-center gap-2" aria-label="Colores">
+      {links.map((link) => (
         <li
-          key={value}
+          key={link.slug}
           className={cn(
             "flex size-4.5 items-center justify-center rounded-full",
-            value === selected && "ring-1 ring-inset ring-foreground",
+            link.slug === currentSlug && "ring-1 ring-inset ring-foreground",
           )}
         >
-          <span className="relative block size-3 rounded-full border border-border">
-            <span
-              className={cn(
-                "block size-full rounded-full",
-                state === "soldOut" && "opacity-40",
-              )}
-              style={{ backgroundColor: swatchColor(value) ?? undefined }}
-            />
-            {state === "soldOut" && (
-              <svg
-                viewBox="0 0 12 12"
-                aria-hidden="true"
-                className="absolute inset-0 size-full text-muted-foreground"
-              >
-                <line
-                  x1="1.5"
-                  y1="10.5"
-                  x2="10.5"
-                  y2="1.5"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  strokeLinecap="round"
-                />
-              </svg>
-            )}
-          </span>
-          <span className="sr-only">
-            {state === "soldOut" ? `${value} — agotado` : value}
-          </span>
+          {link.slug === currentSlug ? (
+            <Dot link={link} />
+          ) : (
+            <Link href={`/producto/${link.slug}`} className="flex">
+              <Dot link={link} />
+            </Link>
+          )}
         </li>
       ))}
     </ul>
+  );
+}
+
+function Dot({ link }: { link: ColourwayLink }) {
+  return (
+    <>
+      <span className="relative block size-3 rounded-full border border-border">
+        <span
+          className={cn(
+            "block size-full rounded-full",
+            !link.inStock && "opacity-40",
+          )}
+          style={{ backgroundColor: link.hex }}
+        />
+        {!link.inStock && (
+          <svg
+            viewBox="0 0 12 12"
+            aria-hidden="true"
+            className="absolute inset-0 size-full text-muted-foreground"
+          >
+            <line
+              x1="1.5"
+              y1="10.5"
+              x2="10.5"
+              y2="1.5"
+              stroke="currentColor"
+              strokeWidth="1"
+              strokeLinecap="round"
+            />
+          </svg>
+        )}
+      </span>
+      <span className="sr-only">
+        {link.inStock ? link.name : `${link.name} — agotado`}
+      </span>
+    </>
   );
 }
