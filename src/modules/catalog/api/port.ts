@@ -1,3 +1,4 @@
+import type { ColourwayIndex } from "../domain/colourway";
 import type { ProductView } from "../domain/product";
 
 // The ONE interface a future Tiendanube client and today's mock data source
@@ -16,6 +17,15 @@ export interface CatalogPort {
   getProductByHandle(
     slug: string,
   ): Promise<ProductView | null> | ProductView | null;
+  /**
+   * Every colourway group in the catalogue, keyed by group.
+   *
+   * Separate from `getProducts` on purpose, and not derivable from it: the
+   * siblings a swatch row links to are `unlisted`, which is precisely what
+   * `getProducts` filters out. A live implementation fills this from the
+   * product custom fields resource — one request for the whole catalogue.
+   */
+  getColourwayIndex(): Promise<ColourwayIndex> | ColourwayIndex;
 }
 
 // Reference documentation only — NOT implemented in this change. Recorded
