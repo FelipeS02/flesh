@@ -4,6 +4,9 @@ import localFont from "next/font/local";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { BRAND, BRAND_LOCALE } from "@/lib/brand";
 import { siteUrl } from "@/lib/site-url";
+import { toCartCatalog } from "@/modules/cart/domain/catalog-projection";
+import { CartProvider } from "@/modules/cart/state/cart-context";
+import { getPricingPolicy, getProducts } from "@/modules/catalog";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -79,7 +82,24 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // The catalog is resolved HERE and projected into plain data, because the
+  // cart cannot reach it from the other side. `@/modules/catalog` re-exports
+  // `server-only` values, so a client component importing it is a build error —
+  // which makes this layout the one place both halves are reachable at once.
+  //
+  // `toCartCatalog` narrows a `ProductView` to what the cart actually needs:
+  // no `descriptionHtml`, no axes, no tags. What crosses the boundary below is
+  // that projection and a number, never a function.
+  //
+  // Named cost, not a free lunch: the root layout is now a catalog consumer.
+  // Today `getProducts` is a synchronous fixture scan, so this is free. Against
+  // a live Tiendanube source it becomes a per-request call on EVERY route,
+  // under a leaky-bucket rate limit, and caching the snapshot is real work
+  // nobody has done yet. The `await`s are here for that day.
+  const catalog = toCartCatalog(await getProducts());
+  const { transferRateBp } = await getPricingPolicy();
+
   return (
     <html
       lang="es"
@@ -91,7 +111,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           mounting it at the root does NOT opt every page into dynamic
           rendering. */}
       <body className="min-h-full flex flex-col">
-        <NuqsAdapter>{children}</NuqsAdapter>
+        <NuqsAdapter>
+          {/* Inside the adapter, not outside it: the cart's own UI is the
+              next thing to be built, and a drawer whose open state one day
+              belongs in the URL would otherwise be the one subtree that
+              cannot reach nuqs. Nothing is paid for the ordering. */}
+          <CartProvider catalog={catalog} transferRateBp={transferRateBp}>
+            {children}
+          </CartProvider>
+        </NuqsAdapter>
       </body>
     </html>
   );
