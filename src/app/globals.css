@@ -167,7 +167,7 @@
     }
 
     ::-webkit-scrollbar-thumb {
-      @apply bg-muted rounded-md;
+      @apply bg-muted;
     }
   }
 }

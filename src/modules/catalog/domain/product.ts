@@ -1,5 +1,6 @@
 import type { Money } from "../lib/money";
 import type { SafeHtml } from "../lib/sanitize";
+import type { Colourway } from "./colourway";
 
 export type { Money, SafeHtml };
 
@@ -49,6 +50,16 @@ export type ProductView = {
   defaultVariantId: number;
   inStock: boolean;
   tags: string[];
+  /**
+   * This garment's own colour, and the design it is a colour OF. `null` for a
+   * product that comes in one colourway.
+   *
+   * Colours are separate products, not a variant axis: Tiendanube gives a
+   * variant a single `image_id`, never a gallery, so one product per colour is
+   * the only way each colourway gets its own photographs. Sizes stay on
+   * `axes` — same garment, same photos, different pattern.
+   */
+  colourway: Colourway | null;
 };
 
 /**
@@ -86,6 +97,23 @@ export class CatalogContractError extends Error {
       `variant values.length (${actualLength}) does not match product ` +
         `attributes.length (${expectedLength}). Positional attribute/value ` +
         `correlation is broken — refusing to silently misalign selectors.`,
+    );
+  }
+
+  /**
+   * A garment is exactly one colour. More than one value in the colourway
+   * custom field means the merchant filled it as a list of sibling colours,
+   * which is the shape this model rejects on purpose — see `Colourway`.
+   * Taking the first would quietly pick a colour on their behalf.
+   */
+  static ambiguousColourway(
+    productId: number,
+    valueCount: number,
+  ): CatalogContractError {
+    return new CatalogContractError(
+      productId,
+      `carries ${valueCount} colourway values, expected exactly 1. A product ` +
+        `describes its OWN colour; siblings are found by matching group.`,
     );
   }
 

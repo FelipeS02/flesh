@@ -20,6 +20,16 @@ export type {
   VariantView,
 } from "./domain/product";
 
+// Colourways are pure domain: the index is built on the server (see
+// `api/source.ts`), but reading one is arithmetic over data already handed
+// down, so both the card and the PDP's client panel reach it from here.
+export { buildColourwayIndex, colourwayLinks } from "./domain/colourway";
+export type {
+  Colourway,
+  ColourwayIndex,
+  ColourwayLink,
+} from "./domain/colourway";
+
 export { deriveAxisStates, resolveVariant } from "./domain/selectors";
 export type {
   AxisValueState,

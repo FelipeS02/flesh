@@ -27,6 +27,7 @@ function buildProductView(overrides: Partial<ProductView> = {}): ProductView {
     defaultVariantId: 1,
     inStock: true,
     tags: [],
+    colourway: null,
     ...overrides,
   };
 }

@@ -30,6 +30,7 @@ export function makeProduct(overrides: Partial<ProductView> = {}): ProductView {
     defaultVariantId: variants[0]!.id,
     inStock: variants.some((variant) => variant.inStock),
     tags: ["drop-1"],
+    colourway: null,
     ...overrides,
     variants,
   };

@@ -1,7 +1,6 @@
 import { BRAND } from "@/lib/brand";
 import type { ProductView, VariantView } from "@/modules/catalog/client";
 import { formatMoneyDecimal } from "@/modules/catalog/client";
-import { findSwatchAxis } from "@/modules/storefront/swatches";
 import { plainText } from "./plain-text";
 import { productPath } from "./product-metadata";
 
@@ -82,31 +81,24 @@ export function serializeJsonLd(jsonLd: ProductJsonLd): string {
 }
 
 /**
- * Groups the variants into the offers a shopper would recognise.
+ * The offers a shopper would recognise.
  *
- * The colourway axis is found by VALUE through `findSwatchAxis`, never by its
- * label — same rule the cards follow. A product whose colours are not all
- * known, or that has no colour axis at all, yields ONE offer over every
- * variant rather than a guessed grouping.
+ * A product is ONE colourway: colours are separate products, each with its own
+ * page, its own stock and therefore its own offer at its own URL. So this
+ * emits a single offer over every variant, named by the colour when the
+ * garment declares one. Sizes are deliberately not enumerated as offers —
+ * they narrow the same purchase at the same price rather than being separate
+ * things to buy.
  */
 function colourwayOffers(product: ProductView, url: string): ProductOffer[] {
-  const axis = findSwatchAxis(product);
-
-  if (!axis) {
-    return product.variants.length > 0 ? [offer(product.variants, url)] : [];
+  if (product.variants.length === 0) {
+    return [];
   }
 
-  const axisIndex = product.axes.indexOf(axis);
-
-  return axis.values.flatMap((value) => {
-    const variants = product.variants.filter(
-      (variant) => variant.combination[axisIndex] === value,
-    );
-
-    // An axis value with no variant behind it is a wire artefact, not a
-    // colourway on sale.
-    return variants.length > 0 ? [{ ...offer(variants, url), name: value }] : [];
-  });
+  const single = offer(product.variants, url);
+  return [
+    product.colourway ? { ...single, name: product.colourway.name } : single,
+  ];
 }
 
 /**
