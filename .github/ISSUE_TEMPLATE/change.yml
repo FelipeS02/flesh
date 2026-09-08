@@ -1,0 +1,25 @@
+name: Change request
+description: Propose a focused product or engineering change.
+title: "[Change]: "
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the outcome this change should deliver.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Explain why the change is needed and what currently happens.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: List the observable conditions that define completion.
+    validations:
+      required: true
