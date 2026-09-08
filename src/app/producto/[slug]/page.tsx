@@ -179,6 +179,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             fallback={
               <PurchasePanelFallback
                 product={{ axes: product.axes, variants: product.variants }}
+                productId={product.id}
                 defaultVariantId={product.defaultVariantId}
               />
             }
@@ -188,6 +189,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
               // use for `descriptionHtml`, which is already being sent once for
               // the block below.
               product={{ axes: product.axes, variants: product.variants }}
+              productId={product.id}
               defaultVariantId={product.defaultVariantId}
             />
           </Suspense>
