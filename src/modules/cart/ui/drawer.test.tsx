@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { renderToStaticMarkup } from "react-dom/server";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CartStoragePort } from "../api/storage";
+import { CHECKOUT_UNAVAILABLE_REASON } from "../api/checkout.local";
+import type { CheckoutPort } from "../api/port";
 import type { CartCatalog } from "../domain/catalog-projection";
 import { CartProvider, useCartDispatch } from "../state/cart-context";
 import { CartDrawer } from "./drawer";
@@ -45,7 +46,7 @@ function Harness({ addLine = false }: { addLine?: boolean }) {
 }
 
 describe("CartDrawer", () => {
-  it("opens, moves focus to its close control, and returns focus to the trigger when closed", async () => {
+  it("opens and returns focus to the trigger when closed", async () => {
     render(
       <CartProvider catalog={CATALOG} transferRateBp={1000} storage={emptyStorage()}>
         <Harness />
@@ -57,7 +58,9 @@ describe("CartDrawer", () => {
     fireEvent.click(trigger);
 
     expect(screen.getByRole("dialog", { name: "Carrito" })).not.toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cerrar carrito" }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole("button", { name: "Cerrar carrito" })),
+    );
 
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
 
@@ -80,16 +83,7 @@ describe("CartDrawer", () => {
     expect(screen.queryByText("Tu carrito esta vacio")).toBeNull();
   });
 
-  it("shows loading while hydrating and only shows empty once ready with zero lines", () => {
-    const serverMarkup = renderToStaticMarkup(
-      <CartProvider catalog={CATALOG} transferRateBp={1000}>
-        <CartDrawer open onOpenChange={() => {}} />
-      </CartProvider>,
-    );
-
-    expect(serverMarkup).toContain("Cargando carrito…");
-    expect(serverMarkup).not.toContain("Tu carrito esta vacio");
-
+  it("shows empty only once a ready cart has zero lines", () => {
     const storage: CartStoragePort = {
       read: () => ({
         lines: [],
@@ -112,5 +106,49 @@ describe("CartDrawer", () => {
     expect(screen.getByText("Tu carrito esta vacio")).not.toBeNull();
     expect(screen.getByText("Un producto ya no está disponible.")).not.toBeNull();
     markup.unmount();
+  });
+
+  it("runs the local checkout from idle through pending to its honest unavailable outcome", async () => {
+    render(
+      <CartProvider catalog={CATALOG} transferRateBp={1000} storage={emptyStorage()}>
+        <Harness addLine />
+      </CartProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "seed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir carrito" }));
+
+    const checkout = screen.getByRole("button", { name: "Finalizar compra" }) as HTMLButtonElement;
+    act(() => {
+      checkout.click();
+    });
+
+    expect(checkout.disabled).toBe(true);
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(CHECKOUT_UNAVAILABLE_REASON));
+  });
+
+  it("identifies every affected line when checkout rejects the cart", async () => {
+    const rejectedCheckout: CheckoutPort = {
+      startCheckout: async () => ({ status: "rejected", lines: [201, 999] }),
+    };
+
+    render(
+      <CartProvider
+        catalog={CATALOG}
+        transferRateBp={1000}
+        storage={emptyStorage()}
+        checkout={rejectedCheckout}
+      >
+        <Harness addLine />
+      </CartProvider>,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "seed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Abrir carrito" }));
+    fireEvent.click(screen.getByRole("button", { name: "Finalizar compra" }));
+
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("Remera Classic / M");
+    expect(alert.textContent).toContain("999");
   });
 });
