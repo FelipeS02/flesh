@@ -68,6 +68,29 @@ describe("Header", () => {
     expect(screen.getByRole("button", { name: "Abrir carrito" })).not.toBeNull();
   });
 
+  it("keeps the header pinned and shrinks the wordmark while scrolling", () => {
+    const { container } = renderHeader();
+    const header = container.querySelector("header");
+    const wordmark = screen.getByRole("link", { name: /flesh/i }).querySelector("svg");
+
+    expect(header?.classList.contains("sticky")).toBe(true);
+    expect(header?.style.getPropertyValue("--_header-scroll-progress")).toBe("0");
+    expect(header?.style.getPropertyValue("--_logotype-scale")).toBe("1");
+    expect(wordmark?.classList.contains("scale-(--_logotype-scale)")).toBe(true);
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 80 });
+    fireEvent.scroll(window);
+
+    expect(header?.style.getPropertyValue("--_header-scroll-progress")).toBe("0.5");
+    expect(header?.style.getPropertyValue("--_logotype-scale")).toBe("0.875");
+
+    Object.defineProperty(window, "scrollY", { configurable: true, value: 320 });
+    fireEvent.scroll(window);
+
+    expect(header?.style.getPropertyValue("--_header-scroll-progress")).toBe("1");
+    expect(header?.style.getPropertyValue("--_logotype-scale")).toBe("0.75");
+  });
+
   it("shows the ready item count and opens the cart drawer from its trigger", () => {
     renderHeader(2);
 
