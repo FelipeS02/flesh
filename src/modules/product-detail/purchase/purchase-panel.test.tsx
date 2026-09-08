@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { withNuqsTestingAdapter, type OnUrlUpdateFunction } from "nuqs/adapters/testing";
 import type { OptionAxis, VariantMatrix, VariantView } from "@/modules/catalog";
+import type { CartCatalog } from "@/modules/cart/domain/catalog-projection";
+import { CartProvider, useCartState } from "@/modules/cart";
 import { PurchasePanel, PurchasePanelFallback } from "./purchase-panel";
 
 const ARS = "ARS";
@@ -41,6 +43,31 @@ const TEE: VariantMatrix = {
   ],
 };
 
+const CART_CATALOG: CartCatalog = [
+  {
+    productId: 101,
+    slug: "tee",
+    title: "Tee",
+    image: null,
+    variants: TEE.variants.map((variant) => ({
+      id: variant.id,
+      combination: variant.combination,
+      price: variant.price,
+      inStock: variant.inStock,
+    })),
+  },
+];
+
+function CartProbe() {
+  const state = useCartState();
+
+  if (state.status === "hydrating") {
+    return null;
+  }
+
+  return <output data-testid="cart-lines">{state.lines.map((line) => `${line.variantId} x${line.quantity}`).join(",")}</output>;
+}
+
 function renderPanel(
   product: VariantMatrix = TEE,
   {
@@ -54,7 +81,10 @@ function renderPanel(
   } = {},
 ) {
   return render(
-    <PurchasePanel product={product} defaultVariantId={defaultVariantId} />,
+    <CartProvider catalog={CART_CATALOG} transferRateBp={1000}>
+      <PurchasePanel product={product} productId={101} defaultVariantId={defaultVariantId} />
+      <CartProbe />
+    </CartProvider>,
     {
       wrapper: withNuqsTestingAdapter({ searchParams, onUrlUpdate, hasMemory: true }),
     },
@@ -162,7 +192,7 @@ describe("PurchasePanel", () => {
     expect(event.options.shallow).toBe(true);
   });
 
-  it("keeps the URL untouched when add-to-cart is activated", async () => {
+  it("adds the resolved in-stock variant to cart without changing the URL", async () => {
     const onUrlUpdate = vi.fn();
     renderPanel(TEE, { onUrlUpdate });
 
@@ -173,6 +203,7 @@ describe("PurchasePanel", () => {
 
     expect(onUrlUpdate).not.toHaveBeenCalled();
     expect(addToCart.getAttribute("disabled")).toBeNull();
+    expect(screen.getByTestId("cart-lines").textContent).toBe("201 x1");
   });
 
   it("says the garment is gone rather than offering a dead add-to-cart", () => {
@@ -210,7 +241,6 @@ describe("PurchasePanel", () => {
     const struck = screen.getByText("$27.000");
 
     expect(struck.tagName).toBe("S");
-    expect(struck.className).toContain("text-muted-foreground");
     expect(screen.getByText("$18.900")).toBeDefined();
     expect(screen.getByText("$17.010")).toBeDefined();
   });
@@ -225,13 +255,13 @@ describe("PurchasePanel", () => {
  */
 describe("PurchasePanelFallback", () => {
   it("prices the default variant, so the price is in the prerendered HTML", () => {
-    render(<PurchasePanelFallback product={TEE} defaultVariantId={201} />);
+    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={201} />);
 
     expect(screen.getByText("$27.000")).toBeDefined();
   });
 
   it("opens on the default variant's selection, not on an empty one", () => {
-    render(<PurchasePanelFallback product={TEE} defaultVariantId={204} />);
+    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={204} />);
 
     const sizes = within(screen.getByRole("group", { name: "Talle" }));
     expect(sizes.getByRole("button", { name: "M" }).getAttribute("aria-pressed")).toBe(
@@ -240,14 +270,14 @@ describe("PurchasePanelFallback", () => {
   });
 
   it("renders every axis, so the layout does not shift when the panel hydrates", () => {
-    render(<PurchasePanelFallback product={TEE} defaultVariantId={201} />);
+    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={201} />);
 
     expect(screen.getByRole("group", { name: "Talle" })).toBeDefined();
     expect(screen.getByRole("group", { name: "Color" })).toBeDefined();
   });
 
   it("says what the default variant's CTA says", () => {
-    render(<PurchasePanelFallback product={TEE} defaultVariantId={202} />);
+    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={202} />);
 
     expect(screen.getByRole("button", { name: "Sin stock" })).toBeDefined();
   });

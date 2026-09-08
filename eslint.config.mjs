@@ -59,6 +59,33 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  // `cart/api/**` is private for the same reason as catalog/api: consumers
+  // cross the module boundary through `cart/index.ts`, not a checkout or
+  // storage implementation. This is deliberately a separate object so each
+  // module exempts only itself from the other module's restriction.
+  {
+    files: ["**/*.{ts,tsx,js,jsx,mjs}"],
+    ignores: ["src/modules/cart/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: [
+                "**/modules/cart/api",
+                "**/modules/cart/api/**",
+                "**/cart/api",
+                "**/cart/api/**",
+              ],
+              message:
+                "The cart module's API layer is private. Import from '@/modules/cart' instead â€” it exposes the provider hooks, drawer, selectors, and CheckoutPort without implementation details.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

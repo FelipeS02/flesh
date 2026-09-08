@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
 
 /* FLESH runs ONE theme. The site is black in every state — there is no light
    mode, so there is no second token set and no `.dark` block.
@@ -91,7 +91,7 @@
      characters only, so pulling a webfont down for that job would cost a
      download to draw a handful of glyphs — and a high-contrast serif is the
      brand's own second voice anyway (the FLESH wordmark is a serif). */
-  --font-display: var(--font-kraut), Georgia, "Times New Roman", serif;
+  --font-display: var(--font-kraut), Georgia, 'Times New Roman', serif;
 
   /* `--font-sans` carries controls and dense information: field labels, size
      buttons, spec lists, shipping copy. Copperplate Gothic Std 30 AB is an
@@ -152,7 +152,6 @@
   }
   body {
     @apply bg-background text-foreground antialiased;
-   
   }
   html {
     @apply font-sans;
@@ -162,7 +161,7 @@
        hardcoded height nobody can keep in sync with the copy. */
     interpolate-size: allow-keywords;
 
-     ::-webkit-scrollbar {
+    ::-webkit-scrollbar {
       @apply size-2;
     }
 

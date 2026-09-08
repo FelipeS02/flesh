@@ -10,11 +10,15 @@ import {
   type OptionAxis,
   type Selection,
   type VariantMatrix,
+  type VariantView,
 } from "@/modules/catalog/client";
+import { useCartDispatch } from "@/modules/cart";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
 
 type PurchasePanelProps = {
+  /** Domain identity needed by the cart reducer; plain RSC-safe data. */
+  productId: number;
   /**
    * Only the axes and variants — never the whole `ProductView`. The panel is a
    * client component, so everything it takes crosses the RSC boundary as
@@ -35,8 +39,9 @@ type PurchasePanelProps = {
  * `shallow` (nuqs' default): choosing a size is a client-side change and must
  * not round-trip to the server.
  */
-export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps) {
+export function PurchasePanel({ product, productId, defaultVariantId }: PurchasePanelProps) {
   const { axes } = product;
+  const dispatch = useCartDispatch();
 
   // Keyed by axis label, so a product with axes we have never seen still gets
   // readable params. Memoised because `useQueryStates` treats the key map as
@@ -51,9 +56,18 @@ export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps)
   return (
     <PanelView
       product={product}
+      productId={productId}
       defaultVariantId={defaultVariantId}
       query={query}
       onSelect={(index, value) => setQuery({ [keys[index]!]: paramValue(value) })}
+      onAdd={(variant) =>
+        dispatch({
+          type: "add",
+          productId,
+          variantId: variant.id,
+          price: variant.price,
+        })
+      }
     />
   );
 }
@@ -75,11 +89,13 @@ export function PurchasePanel({ product, defaultVariantId }: PurchasePanelProps)
  */
 export function PurchasePanelFallback({
   product,
+  productId,
   defaultVariantId,
 }: PurchasePanelProps) {
   return (
     <PanelView
       product={product}
+      productId={productId}
       defaultVariantId={defaultVariantId}
       query={{}}
       onSelect={() => {}}
@@ -90,10 +106,11 @@ export function PurchasePanelFallback({
 type PanelViewProps = PurchasePanelProps & {
   query: Readonly<Record<string, string | null | undefined>>;
   onSelect: (axisIndex: number, value: string) => void;
+  onAdd?: (variant: VariantView) => void;
 };
 
 /** Everything the panel draws, given a selection somebody else read. */
-function PanelView({ product, defaultVariantId, query, onSelect }: PanelViewProps) {
+function PanelView({ product, defaultVariantId, query, onSelect, onAdd }: PanelViewProps) {
   const { axes, variants } = product;
   const keys = axisParamKeys(axes);
 
@@ -138,13 +155,10 @@ function PanelView({ product, defaultVariantId, query, onSelect }: PanelViewProp
         />
       ))}
 
-      {/* Deliberately inert: this slice ships the panel, and the cart it feeds
-          is a separate change. It stays a real, focusable button so the
-          keyboard and screen-reader path is built and tested now rather than
-          bolted on later. */}
       <button
         type="button"
         disabled={!canAddToCart}
+        onClick={() => selected && onAdd?.(selected)}
         // The artboard turns the whole block muted rather than fading the red:
         // red at 40% is still red, and a washed-out version of the one control
         // you are meant to press reads as a rendering fault rather than a
