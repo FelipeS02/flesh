@@ -3,6 +3,7 @@ import { pick } from "../lib/locale";
 import { parseMoney } from "../lib/money";
 import { toSafeHtml } from "../lib/sanitize";
 import type { Colourway } from "./colourway";
+import { selectSizeChart, type GarmentFit, type GarmentSize } from "./garment";
 import {
   CatalogContractError,
   type ImageView,
@@ -24,6 +25,7 @@ export function mapToProductView(
   // (see `api/colourways.ts`), so they are passed in rather than read off the
   // product. `null` is the ordinary case: a garment that comes one way.
   colourway: Colourway | null = null,
+  garment: { fit?: GarmentFit | null; sizeChart?: readonly GarmentSize[] | null } = {},
 ): ProductView {
   assertPositionalCorrelation(product);
 
@@ -66,6 +68,8 @@ export function mapToProductView(
       .map((tag) => tag.trim())
       .filter(Boolean),
     colourway,
+    fit: garment.fit ?? null,
+    sizeChart: garment.sizeChart ? selectSizeChart(garment.sizeChart, axes) : null,
   };
 }
 

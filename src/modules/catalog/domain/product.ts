@@ -1,6 +1,7 @@
 import type { Money } from "../lib/money";
 import type { SafeHtml } from "../lib/sanitize";
 import type { Colourway } from "./colourway";
+import type { GarmentFit, GarmentSize } from "./garment";
 
 export type { Money, SafeHtml };
 
@@ -60,6 +61,8 @@ export type ProductView = {
    * `axes` — same garment, same photos, different pattern.
    */
   colourway: Colourway | null;
+  fit: GarmentFit | null;
+  sizeChart: readonly GarmentSize[] | null;
 };
 
 /**

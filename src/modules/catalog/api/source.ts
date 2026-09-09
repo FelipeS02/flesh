@@ -13,6 +13,9 @@ import { mapToProductView } from "../domain/map";
 import type { ProductView } from "../domain/product";
 import { ColourwayFieldSchema, toColourwayIndex } from "./colourways";
 import { colourwayField as rawColourwayField } from "./fixtures/colourways";
+import { fitField as rawFitField, sizeChartField as rawSizeChartField } from "./fixtures/garment-fields";
+import { FitFieldSchema, toFitIndex } from "./fit";
+import { SizeChartFieldSchema, toSizeChartIndex } from "./size-chart";
 import { products as rawProducts } from "./fixtures/products";
 import { ProductSchema } from "./schema";
 import type { TiendanubeProduct } from "./types";
@@ -31,6 +34,8 @@ const parsedProducts: TiendanubeProduct[] = rawProducts.map((product) =>
 const colourways = toColourwayIndex(
   ColourwayFieldSchema.parse(rawColourwayField),
 );
+const fits = toFitIndex(FitFieldSchema.parse(rawFitField));
+const sizeCharts = toSizeChartIndex(SizeChartFieldSchema.parse(rawSizeChartField));
 
 // Mapping happens per call, not once at module load, so a product that
 // violates the mapper's contract throws where it is actually requested
@@ -39,7 +44,10 @@ const colourways = toColourwayIndex(
 // product from listings) belongs at this same swap point later, and is a
 // documented seam, not something built now.
 function toView(product: TiendanubeProduct): ProductView {
-  return mapToProductView(product, colourways.get(product.id) ?? null);
+  return mapToProductView(product, colourways.get(product.id) ?? null, {
+    fit: fits.values.get(product.id) ?? null,
+    sizeChart: sizeCharts.values.get(product.id) ?? null,
+  });
 }
 
 function getProducts(): ProductView[] {

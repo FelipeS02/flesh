@@ -1,6 +1,6 @@
 import type { TiendanubeProduct } from "../types";
 
-// Tiendanube-faithful mock data — shaped to the REAL wire contract, not an
+// Tiendanube-faithful mock data â€” shaped to the REAL wire contract, not an
 // invented convenience shape (see decision: product-data-source). Kept as
 // `.ts` with `satisfies` rather than `.json`: `resolveJsonModule` is on, so a
 // JSON import would infer a wide structural type and let contract drift
@@ -10,7 +10,7 @@ import type { TiendanubeProduct } from "../types";
 // One deliberate departure from a live payload: image `src` values are paths
 // into `public/` rather than absolute CDN URLs, so the mock renders the real
 // garments in `next dev` instead of broken images. A live Tiendanube response
-// carries absolute URLs here — that swap will also need `images.remotePatterns`
+// carries absolute URLs here â€” that swap will also need `images.remotePatterns`
 // in `next.config.ts` before `next/image` will load them.
 export const products = [
   {
@@ -18,8 +18,8 @@ export const products = [
     name: { en: "Classic Tee", es: "Remera Classic", pt: "Camiseta Classic" },
     description: {
       en: "<p>A classic tee, drop 1.</p>",
-      es: "<p>Una remera clásica, drop 1.</p>",
-      pt: "<p>Uma camiseta clássica, drop 1.</p>",
+      es: "<p>Una remera clÃ¡sica, drop 1.</p>",
+      pt: "<p>Uma camiseta clÃ¡ssica, drop 1.</p>",
     },
     handle: {
       en: "classic-tee",
@@ -88,9 +88,8 @@ export const products = [
         subcategories: [],
       },
     ],
-    // `corte-*` names the PATTERN this garment is cut from, and both the fit
-    // scale and the size table hang off it (see `product-detail/garment/cuts`).
-    tags: "nuevo,drop-1,corte-remera-oversize",
+    // Garment fit and measurements are now supplied by Product Custom Fields.
+    tags: "nuevo,drop-1",
     published: true,
     visibility: "visible",
     created_at: "2026-01-01T00:00:00Z",
@@ -105,15 +104,15 @@ export const products = [
     },
     description: {
       en: "<p>One size, no variants.</p>",
-      es: "<p>Talle único, sin variantes.</p>",
-      pt: "<p>Tamanho único, sem variantes.</p>",
+      es: "<p>Talle Ãºnico, sin variantes.</p>",
+      pt: "<p>Tamanho Ãºnico, sem variantes.</p>",
     },
     handle: {
       en: "oversize-hoodie",
       es: "buzo-oversize",
       pt: "moletom-oversize",
     },
-    // Zero attributes — edge case the mapper (PR4b) must handle cleanly:
+    // Zero attributes â€” edge case the mapper (PR4b) must handle cleanly:
     // axes=[] and resolveVariant returns the single variant.
     attributes: [],
     variants: [
@@ -159,12 +158,12 @@ export const products = [
     name: {
       en: "Limited Cap",
       es: "Gorra Limitada",
-      pt: "Boné Limitado",
+      pt: "BonÃ© Limitado",
     },
     description: {
       en: "<p>Not yet on sale.</p>",
-      es: "<p>Todavía no a la venta.</p>",
-      pt: "<p>Ainda não à venda.</p>",
+      es: "<p>TodavÃ­a no a la venta.</p>",
+      pt: "<p>Ainda nÃ£o Ã  venda.</p>",
     },
     handle: {
       en: "limited-cap",
@@ -199,14 +198,14 @@ export const products = [
     categories: [],
     tags: "proximamente",
     published: false,
-    // Unlisted — must be excluded by getProducts()'s visibility filter.
+    // Unlisted â€” must be excluded by getProducts()'s visibility filter.
     visibility: "unlisted",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-02T00:00:00Z",
   },
 
   // ---------------------------------------------------------------------
-  // Review catalogue — one product per product STATE.
+  // Review catalogue â€” one product per product STATE.
   //
   // These exist to be looked at, not to be asserted against. A unit test
   // proves the code does what its author believed; it cannot say whether that
@@ -216,7 +215,7 @@ export const products = [
   //
   // Every one is `visible`, `drop-1` and reachable from the landing, so the
   // whole set can be walked in a browser. They are the first thing to delete
-  // when the live Tiendanube client lands — see `CatalogPort`.
+  // when the live Tiendanube client lands â€” see `CatalogPort`.
   //
   // The states the products above ALREADY cover, and which are not repeated
   // here: `nuevo` + a promotional price + one sold-out variant (101), no
@@ -230,7 +229,7 @@ export const products = [
     name: { en: "Sold Out Tee", es: "Remera Agotada", pt: "Camiseta Esgotada" },
     description: {
       en: "<p>Every size gone. The state the catalogue card does not draw yet.</p>",
-      es: "<p>Sin stock en todos los talles. El estado que la card todavía no dibuja.</p>",
+      es: "<p>Sin stock en todos los talles. El estado que la card todavÃ­a no dibuja.</p>",
       pt: "<p>Sem estoque em todos os tamanhos.</p>",
     },
     handle: {
@@ -287,7 +286,7 @@ export const products = [
     ],
     images: [{ id: 305, product_id: 104, src: "/products/1.png", position: 1 }],
     categories: [],
-    tags: "drop-1,corte-remera-oversize",
+    tags: "drop-1",
     published: true,
     visibility: "visible",
     created_at: "2026-01-01T00:00:00Z",
@@ -295,7 +294,7 @@ export const products = [
   },
 
   {
-    // DESTACADO, and nothing else — the badge on its own, at full price.
+    // DESTACADO, and nothing else â€” the badge on its own, at full price.
     id: 105,
     name: { en: "Featured Tee", es: "Remera Destacada", pt: "Camiseta Destaque" },
     description: {
@@ -329,7 +328,7 @@ export const products = [
     categories: [],
     // Also tagged `nuevo`, on purpose: this is the precedence case. Everything
     // in a first drop is new, so the badge must read DESTACADO.
-    tags: "nuevo,destacado,drop-1,corte-remera-oversize",
+    tags: "nuevo,destacado,drop-1",
     published: true,
     visibility: "visible",
     created_at: "2026-01-01T00:00:00Z",
@@ -383,7 +382,7 @@ export const products = [
     ],
     images: [{ id: 307, product_id: 106, src: "/products/4.webp", position: 1 }],
     categories: [],
-    tags: "destacado,drop-1,corte-remera-oversize",
+    tags: "destacado,drop-1",
     published: true,
     visibility: "visible",
     created_at: "2026-01-01T00:00:00Z",
@@ -391,14 +390,12 @@ export const products = [
   },
 
   {
-    // NO `corte-` TAG, but sold by size. The tolerant path: no fit scale, no
-    // size-table section, and the accordion below numbers 01, 02 rather than
-    // leaving a hole where 02 would have been.
+    // This product intentionally has no garment custom fields.
     id: 107,
     name: { en: "Uncut Tee", es: "Remera Sin Molde", pt: "Camiseta Sem Molde" },
     description: {
       en: "<p>No registered pattern, so the PDP says nothing about fit.</p>",
-      es: "<p>Sin molde registrado, así que el PDP no dice nada del calce.</p>",
+      es: "<p>Sin molde registrado, asÃ­ que el PDP no dice nada del calce.</p>",
       pt: "<p>Sem molde registrado.</p>",
     },
     handle: { en: "uncut-tee", es: "remera-sin-molde", pt: "camiseta-sem-molde" },
@@ -429,7 +426,7 @@ export const products = [
   },
 
   // ---------------------------------------------------------------------
-  // One design, two colourways — the pair the swatch row exists for.
+  // One design, two colourways â€” the pair the swatch row exists for.
   //
   // Colour is NOT an attribute here: 108 and 109 are separate products,
   // because Tiendanube gives a variant a single `image_id` and never a
@@ -438,7 +435,7 @@ export const products = [
   //
   // 108 is `visible` and 109 is `unlisted`: the grid draws one card per
   // design, and the second colour keeps a page of its own that the swatch
-  // links to. Nothing in the front-end filters the duplicate away — the
+  // links to. Nothing in the front-end filters the duplicate away â€” the
   // visibility does, through `getProducts`.
   //
   // What ties them together is neither of these records: it is the `group`
@@ -492,7 +489,7 @@ export const products = [
     ],
     images: [{ id: 309, product_id: 108, src: "/products/1.png", position: 1 }],
     categories: [],
-    tags: "drop-1,corte-remera-oversize",
+    tags: "drop-1",
     published: true,
     visibility: "visible",
     created_at: "2026-01-01T00:00:00Z",
@@ -533,7 +530,7 @@ export const products = [
     ],
     images: [{ id: 310, product_id: 109, src: "/products/2.png", position: 1 }],
     categories: [],
-    tags: "drop-1,corte-remera-oversize",
+    tags: "drop-1",
     published: true,
     // Unlisted, not hidden: no card in the grid, but the page the swatch
     // links to must still resolve. `getProductByHandle` deliberately does not

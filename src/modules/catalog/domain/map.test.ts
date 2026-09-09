@@ -214,3 +214,15 @@ describe("mapToProductView â€” sold-out requires explicit stock management", () 
     expect(result.variants[0]?.inStock).toBe(true);
   });
 });
+
+describe("mapToProductView — independent garment fields", () => {
+  it("retains Fit when its chart has no matching axis", () => {
+    const product = buildWireProduct({ variants: [buildWireVariant({ values: [] })] });
+    const result = mapToProductView(product, null, {
+      fit: { type: "bottom", position: 100 },
+      sizeChart: [{ size: "M", measurements: { chest_width: 52 } }],
+    });
+    expect(result.fit).toEqual({ type: "bottom", position: 100 });
+    expect(result.sizeChart).toBeNull();
+  });
+});

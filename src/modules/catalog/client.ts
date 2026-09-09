@@ -20,6 +20,9 @@ export type {
   VariantView,
 } from "./domain/product";
 
+export { measurementKeys } from "./domain/garment";
+export type { GarmentFit, GarmentSize, MeasurementKey } from "./domain/garment";
+
 // Colourways are pure domain: the index is built on the server (see
 // `api/source.ts`), but reading one is arithmetic over data already handed
 // down, so both the card and the PDP's client panel reach it from here.

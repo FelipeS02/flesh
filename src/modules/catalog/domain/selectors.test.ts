@@ -28,6 +28,8 @@ function buildProductView(overrides: Partial<ProductView> = {}): ProductView {
     inStock: true,
     tags: [],
     colourway: null,
+    fit: null,
+    sizeChart: null,
     ...overrides,
   };
 }

@@ -55,3 +55,19 @@ describe("getProductByHandle", () => {
     expect(result).toBeNull();
   });
 });
+
+describe("garment content joins", () => {
+  it("joins independent Fit and chart content only to a current product", () => {
+    const product = getProductByHandle("remera-classic");
+    expect(product?.fit).toEqual({ type: "top", position: 65 });
+    expect(product?.sizeChart?.map((row) => row.size)).toEqual(["S", "M"]);
+  });
+
+  it("does not create content for the stale custom-field owner", () => {
+    expect(getProducts().some((product) => product.id === 999)).toBe(false);
+  });
+});
+
+it("has no legacy cut-tag dependency in its fixture-backed product views", () => {
+  expect(getProducts().every((product) => product.tags.every((tag) => !tag.startsWith("corte-")))).toBe(true);
+});
