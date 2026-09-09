@@ -13,7 +13,6 @@ import {
 } from "@/modules/catalog";
 import { InfoAccordions } from "@/modules/product-detail/accordions/info-accordions";
 import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
-import { findGarmentCut } from "@/modules/product-detail/garment/cuts";
 import { FitScale } from "@/modules/product-detail/garment/fit-scale";
 import { ColourwaySelector } from "@/modules/product-detail/purchase/colourway-selector";
 import {
@@ -37,7 +36,7 @@ const PDP_SCRIM = "#000000B3";
  *
  * The listing is NOT the whole answer. A design's secondary colours are
  * `unlisted` so the grid draws one card per design, which means `getProducts`
- * filters out the exact pages every swatch row links to — they would fall back
+ * filters out the exact pages every swatch row links to â€” they would fall back
  * to on-demand rendering while the colour they sit beside is static. What gets
  * prerendered is therefore what is REACHABLE: the listing plus every colourway
  * in it.
@@ -61,7 +60,7 @@ export async function generateStaticParams() {
 /**
  * Per-product metadata: title, description, canonical and the share card.
  *
- * A missing product returns bare metadata rather than throwing — the page
+ * A missing product returns bare metadata rather than throwing â€” the page
  * component below is what owns the 404, and duplicating that decision here
  * would mean two places deciding what "not found" means.
  */
@@ -82,14 +81,14 @@ export async function generateMetadata({
  * inside the catalog module.
  *
  * Nothing on this page reads `searchParams`. The variant selection lives in
- * the query string, but only the client-side panel reads it — and it reads it
+ * the query string, but only the client-side panel reads it â€” and it reads it
  * inside a `<Suspense>` boundary, which is what lets the rest of the route
  * prerender to static HTML instead of resolving per request.
  */
 export default async function ProductPage({ params }: PageProps<"/producto/[slug]">) {
   const { slug } = await params;
-  // Two independent reads against the live API — the product and the colourway
-  // custom field — so they go out together rather than one after the other.
+  // Two independent reads against the live API â€” the product and the colourway
+  // custom field â€” so they go out together rather than one after the other.
   const [product, colourways] = await Promise.all([
     getProductByHandle(slug),
     getColourwayIndex(),
@@ -99,23 +98,19 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
     notFound();
   }
 
-  // Garment content, resolved on the server from the product's `corte-` tag.
-  // A product with no cut — or two — renders no fit scale at all rather than
-  // a guessed one.
-  const cut = findGarmentCut(product);
 
-  // One badge, decided in one place — stock outranks any tag the merchant
+  // One badge, decided in one place â€” stock outranks any tag the merchant
   // wrote, because being new is not news about a garment you cannot buy.
   const state = productState(product);
 
   return (
     // `relative` with no fixed height: the plate covers the whole DOCUMENT
-    // here, which on the PDP artboard is 1708px — taller than the viewport, so
+    // here, which on the PDP artboard is 1708px â€” taller than the viewport, so
     // `h-screen` would leave the page's lower half unpainted.
     <div className="relative flex min-h-screen flex-1 flex-col gap-10 px-4 md:px-0">
       {/* Structured data, not content: this is what turns the listing into a
           price-and-stock rich result. It is written absolute because Next
-          resolves `metadataBase` for metadata fields only — a JSON-LD block
+          resolves `metadataBase` for metadata fields only â€” a JSON-LD block
           reaches the crawler byte for byte, with no base to resolve against. */}
       <script
         type="application/ld+json"
@@ -134,7 +129,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             narrower desktop has to take the difference out of both columns
             proportionally instead of overflowing. */}
         {/* Sticky on desktop only. The panel column is the taller of the two
-            and the one worth scrolling — the garment should stay in view while
+            and the one worth scrolling â€” the garment should stay in view while
             you read its measurements, not scroll away above them. `self-start`
             is what makes it work: a stretched flex item is as tall as the row,
             and an element that tall has nothing left to stick within.
@@ -172,7 +167,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
 
           {/* The one dynamic slot on an otherwise prerendered page. Reading
               the query string during a static build is a CSR bailout, so the
-              reader has to sit inside a boundary — and the fallback renders
+              reader has to sit inside a boundary â€” and the fallback renders
               the DEFAULT selection rather than a skeleton, which is what keeps
               the price in the prerendered HTML. */}
           <Suspense
@@ -185,7 +180,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             }
           >
             <PurchasePanel
-              // Only the variant matrix crosses the boundary — the panel has no
+              // Only the variant matrix crosses the boundary â€” the panel has no
               // use for `descriptionHtml`, which is already being sent once for
               // the block below.
               product={{ axes: product.axes, variants: product.variants }}
@@ -194,15 +189,14 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             />
           </Suspense>
 
-          {cut && <FitScale fit={cut.fit} />}
+          {product.fit && <FitScale fit={product.fit} />}
 
           {/* The description moved INTO the first accordion rather than being
-              duplicated beside it — the artboard always filed it there, and
+              duplicated beside it â€” the artboard always filed it there, and
               PR8a only rendered it plainly so the page never shipped without
               it. Same node, new home. */}
           <InfoAccordions
-            product={{ descriptionHtml: product.descriptionHtml, axes: product.axes }}
-            cut={cut}
+            product={{ descriptionHtml: product.descriptionHtml, sizeChart: product.sizeChart }}
           />
         </div>
       </main>

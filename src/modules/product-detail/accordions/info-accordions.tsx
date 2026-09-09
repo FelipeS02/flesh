@@ -1,14 +1,12 @@
 import type { ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
 import type { ProductView } from "@/modules/catalog/client";
-import { findSizeAxis, type GarmentCut } from "../garment/cuts";
 import { ReturnsPolicy } from "./returns-policy";
 import { SizeTable } from "./size-table";
 
 type InfoAccordionsProps = {
-  product: Pick<ProductView, "descriptionHtml" | "axes">;
+  product: Pick<ProductView, "descriptionHtml" | "sizeChart">;
   /** The product's pattern, or `null` when we cannot name it — see `../garment/cuts`. */
-  cut: GarmentCut | null;
 };
 
 type Section = {
@@ -35,7 +33,7 @@ const ACCORDION_GROUP = "product-info";
  * `ACCORDION_GROUP`) and the expand animation (see `globals.css`). It works
  * before hydration and with scripting off, which a Radix accordion does not.
  */
-export function InfoAccordions({ product, cut }: InfoAccordionsProps) {
+export function InfoAccordions({ product }: InfoAccordionsProps) {
   const sections: Section[] = [
     {
       title: "Información",
@@ -44,11 +42,11 @@ export function InfoAccordions({ product, cut }: InfoAccordionsProps) {
     // Dropped entirely rather than rendered empty: with no registered pattern
     // there are no measurements, and an open section promising a size table
     // that is not there is worse than no section.
-    ...(cut
+    ...(product.sizeChart && product.sizeChart.some((size) => Object.keys(size.measurements).length > 0)
       ? [
           {
             title: "Tabla de talles",
-            content: <SizeTable cut={cut} sizeAxis={findSizeAxis(product)} />,
+            content: <SizeTable sizeChart={product.sizeChart} />,
           },
         ]
       : []),
