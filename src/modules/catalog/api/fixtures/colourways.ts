@@ -1,6 +1,6 @@
 import type { ColourwayField } from "../colourways";
 
-// The response of `GET /products/custom-fields/{field_id}/owners`, shaped
+// The response of `GET /products/custom-fields/custom/colourway/owners`, shaped
 // verbatim as the live store returns it â€” a separate resource from the
 // product, so a separate fixture. Swapping this for a real fetch is the whole
 // of the integration: the join in `./source.ts` does not change.
@@ -16,21 +16,21 @@ export const colourwayField = {
   id: "4dda0ec16565dbb89973c166689f4ce8",
   namespace: "custom",
   key: "colourway",
-  value_type: "object[]",
+  value_type: "object",
   owner_resource: "product",
   owners: [
     {
       entity_id: "108",
-      value: [{ hex: "#0A0A0A", color_name: "Noir", group: "remera-cruz" }],
+      value: { hex: "#0A0A0A", color_name: "Noir", group: "remera-cruz" },
     },
     {
       entity_id: "109",
-      value: [{ hex: "#E8E4DA", color_name: "Hueso", group: "remera-cruz" }],
+      value: { hex: "#E8E4DA", color_name: "Hueso", group: "remera-cruz" },
     },
     {
       // A product that no longer exists. `GET /products/999` is a 404.
       entity_id: "999",
-      value: [{ hex: "#7A1F1F", color_name: "Blood", group: "remera-cruz" }],
+      value: { hex: "#7A1F1F", color_name: "Blood", group: "remera-cruz" },
     },
   ],
   has_more: false,

@@ -29,9 +29,11 @@ import { z } from "zod";
 // - Timestamps are ISO 8601 strings.
 
 export const LangTextSchema = z.object({
-  en: z.string(),
-  es: z.string(),
-  pt: z.string(),
+  en: z.string().optional(),
+  es: z.string().optional(),
+  pt: z.string().optional(),
+}).refine((value) => Object.values(value).some((text) => text !== undefined), {
+  message: "At least one supported language is required.",
 });
 
 export const VisibilitySchema = z.enum(["visible", "unlisted", "hidden"]);

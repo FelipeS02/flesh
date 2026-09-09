@@ -2,6 +2,10 @@ import { describe, expect, it } from "vitest";
 import { pick } from "./locale";
 
 describe("pick", () => {
+  it("falls back deterministically when the requested locale is unsupported", () => {
+    expect(pick({ en: "Tee" }, "es")).toBe("Tee");
+  });
+
   it("resolves the 'es' key by default — UI copy is Spanish", () => {
     const result = pick({ en: "Tee", es: "Remera", pt: "Camiseta" });
 

@@ -104,23 +104,6 @@ export class CatalogContractError extends Error {
   }
 
   /**
-   * A garment is exactly one colour. More than one value in the colourway
-   * custom field means the merchant filled it as a list of sibling colours,
-   * which is the shape this model rejects on purpose — see `Colourway`.
-   * Taking the first would quietly pick a colour on their behalf.
-   */
-  static ambiguousColourway(
-    productId: number,
-    valueCount: number,
-  ): CatalogContractError {
-    return new CatalogContractError(
-      productId,
-      `carries ${valueCount} colourway values, expected exactly 1. A product ` +
-        `describes its OWN colour; siblings are found by matching group.`,
-    );
-  }
-
-  /**
    * A product with no variants has nothing to price and nothing to add to a
    * cart, so there is no honest `defaultVariantId` to publish.
    */

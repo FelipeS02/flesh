@@ -3,9 +3,9 @@
 // rather than importing it — this is a generic locale-resolution utility,
 // not something that should depend on the wire contract's shape.
 export interface LocalizedText {
-  en: string;
-  es: string;
-  pt: string;
+  en?: string;
+  es?: string;
+  pt?: string;
 }
 
 // UI copy is Spanish (see decision: scope-and-locale) — every caller that
@@ -21,5 +21,5 @@ export function pick(
   text: LocalizedText,
   locale: keyof LocalizedText = DEFAULT_LOCALE,
 ): string {
-  return text[locale];
+  return text[locale] ?? text.es ?? text.en ?? text.pt ?? "";
 }
