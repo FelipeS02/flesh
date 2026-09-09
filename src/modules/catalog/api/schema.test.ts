@@ -58,6 +58,19 @@ const wellFormedProduct = {
 };
 
 describe("ProductSchema", () => {
+  it("accepts only the language keys supported by the store", () => {
+    const product = ProductSchema.parse({
+      ...wellFormedProduct,
+      name: { es: "Remera Classic" },
+      description: { es: "<p>Una remera clásica.</p>" },
+      handle: { es: "remera-classic" },
+      attributes: [{ es: "Talle" }],
+      variants: [{ ...wellFormedProduct.variants[0], values: [{ es: "M" }] }],
+    });
+
+    expect(product.name).toEqual({ es: "Remera Classic" });
+  });
+
   it("parses a well-formed Tiendanube wire payload and preserves its data", () => {
     const result = ProductSchema.parse(wellFormedProduct);
 
