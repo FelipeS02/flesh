@@ -23,6 +23,7 @@ describe("live catalog source", () => {
     const loadSnapshot = vi.fn(async () => ({
       listed: [visible],
       all: [visible, unlisted],
+      checkout: [],
     }));
     const source = createCatalogSource(loadSnapshot);
 
@@ -37,6 +38,7 @@ describe("live catalog source", () => {
     const source = createCatalogSource(async () => ({
       listed: [visible],
       all: [visible, unlisted],
+      checkout: [],
     }));
 
     const products = await source.getProducts();
@@ -44,3 +46,5 @@ describe("live catalog source", () => {
     expect(products).not.toContain(unlisted);
   });
 });
+
+

@@ -255,4 +255,25 @@ describe("Tiendanube catalog loader", () => {
     await expect(createTiendanubeCatalogLoader(config, { fetchImpl })()).rejects.toThrow(/product payload/i);
     expect(fetchImpl).toHaveBeenCalledTimes(1);
   });
+
+  it("keeps a reachable unlisted product checkout-eligible with correctly mapped price and stock, while excluding it from listed", async () => {
+    const unlistedProduct = {
+      ...product,
+      id: 102,
+      handle: { es: "remera-unlisted" },
+      visibility: "unlisted",
+      variants: [{ ...product.variants[0], id: 202, product_id: 102, price: "50.00", stock: null, stock_management: false }],
+    };
+    const fetchImpl = successfulFetch([product, unlistedProduct]);
+    const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
+
+    expect(snapshot.listed.map((view) => view.id)).toEqual([101]);
+    expect(snapshot.checkout.map((item) => item.productId).sort()).toEqual([101, 102]);
+    expect(snapshot.checkout.find((item) => item.productId === 101)?.variants).toEqual([
+      { productId: 101, variantId: 201, price: { amount: 10000, currency: "ARS" }, stockManagement: true, stock: 2 },
+    ]);
+    expect(snapshot.checkout.find((item) => item.productId === 102)?.variants).toEqual([
+      { productId: 102, variantId: 202, price: { amount: 5000, currency: "ARS" }, stockManagement: false, stock: null },
+    ]);
+  });
 });

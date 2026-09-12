@@ -8,20 +8,24 @@
 // it, and exporting it would hand consumers a reason to hold wire data.
 //
 // A `'use client'` component must import from `./client.ts` instead. This file
-// re-exports `api/source`, which is marked `server-only` — reaching it from
+// re-exports `api/source`, which is marked `server-only` â€” reaching it from
 // the browser bundle is a build error, and `./client.ts` exists so that the
 // pure domain half is still importable from there.
 //
-// This file is convention; the ESLint `no-restricted-imports` rule (task
+// This file is convention; the ESLint no-restricted-imports rule (task
 // 4b.15) is what makes a deep import such as
 // `import type {...} from "@/modules/catalog/api/types"` actually fail
 // instead of merely being discouraged.
 export {
   getProducts,
+  getCheckoutProducts,
   getProductByHandle,
   getColourwayIndex,
 } from "./api/source";
-export type { CatalogPort } from "./api/port";
+export type { CatalogPort, CheckoutProduct, CheckoutVariant } from "./api/port";
+export { readTiendanubeConfig } from "./api/config";
+export type { TiendanubeConfig } from "./api/config";
+export type { ProductView } from "./domain/product";
 
 // The pricing policy port follows the same server-only pattern as the
 // catalog port above: today's rate is a local stand-in, tomorrow's is a
@@ -36,3 +40,6 @@ export type { PricingPolicy } from "./api/pricing";
 // storefront's price display runs in the client bundle and needs them, and
 // reaching them through this entry would drag `server-only` into the browser.
 export * from "./client";
+
+
+

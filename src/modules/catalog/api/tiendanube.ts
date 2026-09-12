@@ -8,6 +8,7 @@ import { FitFieldSchema, toFitIndex } from "./fit";
 import { ProductSchema } from "./schema";
 import { SizeChartFieldSchema, toSizeChartIndex } from "./size-chart";
 import type { TiendanubeProduct } from "./types";
+import type { CheckoutProduct } from "./port";
 
 const API_ORIGIN = "https://api.tiendanube.com";
 const PAGE_SIZE = 200;
@@ -29,6 +30,7 @@ type Dependencies = {
 export type CatalogSnapshot = {
   all: ProductView[];
   listed: ProductView[];
+  checkout: CheckoutProduct[];
 };
 
 const OwnersEnvelopeSchema = z.object({
@@ -145,16 +147,27 @@ export function createTiendanubeCatalogLoader(
 
     const all: ProductView[] = [];
     const listed: ProductView[] = [];
+    const checkout: CheckoutProduct[] = [];
     for (const product of products) {
       const view = mapToProductView(product, colourways.values.get(product.id) ?? null, {
         fit: fits.values.get(product.id) ?? null,
         sizeChart: sizeCharts.values.get(product.id) ?? null,
       });
       all.push(view);
+      checkout.push({
+        productId: product.id,
+        variants: product.variants.map((variant, index) => ({
+          productId: product.id,
+          variantId: variant.id,
+          price: view.variants[index]!.price,
+          stockManagement: variant.stock_management,
+          stock: variant.stock,
+        })),
+      });
       if (product.visibility === "visible") listed.push(view);
     }
 
-    return { all, listed };
+    return { all, listed, checkout };
   };
 }
 
@@ -324,3 +337,6 @@ function positiveNumber(value: string | null): number | null {
 function backoffMilliseconds(attempt: number, random: () => number): number {
   return 250 * 2 ** (attempt - 1) + Math.floor(random() * 100);
 }
+
+
+
