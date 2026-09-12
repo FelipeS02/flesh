@@ -37,7 +37,7 @@ describe("createLocalCheckout", () => {
   it("rejects a cart holding a variant the catalog now reports out of stock", async () => {
     const checkout = createLocalCheckout(catalogWith([{ id: 201, inStock: false }]));
 
-    const outcome = await checkout.startCheckout({ lines: [lineFor(201)] });
+    const outcome = await checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [lineFor(201)] });
 
     expect(outcome).toEqual({ status: "rejected", lines: [201] });
   });
@@ -45,7 +45,7 @@ describe("createLocalCheckout", () => {
   it("rejects a variant the catalog no longer knows at all", async () => {
     const checkout = createLocalCheckout(catalogWith([{ id: 201, inStock: true }]));
 
-    const outcome = await checkout.startCheckout({ lines: [lineFor(999)] });
+    const outcome = await checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [lineFor(999)] });
 
     expect(outcome).toEqual({ status: "rejected", lines: [999] });
   });
@@ -59,8 +59,7 @@ describe("createLocalCheckout", () => {
       ]),
     );
 
-    const outcome = await checkout.startCheckout({
-      lines: [lineFor(201), lineFor(202), lineFor(203)],
+    const outcome = await checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [lineFor(201), lineFor(202), lineFor(203)],
     });
 
     expect(outcome).toEqual({ status: "rejected", lines: [201, 203] });
@@ -74,8 +73,7 @@ describe("createLocalCheckout", () => {
       ]),
     );
 
-    const outcome = await checkout.startCheckout({
-      lines: [lineFor(201), lineFor(202)],
+    const outcome = await checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [lineFor(201), lineFor(202)],
     });
 
     expect(outcome).toEqual({
@@ -87,7 +85,7 @@ describe("createLocalCheckout", () => {
   it("answers unavailable for an empty cart, having no line to reject", async () => {
     const checkout = createLocalCheckout(catalogWith([{ id: 201, inStock: true }]));
 
-    const outcome = await checkout.startCheckout({ lines: [] });
+    const outcome = await checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [] });
 
     expect(outcome).toEqual({
       status: "unavailable",
@@ -99,7 +97,7 @@ describe("createLocalCheckout", () => {
   // the catalog cannot be imported from client code at all (design D1), and
   // the closure is simultaneously the seam this test stands on.
   it("answers from the catalog it was built with, not a shared one", async () => {
-    const cart = { lines: [lineFor(201)] };
+    const cart = { buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [lineFor(201)] };
     const stocked = createLocalCheckout(catalogWith([{ id: 201, inStock: true }]));
     const sold = createLocalCheckout(catalogWith([{ id: 201, inStock: false }]));
 
@@ -107,3 +105,5 @@ describe("createLocalCheckout", () => {
     expect(await sold.startCheckout(cart)).toMatchObject({ status: "rejected" });
   });
 });
+
+

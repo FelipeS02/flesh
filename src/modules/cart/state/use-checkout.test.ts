@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it, vi } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import type { CheckoutOutcome, CheckoutPort } from "../api/port";
 import type { CartView } from "../domain/line";
@@ -11,7 +11,7 @@ import { useCheckout } from "./use-checkout";
  * resolves immediately, so React batches pending and settled into a single
  * commit and the intermediate phase never reaches a rendered frame. Holding
  * the promise open is what turns a phase that exists in the code into a phase
- * a test can see — and it is why port injection is a design requirement rather
+ * a test can see Ã¢â‚¬â€ and it is why port injection is a design requirement rather
  * than a convenience.
  */
 function deferredPort() {
@@ -32,6 +32,7 @@ function deferredPort() {
 }
 
 const CART: CartView = {
+  buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" },
   lines: [{ productId: 101, variantId: 201, quantity: 1, price: { amount: 2_700_000, currency: "ARS" } }],
 };
 
@@ -92,7 +93,7 @@ describe("useCheckout", () => {
   });
 
   // A double-click on the CTA must not open two checkouts. Both calls land in
-  // the same tick, so the guard cannot be the rendered state — that is still
+  // the same tick, so the guard cannot be the rendered state Ã¢â‚¬â€ that is still
   // `idle` when the second one reads it.
   it("ignores a second request while the first is still in flight", () => {
     const { port, calls } = deferredPort();
@@ -128,3 +129,33 @@ describe("useCheckout", () => {
     expect(first.calls).toHaveLength(2);
   });
 });
+
+
+
+
+describe("checkout recovery and navigation", () => {
+  it("settles a rejected port promise into a generic actionable error", async () => {
+    const port: CheckoutPort = { startCheckout: async () => { throw new Error("private provider detail"); } };
+    const { result } = renderHook(() => useCheckout(port));
+    act(() => result.current.start(CART));
+    await act(async () => undefined);
+    expect(result.current.state).toEqual({ phase: "settled", outcome: { status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." } });
+  });
+
+  it("navigates only after a safe redirect URL", async () => {
+    const navigate = vi.fn();
+    const safe: CheckoutPort = { startCheckout: async () => ({ status: "redirect", url: "https://checkout.example.test/order/1" }) };
+    const { result } = renderHook(() => useCheckout(safe, navigate));
+    act(() => result.current.start(CART));
+    await act(async () => undefined);
+    expect(navigate).toHaveBeenCalledWith("https://checkout.example.test/order/1");
+
+    const unsafe: CheckoutPort = { startCheckout: async () => ({ status: "redirect", url: "http://checkout.example.test/order/1" }) };
+    const second = renderHook(() => useCheckout(unsafe, navigate));
+    act(() => second.result.current.start(CART));
+    await act(async () => undefined);
+    expect(navigate).toHaveBeenCalledTimes(1);
+    expect(second.result.current.state).toMatchObject({ phase: "settled", outcome: { status: "unavailable" } });
+  });
+});
+

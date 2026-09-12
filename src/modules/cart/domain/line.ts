@@ -31,7 +31,15 @@ export type CartLine = {
  * changing every `CheckoutPort` implementation's signature.
  */
 export type CartView = {
+  buyer: CheckoutBuyer;
   lines: CartLine[];
+};
+
+/** The minimum identity Tiendanube requires before it can create a Draft Order. */
+export type CheckoutBuyer = {
+  firstName: string;
+  lastName: string;
+  email: string;
 };
 
 /**

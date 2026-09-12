@@ -10,7 +10,7 @@ import {
   type ActionDispatch,
   type ReactNode,
 } from "react";
-import { createLocalCheckout } from "../api/checkout.local";
+import { createTiendanubeCheckout } from "../api/checkout.client";
 import type { CheckoutPort } from "../api/port";
 import { createCartStorage, type CartStoragePort } from "../api/storage";
 import { indexCartCatalog, type CartCatalog } from "../domain/catalog-projection";
@@ -32,7 +32,7 @@ import {
  * fact, and the PDP's add button and the header's badge sit on opposite sides
  * of that line.
  *
- * `null` as the default is deliberate — see the hooks below. A default value
+ * `null` as the default is deliberate â€” see the hooks below. A default value
  * shaped like an empty cart would let a component outside the provider render
  * as though the cart were known and empty, which is the same lie the hydration
  * union exists to forbid, arriving through a different door.
@@ -44,7 +44,7 @@ const CartDispatchContext = createContext<ActionDispatch<[CartAction]> | null>(n
  * Everything the server resolved and handed down, kept apart from the two
  * above because it never changes for the life of the tree. `transferRateBp`
  * lives here so the summary reads the rate the store actually configured
- * rather than a constant next to the markup — the spec's "the rate must not be
+ * rather than a constant next to the markup â€” the spec's "the rate must not be
  * a module constant read at call sites" applies to the cart exactly as it
  * applies to the PDP.
  */
@@ -69,7 +69,7 @@ type CartProviderProps = {
    */
   checkout?: CheckoutPort;
   /**
-   * Same seam, one layer down. Defaults to `window.localStorage` — built
+   * Same seam, one layer down. Defaults to `window.localStorage` â€” built
    * LAZILY inside the mount effect, never at import time, for exactly the
    * reason `createCartStorage` already documents: touching `window` while this
    * module is evaluated breaks the moment it is pulled into a server render.
@@ -93,7 +93,7 @@ export function CartProvider({
    * that is not a style choice: this provider also renders on the server,
    * where `window` does not exist, so an initializer reading storage would
    * produce a hydration mismatch. The union makes the cost of that decision
-   * honest — the first paint says "hydrating", not "empty".
+   * honest â€” the first paint says "hydrating", not "empty".
    *
    * Exactly ONE dispatch, carrying the pure result of `reconcile`. The effect
    * does the IO; the reducer does the reasoning.
@@ -118,8 +118,8 @@ export function CartProvider({
   /**
    * SKIPPED while hydrating, and this is the whole reason the status exists in
    * the reducer rather than only in the UI. Without the guard, the empty
-   * initial state is written over the stored cart — and now over its pending
-   * notices too — before either has ever been read. That is the classic
+   * initial state is written over the stored cart â€” and now over its pending
+   * notices too â€” before either has ever been read. That is the classic
    * localStorage-provider bug; it is designed out here rather than debugged
    * later.
    *
@@ -141,9 +141,9 @@ export function CartProvider({
       transferRateBp,
       // The local port re-checks availability against this same projection.
       // Building it here rather than at the call site keeps the closure over
-      // the catalog in one place — the catalog itself is unreachable from
+      // the catalog in one place â€” the catalog itself is unreachable from
       // client code (design D1), so a component could not build one anyway.
-      checkout: checkout ?? createLocalCheckout(catalog),
+      checkout: checkout ?? createTiendanubeCheckout(),
     }),
     [catalog, transferRateBp, checkout],
   );
@@ -194,14 +194,14 @@ function required<T>(value: T | null, hook: string): T {
  *
  * A line's `Money` collapses to `unitPriceMinor` + `currency`: that pair is a
  * WITNESS used only to detect drift on the next load, never for arithmetic or
- * display (design D3). Nothing else about the line is persisted — no title, no
- * combination, no image — so a renamed product cannot render from a stale copy.
+ * display (design D3). Nothing else about the line is persisted â€” no title, no
+ * combination, no image â€” so a renamed product cannot render from a stale copy.
  *
  * A notice keeps its `item` label, and it is the one display string in the
  * payload. It is stored because it is not a view onto anything live: a notice
  * is a record of what the shopper was TOLD, in the same sense the price
  * witness is a record of the price they were shown. The `unknown-variant` case
- * proves the point — its label has nothing left to re-derive from.
+ * proves the point â€” its label has nothing left to re-derive from.
  */
 function toStoredCart(lines: CartLine[], notices: CartNotice[]): StoredCart {
   return {
@@ -231,3 +231,4 @@ function toStoredNotice(notice: CartNotice): StoredCartNotice {
 
   return notice;
 }
+

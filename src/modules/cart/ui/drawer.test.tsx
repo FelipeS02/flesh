@@ -1,8 +1,8 @@
-import { useState } from "react";
+﻿import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { CartStoragePort } from "../api/storage";
-import { CHECKOUT_UNAVAILABLE_REASON } from "../api/checkout.local";
+import { CHECKOUT_FAILURE_REASON } from "../api/checkout-messages";
 import type { CheckoutPort } from "../api/port";
 import type { CartCatalog } from "../domain/catalog-projection";
 import { CartProvider, useCartDispatch } from "../state/cart-context";
@@ -104,13 +104,22 @@ describe("CartDrawer", () => {
     // client outcome. The dedicated server-render assertion below catches the
     // hydrating branch without pretending jsdom can pause effects.
     expect(screen.getByText("Tu carrito esta vacio")).not.toBeNull();
-    expect(screen.getByText("Un producto ya no está disponible.")).not.toBeNull();
+    expect(screen.getByText("Un producto ya no est\u00e1 disponible.")).not.toBeNull();
     markup.unmount();
   });
 
   it("runs the local checkout from idle through pending to its honest unavailable outcome", async () => {
+    const unavailableCheckout: CheckoutPort = {
+      startCheckout: async () => ({ status: "unavailable", reason: CHECKOUT_FAILURE_REASON }),
+    };
+
     render(
-      <CartProvider catalog={CATALOG} transferRateBp={1000} storage={emptyStorage()}>
+      <CartProvider
+        catalog={CATALOG}
+        transferRateBp={1000}
+        storage={emptyStorage()}
+        checkout={unavailableCheckout}
+      >
         <Harness addLine />
       </CartProvider>,
     );
@@ -124,7 +133,7 @@ describe("CartDrawer", () => {
     });
 
     expect(checkout.disabled).toBe(true);
-    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe(CHECKOUT_UNAVAILABLE_REASON));
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("No pudimos iniciar el checkout. Intent\u00e1 de nuevo."));
   });
 
   it("identifies every affected line when checkout rejects the cart", async () => {
@@ -152,3 +161,7 @@ describe("CartDrawer", () => {
     expect(alert.textContent).toContain("999");
   });
 });
+
+
+
+

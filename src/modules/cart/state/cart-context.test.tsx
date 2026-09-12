@@ -1,8 +1,7 @@
-import { beforeEach, describe, expect, it } from "vitest";
+﻿import { beforeEach, describe, expect, it } from "vitest";
 import { useLayoutEffect, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { fireEvent, render, renderHook, screen } from "@testing-library/react";
-import { CHECKOUT_UNAVAILABLE_REASON } from "../api/checkout.local";
 import type { CheckoutPort } from "../api/port";
 import { CART_STORAGE_KEY, createCartStorage, type CartStoragePort } from "../api/storage";
 import type { CartCatalog } from "../domain/catalog-projection";
@@ -19,7 +18,7 @@ const CATALOG_PRICE_202 = { amount: 3_100_000, currency: "ARS" } as const;
 const TRANSFER_RATE_BP = 1000;
 
 /**
- * Variant 203 is out of stock and 201 is priced at 2.700.000 — both matter:
+ * Variant 203 is out of stock and 201 is priced at 2.700.000 Ã¢â‚¬â€ both matter:
  * the stored carts below deliberately disagree with this catalog so that
  * rehydration has real drift to reconcile rather than a happy path to wave
  * through.
@@ -107,7 +106,7 @@ function Controls() {
 
 /**
  * Dispatches during the LAYOUT phase, which React runs before the provider's
- * passive mount effect — a deterministic stand-in for a click that lands
+ * passive mount effect Ã¢â‚¬â€ a deterministic stand-in for a click that lands
  * between mount and the read, with no timers and no luck involved.
  */
 function MidFlightAdd({ statusAtClick }: { statusAtClick: string[] }) {
@@ -117,7 +116,7 @@ function MidFlightAdd({ statusAtClick }: { statusAtClick: string[] }) {
   useLayoutEffect(() => {
     // Recorded, not assumed. Both orderings would produce the same final
     // quantity if the add merely landed late, so the test needs proof that the
-    // cart was still hydrating when this dispatch went out — otherwise it
+    // cart was still hydrating when this dispatch went out Ã¢â‚¬â€ otherwise it
     // would be green without the merge path ever running.
     statusAtClick.push(state.status);
     dispatch({ type: "add", productId: 101, variantId: 201, price: CATALOG_PRICE_201 });
@@ -233,7 +232,7 @@ describe("hydration", () => {
 
     // The add really did land in the gap, so what follows exercises the merge.
     expect(statusAtClick).toEqual(["hydrating"]);
-    // 2 stored + 1 clicked, in one line — not 2 (the click clobbered) and not
+    // 2 stored + 1 clicked, in one line Ã¢â‚¬â€ not 2 (the click clobbered) and not
     // 1 (the stored cart lost to an add that arrived first).
     expect(lineTexts()).toEqual(["201 x3 @2700000"]);
   });
@@ -356,9 +355,9 @@ describe("the provider's environment", () => {
       ),
     });
 
-    const outcome = await result.current.checkout.startCheckout({ lines: [] });
+    const outcome = await result.current.checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [] });
 
-    expect(outcome).toEqual({ status: "unavailable", reason: CHECKOUT_UNAVAILABLE_REASON });
+    expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intent\u00e1 de nuevo." });
   });
 
   it("uses an injected port instead, which is what makes pending testable", async () => {
@@ -378,7 +377,7 @@ describe("the provider's environment", () => {
       ),
     });
 
-    expect(await result.current.checkout.startCheckout({ lines: [] })).toEqual({
+    expect(await result.current.checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [] })).toEqual({
       status: "redirect",
       url: "https://example.test/checkout",
     });
@@ -387,7 +386,7 @@ describe("the provider's environment", () => {
 
 /**
  * A hook reaching a missing provider must say so, rather than handing back a
- * default that silently behaves like an empty cart — which is the same lie the
+ * default that silently behaves like an empty cart Ã¢â‚¬â€ which is the same lie the
  * hydration union exists to forbid, arriving through a different door.
  */
 describe("used outside the provider", () => {
@@ -403,3 +402,7 @@ describe("used outside the provider", () => {
     expect(() => renderHook(() => useCartEnvironment())).toThrow(/CartProvider/);
   });
 });
+
+
+
+
