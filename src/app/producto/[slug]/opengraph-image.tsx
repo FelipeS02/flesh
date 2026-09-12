@@ -124,7 +124,7 @@ function Card({ photo }: { photo: string | null }) {
         <img
           alt=""
           src={photo}
-          style={{ height: 546, objectFit: "contain", width: 546 }}
+          style={{ height: 620, objectFit: "contain", width: "auto" }}
         />
       )}
     </div>
