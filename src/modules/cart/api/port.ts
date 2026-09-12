@@ -10,13 +10,13 @@ import type { CartView } from "../domain/line";
 export type CartLineId = VariantView["id"];
 
 /**
- * `redirect` and `rejected` have no implementation in this change (no
- * server exists yet, and rehydration-time drift already removes every
- * unavailable line before checkout can see one — see design D5). They stay
- * in the type because the LIVE checkout must be able to return them, and a
- * caller written against this port today should already have a branch
- * ready for the day it does. `unavailable` is the only outcome the local
- * implementation (`createLocalCheckout`, PR2b) can honestly produce.
+ * `rejected` names the variants checkout refused, from either of the two
+ * authorities that can refuse one: the server-side catalog projection, and
+ * the provider itself, which revalidates stock when the order is created
+ * and can therefore contradict a cached read. `unavailable` is the single
+ * generic failure and deliberately carries no provider detail — a caller
+ * can only ask the buyer to retry. The local implementation
+ * (`createLocalCheckout`, PR2b) can honestly produce `unavailable` alone.
  */
 export type CheckoutOutcome =
   | { status: "redirect"; url: string }

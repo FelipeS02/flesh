@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCheckoutRateGuard } from "./checkout.guard";
 import { startTiendanubeCheckout } from "./checkout.service";
+import type { DraftOrderCheckoutResult } from "./checkout.tiendanube";
 
 const CATALOG = [{ productId: 101, variants: [
   { productId: 101, variantId: 201, price: { amount: 1000, currency: "ARS" }, stockManagement: true, stock: 2 },
@@ -9,7 +10,7 @@ const CATALOG = [{ productId: 101, variants: [
 ] }];
 const INPUT = { buyer: { firstName: " Ada ", lastName: " Lovelace ", email: "ada@example.com" }, lines: [{ productId: 101, variantId: 201, quantity: 2, price: { amount: 1, currency: "USD" } }] };
 function dependencies() {
-  const createDraftOrder = vi.fn(async () => "https://checkout.example.com/checkout/99/token");
+  const createDraftOrder = vi.fn(async (): Promise<DraftOrderCheckoutResult> => ({ status: "redirect", url: "https://checkout.example.com/checkout/99/token" }));
   const getCheckoutProducts = vi.fn(async () => CATALOG);
   return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard() }, createDraftOrder, getCheckoutProducts };
 }
@@ -63,5 +64,26 @@ describe("startTiendanubeCheckout", () => {
   it("converts an upstream failure into a generic unavailable outcome", async () => {
     const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard() });
     expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
+  });
+
+  it("surfaces the variants the provider refused, even though the cached catalog allowed them", async () => {
+    const { dependencies: deps, createDraftOrder } = dependencies();
+    createDraftOrder.mockResolvedValue({ status: "rejected", variantIds: [201] });
+
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toEqual({ status: "rejected", lines: [201] });
+  });
+
+  it("keeps only refused variants the buyer actually asked for", async () => {
+    const { dependencies: deps, createDraftOrder } = dependencies();
+    createDraftOrder.mockResolvedValue({ status: "rejected", variantIds: [201, 999] });
+
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toEqual({ status: "rejected", lines: [201] });
+  });
+
+  it("falls back to the generic failure when the provider refuses only variants that were never requested", async () => {
+    const { dependencies: deps, createDraftOrder } = dependencies();
+    createDraftOrder.mockResolvedValue({ status: "rejected", variantIds: [999] });
+
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
   });
 });
