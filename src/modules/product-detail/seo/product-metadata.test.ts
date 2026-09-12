@@ -64,28 +64,20 @@ describe("productMetadata", () => {
     expect(metadata.alternates?.canonical).toBe("/producto/musculosa-demon");
   });
 
-  it("opens the graph with the first image by position, not by array order", () => {
-    const metadata = productMetadata(
-      makeProduct({
-        images: [
-          { id: 302, src: "/products/2.png", position: 2 },
-          { id: 301, src: "/products/1.png", position: 1 },
-        ],
-      }),
-    );
+  // Next resolves the `opengraph-image.tsx` route's own tags only when the
+  // metadata at this level declares no `images` of its own — see
+  // `next/dist/lib/metadata/resolve-metadata.js`. Declaring one here would buy
+  // a single `og:image` URL at the cost of the `width`, `height`, `type` and
+  // `alt` tags the route hands over for free.
+  it("declares no images, so the opengraph-image route's own tags survive", () => {
+    const metadata = productMetadata(makeProduct({ slug: "musculosa-demon" }));
 
-    expect(metadata.openGraph?.images).toEqual([{ url: "/products/1.png" }]);
+    expect(metadata.openGraph).not.toHaveProperty("images");
   });
 
   it("opens the graph on the canonical URL, so a share resolves to one page", () => {
     const metadata = productMetadata(makeProduct({ slug: "musculosa-demon" }));
 
     expect(metadata.openGraph?.url).toBe("/producto/musculosa-demon");
-  });
-
-  it("declares no openGraph image for a product that has none", () => {
-    const metadata = productMetadata(makeProduct({ images: [] }));
-
-    expect(metadata.openGraph?.images).toBeUndefined();
   });
 });

@@ -27,6 +27,16 @@ const eslintConfig = defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
+  // `opengraph-image.tsx` is not a page: it renders through satori, which
+  // understands a subset of HTML and CSS and knows nothing about
+  // `next/image` — there is no LCP and no browser on the other side, only a
+  // PNG. `<img>` is the only element that works here.
+  {
+    files: ["**/opengraph-image.tsx", "**/twitter-image.tsx"],
+    rules: {
+      "@next/next/no-img-element": "off",
+    },
+  },
   // The catalog module's wire layer (`api/**`) is private. `index.ts` not
   // re-exporting it is encapsulation by CONVENTION only — a deep import
   // still compiles. This rule is what makes it fail. The module itself is

@@ -41,7 +41,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
               <label className="text-sm" htmlFor="checkout-last-name">Apellido</label><input id="checkout-last-name" value={buyer.lastName} onChange={(event) => updateBuyer("lastName", event.target.value)} autoComplete="family-name" />
               <label className="text-sm" htmlFor="checkout-email">Email</label><input id="checkout-email" type="email" value={buyer.email} onChange={(event) => updateBuyer("email", event.target.value)} autoComplete="email" />
             </fieldset>
-            <button type="button" disabled={checkoutMachine.state.phase === "pending"} onClick={() => checkoutMachine.start({ buyer, lines: state.lines })} className="mt-4 h-14 w-full bg-primary font-display text-xl text-primary-foreground disabled:bg-muted disabled:text-muted-foreground md:h-16 md:text-2xl">
+            <button type="button" disabled={checkoutMachine.state.phase === "pending"} onClick={() => checkoutMachine.start({ buyer, lines: state.lines })} className="mt-4 h-12 w-full bg-primary font-display text-lg text-primary-foreground disabled:bg-muted disabled:text-muted-foreground md:h-14 md:text-xl">
               {checkoutMachine.state.phase === "pending" ? "Finalizando compra..." : "Finalizar compra"}
             </button>
             <CheckoutOutcome catalog={catalog} state={checkoutMachine.state} />

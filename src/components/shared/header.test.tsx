@@ -1,19 +1,19 @@
-import { describe, expect, it } from "vitest";
-import { useLayoutEffect } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { fireEvent, render, screen } from "@testing-library/react";
-import type { CartCatalog } from "@/modules/cart/domain/catalog-projection";
-import { CartProvider, useCartDispatch } from "@/modules/cart";
-import { Header } from "./header";
+import { describe, expect, it } from 'vitest';
+import { useLayoutEffect } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { fireEvent, render, screen } from '@testing-library/react';
+import type { CartCatalog } from '@/modules/cart/domain/catalog-projection';
+import { CartProvider, useCartDispatch } from '@/modules/cart';
+import { Header } from './header';
 
-const PRICE = { amount: 2_700_000, currency: "ARS" } as const;
+const PRICE = { amount: 2_700_000, currency: 'ARS' } as const;
 const CATALOG: CartCatalog = [
   {
     productId: 101,
-    slug: "remera-classic",
-    title: "Remera Classic",
+    slug: 'remera-classic',
+    title: 'Remera Classic',
     image: null,
-    variants: [{ id: 201, combination: ["M"], price: PRICE, inStock: true }],
+    variants: [{ id: 201, combination: ['M'], price: PRICE, inStock: true }],
   },
 ];
 
@@ -22,7 +22,13 @@ function SeedCart({ quantity }: { quantity: number }) {
 
   useLayoutEffect(() => {
     if (quantity > 0) {
-      dispatch({ type: "add", productId: 101, variantId: 201, price: PRICE, quantity });
+      dispatch({
+        type: 'add',
+        productId: 101,
+        variantId: 201,
+        price: PRICE,
+        quantity,
+      });
     }
   }, [dispatch, quantity]);
 
@@ -38,77 +44,101 @@ function renderHeader(quantity = 0) {
   );
 }
 
-describe("Header", () => {
-  it("renders a link to the homepage wrapping the wordmark", () => {
+describe('Header', () => {
+  it('renders a link to the homepage wrapping the wordmark', () => {
     renderHeader();
 
-    const link = screen.getByRole("link", { name: /flesh/i });
+    const link = screen.getByRole('link', { name: /flesh/i });
 
-    expect(link.getAttribute("href")).toBe("/");
+    expect(link.getAttribute('href')).toBe('/');
   });
 
-  it("renders the FLESH wordmark svg inside that link", () => {
+  it('renders the FLESH wordmark svg inside that link', () => {
     renderHeader();
 
-    const link = screen.getByRole("link", { name: /flesh/i });
-    const svg = link.querySelector("svg");
+    const link = screen.getByRole('link', { name: /flesh/i });
+    const svg = link.querySelector('svg');
 
     expect(svg).not.toBeNull();
-    expect(svg?.getAttribute("viewBox")).toBe("0 0 575 229");
+    expect(svg?.getAttribute('viewBox')).toBe('0 0 575 229');
   });
 
-  it("keeps the wordmark in the middle column and reserves the third for the cart trigger", () => {
+  it('keeps the wordmark in the middle column and reserves the third for the cart trigger', () => {
     const { container } = renderHeader();
 
-    const header = container.querySelector("header");
-    const link = screen.getByRole("link", { name: /flesh/i });
+    const header = container.querySelector('header');
+    const link = screen.getByRole('link', { name: /flesh/i });
 
     expect(header?.children).toHaveLength(2);
     expect(header?.firstElementChild).toBe(link);
-    expect(screen.getByRole("button", { name: "Abrir carrito" })).not.toBeNull();
+    expect(
+      screen.getByRole('button', { name: 'Abrir carrito' }),
+    ).not.toBeNull();
   });
 
-  it("keeps the header pinned and shrinks the wordmark while scrolling", () => {
+  it('keeps the band pinned and shrinks the wordmark while scrolling', () => {
     const { container } = renderHeader();
-    const header = container.querySelector("header");
-    const wordmark = screen.getByRole("link", { name: /flesh/i }).querySelector("svg");
+    const band = container.querySelector<HTMLElement>('[data-header-band]');
+    const wordmark = screen
+      .getByRole('link', { name: /flesh/i })
+      .querySelector('svg');
 
-    expect(header?.classList.contains("sticky")).toBe(true);
-    expect(header?.style.getPropertyValue("--_header-scroll-progress")).toBe("0");
-    expect(header?.style.getPropertyValue("--_logotype-scale")).toBe("1");
-    expect(wordmark?.classList.contains("scale-(--_logotype-scale)")).toBe(true);
+    expect(band?.classList.contains('sticky')).toBe(true);
+    expect(band?.style.getPropertyValue('--header-scroll-progress')).toBe('0');
+    expect(band?.style.getPropertyValue('--_logotype-scale')).toBe('1');
+    expect(wordmark?.classList.contains('scale-(--_logotype-scale)')).toBe(
+      true,
+    );
 
-    Object.defineProperty(window, "scrollY", { configurable: true, value: 80 });
+    Object.defineProperty(window, 'scrollY', { configurable: true, value: 80 });
     fireEvent.scroll(window);
 
-    expect(header?.style.getPropertyValue("--_header-scroll-progress")).toBe("0.5");
-    expect(header?.style.getPropertyValue("--_logotype-scale")).toBe("0.875");
+    expect(band?.style.getPropertyValue('--header-scroll-progress')).toBe(
+      '0.5',
+    );
+    expect(band?.style.getPropertyValue('--_logotype-scale')).toBe('0.875');
 
-    Object.defineProperty(window, "scrollY", { configurable: true, value: 320 });
+    Object.defineProperty(window, 'scrollY', {
+      configurable: true,
+      value: 320,
+    });
     fireEvent.scroll(window);
 
-    expect(header?.style.getPropertyValue("--_header-scroll-progress")).toBe("1");
-    expect(header?.style.getPropertyValue("--_logotype-scale")).toBe("0.75");
+    expect(band?.style.getPropertyValue('--header-scroll-progress')).toBe('1');
+    expect(band?.style.getPropertyValue('--_logotype-scale')).toBe('0.75');
   });
 
-  it("shows the ready item count and opens the cart drawer from its trigger", () => {
+  it('carries the promo marquee inside the band, so it reads the same scroll progress', () => {
+    const { container } = renderHeader();
+
+    const band = container.querySelector('[data-header-band]');
+    const marquee = container.querySelector('[data-promo-marquee]');
+
+    expect(marquee).not.toBeNull();
+    expect(band?.contains(marquee!)).toBe(true);
+    // Above the wordmark row: the marquee is the first thing on the page,
+    // and the one that collapses out of the way first.
+    expect(band?.firstElementChild).toBe(marquee);
+  });
+
+  it('shows the ready item count and opens the cart drawer from its trigger', () => {
     renderHeader(2);
 
-    expect(screen.getByText("2")).not.toBeNull();
+    expect(screen.getByText('2')).not.toBeNull();
 
-    fireEvent.click(screen.getByRole("button", { name: "Abrir carrito" }));
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir carrito' }));
 
-    expect(screen.getByRole("dialog", { name: "Carrito" })).not.toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Carrito' })).not.toBeNull();
   });
 
-  it("renders no count while the cart is hydrating", () => {
+  it('renders no count while the cart is hydrating', () => {
     const markup = renderToStaticMarkup(
       <CartProvider catalog={CATALOG} transferRateBp={1000}>
         <Header />
       </CartProvider>,
     );
 
-    expect(markup).not.toContain("aria-label=\"0 productos en el carrito\"");
-    expect(markup).not.toContain("aria-label=\"2 productos en el carrito\"");
+    expect(markup).not.toContain('aria-label="0 productos en el carrito"');
+    expect(markup).not.toContain('aria-label="2 productos en el carrito"');
   });
 });

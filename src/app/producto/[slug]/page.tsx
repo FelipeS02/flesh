@@ -1,31 +1,35 @@
-import { Suspense } from "react";
-import type { Metadata } from "next";
-import { notFound } from "next/navigation";
-import { BackgroundPlate } from "@/components/shared/background-plate";
-import { Footer } from "@/components/shared/footer";
-import { Header } from "@/components/shared/header";
-import { siteUrl } from "@/lib/site-url";
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import { notFound } from 'next/navigation';
+import { PageScrim } from '@/components/shared/background-plate';
+import { Footer } from '@/components/shared/footer';
+import { Header } from '@/components/shared/header';
+import { siteUrl } from '@/lib/site-url';
 import {
   colourwayLinks,
   getColourwayIndex,
   getProductByHandle,
   getProducts,
-} from "@/modules/catalog";
-import { InfoAccordions } from "@/modules/product-detail/accordions/info-accordions";
-import { ProductGallery } from "@/modules/product-detail/gallery/product-gallery";
-import { FitScale } from "@/modules/product-detail/garment/fit-scale";
-import { ColourwaySelector } from "@/modules/product-detail/purchase/colourway-selector";
+} from '@/modules/catalog';
+import { InfoAccordions } from '@/modules/product-detail/accordions/info-accordions';
+import { ProductGallery } from '@/modules/product-detail/gallery/product-gallery';
+import { StageMetrics } from '@/modules/product-detail/gallery/stage-metrics';
+import { FitScale } from '@/modules/product-detail/garment/fit-scale';
+import { ColourwaySelector } from '@/modules/product-detail/purchase/colourway-selector';
 import {
   PurchasePanel,
   PurchasePanelFallback,
-} from "@/modules/product-detail/purchase/purchase-panel";
-import { productJsonLd, serializeJsonLd } from "@/modules/product-detail/seo/product-jsonld";
-import { productMetadata } from "@/modules/product-detail/seo/product-metadata";
-import { productState } from "@/modules/storefront/product-state";
-import { StateBadge } from "@/modules/storefront/state-badge";
+} from '@/modules/product-detail/purchase/purchase-panel';
+import {
+  productJsonLd,
+  serializeJsonLd,
+} from '@/modules/product-detail/seo/product-jsonld';
+import { productMetadata } from '@/modules/product-detail/seo/product-metadata';
+import { productState } from '@/modules/storefront/product-state';
+import { StateBadge } from '@/modules/storefront/state-badge';
 
 /** PDP artboard scrim: 70% black, one step lighter than the landing's. */
-const PDP_SCRIM = "#000000B3";
+const PDP_SCRIM = '#000000B3';
 
 /**
  * Prerenders every product at build time instead of resolving one per request.
@@ -66,7 +70,7 @@ export async function generateStaticParams() {
  */
 export async function generateMetadata({
   params,
-}: PageProps<"/producto/[slug]">): Promise<Metadata> {
+}: PageProps<'/producto/[slug]'>): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductByHandle(slug);
 
@@ -85,7 +89,9 @@ export async function generateMetadata({
  * inside a `<Suspense>` boundary, which is what lets the rest of the route
  * prerender to static HTML instead of resolving per request.
  */
-export default async function ProductPage({ params }: PageProps<"/producto/[slug]">) {
+export default async function ProductPage({
+  params,
+}: PageProps<'/producto/[slug]'>) {
   const { slug } = await params;
   // Two independent reads against the live API â€” the product and the colourway
   // custom field â€” so they go out together rather than one after the other.
@@ -98,32 +104,51 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
     notFound();
   }
 
-
   // One badge, decided in one place â€” stock outranks any tag the merchant
   // wrote, because being new is not news about a garment you cannot buy.
   const state = productState(product);
+
+  // Resolved once. The colour row is drawn twice on mobile — beside the title
+  // and again on the fixed widget — and both draw the same list.
+  const links = colourwayLinks(colourways, product);
 
   return (
     // `relative` with no fixed height: the plate covers the whole DOCUMENT
     // here, which on the PDP artboard is 1708px â€” taller than the viewport, so
     // `h-screen` would leave the page's lower half unpainted.
-    <div className="relative flex min-h-screen flex-1 flex-col gap-10 px-4 md:px-0">
+    // The vertical rhythm moved off this wrapper and onto `<main>`. A single
+    // `gap-10` here spaced header-to-main and main-to-footer identically,
+    // and mobile now needs those two to differ: the gallery has to start
+    // flush under the header band for its one-screenful height to be true,
+    // while the footer still wants air above it.
+    <div className='relative flex min-h-screen flex-1 flex-col px-4 md:px-0'>
       {/* Structured data, not content: this is what turns the listing into a
           price-and-stock rich result. It is written absolute because Next
           resolves `metadataBase` for metadata fields only â€” a JSON-LD block
           reaches the crawler byte for byte, with no base to resolve against. */}
       <script
-        type="application/ld+json"
+        type='application/ld+json'
         // Escaped by `serializeJsonLd`, which is the only reason this is safe:
         // merchant copy can contain a literal `</script>`.
         dangerouslySetInnerHTML={{
           __html: serializeJsonLd(productJsonLd(product, siteUrl())),
         }}
       />
-      <BackgroundPlate scrim={PDP_SCRIM} />
+      <PageScrim scrim={PDP_SCRIM} />
       <Header />
 
-      <main className="mx-auto flex w-full max-w-360 flex-1 flex-col gap-10 md:flex-row md:items-start md:gap-14 md:px-18">
+      {/* Renders nothing. It measures the sticky band and the fixed widget
+          and publishes their heights, which is what lets the mobile gallery
+          be exactly one screenful minus both without either number being
+          written down twice. */}
+      <StageMetrics />
+
+      {/* No gap on mobile between the header band and the gallery, and none
+          between the gallery and what follows: the stage is sized to exactly
+          one screenful minus that band and the fixed widget, and a 40px gap
+          on either side of it is 40px the arithmetic did not account for.
+          Desktop keeps the gap it always had. */}
+      <main className='mx-auto mb-10 flex w-full max-w-360 flex-1 flex-col md:mt-10 md:flex-row md:items-start md:gap-14 md:px-18'>
         {/* The artboard's 640 / 600 split, expressed as flex BASES rather than
             widths: they add up to 1296 only at a 1440 viewport, and every
             narrower desktop has to take the difference out of both columns
@@ -135,7 +160,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             and an element that tall has nothing left to stick within.
 
             Mobile stacks the two columns, so there is nothing to stay beside. */}
-        <div className="md:sticky md:top-10 md:min-w-0 md:basis-160 md:self-start">
+        <div className='md:sticky md:top-10 md:min-w-0 md:basis-160 md:self-start'>
           <ProductGallery
             images={product.images}
             title={product.title}
@@ -143,7 +168,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             // the badge copy stay on the server rather than crossing into the
             // gallery's client bundle.
             badge={<StateBadge state={state} />}
-            dimmed={state === "soldOut"}
+            dimmed={state === 'soldOut'}
           />
         </div>
 
@@ -151,8 +176,22 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
             the gallery box. The stage is a fixed 722px tall and the photo is
             `object-contain`, so a portrait shot letterboxes and its visible top
             edge sits about that far below the box it lives in. */}
-        <div className="flex w-full flex-col gap-6 md:min-w-0 md:basis-150 md:pt-10">
-          <h1 className="font-display text-2xl leading-[1.05] text-primary md:text-[45px]">
+        <div className='relative flex w-full flex-col gap-3 pt-6 md:min-w-0 md:basis-150 md:pt-10'>
+          {/* The marker the fixed widget watches, and nothing else. It is
+              ABSOLUTE so it stays outside this column's flex flow — as a
+              normal child it would take a `gap-3` of its own and push the
+              title down by 12px to mark a position it is only supposed to
+              report.
+
+              It sits here rather than on the column itself because an
+              `IntersectionObserver` reports crossings of a box: the column is
+              taller than the half-viewport the rule measures against, so it
+              is already intersecting before its top edge reaches the middle
+              and still intersecting after. A zero-height marker crosses
+              cleanly, once, in each direction. */}
+          <div data-pdp-panel-top aria-hidden='true' className='absolute inset-x-0 top-0 h-0' />
+
+          <h1 className='font-display text-2xl leading-[1.05] text-primary md:text-[45px]'>
             {product.title}
           </h1>
 
@@ -160,10 +199,7 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
               this page, so it belongs beside the title rather than inside a
               control that sets state. Nothing here reads the query string, so
               it stays in the static HTML. */}
-          <ColourwaySelector
-            links={colourwayLinks(colourways, product)}
-            currentSlug={product.slug}
-          />
+          <ColourwaySelector links={links} currentSlug={product.slug} />
 
           {/* The one dynamic slot on an otherwise prerendered page. Reading
               the query string during a static build is a CSR bailout, so the
@@ -176,6 +212,8 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
                 product={{ axes: product.axes, variants: product.variants }}
                 productId={product.id}
                 defaultVariantId={product.defaultVariantId}
+                colourways={links}
+                currentSlug={product.slug}
               />
             }
           >
@@ -186,6 +224,10 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
               product={{ axes: product.axes, variants: product.variants }}
               productId={product.id}
               defaultVariantId={product.defaultVariantId}
+              // Only the widget uses these; the panel hands them straight
+              // through. They are plain link data, not the catalogue.
+              colourways={links}
+              currentSlug={product.slug}
             />
           </Suspense>
 
@@ -196,12 +238,13 @@ export default async function ProductPage({ params }: PageProps<"/producto/[slug
               PR8a only rendered it plainly so the page never shipped without
               it. Same node, new home. */}
           <InfoAccordions
-            product={{ descriptionHtml: product.descriptionHtml, sizeChart: product.sizeChart }}
+            product={{
+              descriptionHtml: product.descriptionHtml,
+              sizeChart: product.sizeChart,
+            }}
           />
         </div>
       </main>
-
-      <Footer />
     </div>
   );
 }

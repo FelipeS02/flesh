@@ -2,23 +2,32 @@
 
 import { useMemo } from "react";
 import { parseAsString, useQueryStates } from "nuqs";
-import { cn } from "@/lib/utils";
 import {
   deriveAxisStates,
   resolveVariant,
-  type AxisValueView,
-  type OptionAxis,
+  type ColourwayLink,
   type Selection,
   type VariantMatrix,
   type VariantView,
 } from "@/modules/catalog/client";
 import { useCartDispatch } from "@/modules/cart";
+import { AxisSelector } from "./axis-selector";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
+import { PurchaseWidget } from "./purchase-widget";
 
 type PurchasePanelProps = {
   /** Domain identity needed by the cart reducer; plain RSC-safe data. */
   productId: number;
+  /**
+   * The colour row, repeated on the mobile widget.
+   *
+   * It reaches the panel only to be handed to that widget — the panel itself
+   * draws no colours, because picking one is a navigation the server-rendered
+   * `ColourwaySelector` above already owns.
+   */
+  colourways: ColourwayLink[];
+  currentSlug: string;
   /**
    * Only the axes and variants — never the whole `ProductView`. The panel is a
    * client component, so everything it takes crosses the RSC boundary as
@@ -39,7 +48,13 @@ type PurchasePanelProps = {
  * `shallow` (nuqs' default): choosing a size is a client-side change and must
  * not round-trip to the server.
  */
-export function PurchasePanel({ product, productId, defaultVariantId }: PurchasePanelProps) {
+export function PurchasePanel({
+  product,
+  productId,
+  defaultVariantId,
+  colourways,
+  currentSlug,
+}: PurchasePanelProps) {
   const { axes } = product;
   const dispatch = useCartDispatch();
 
@@ -58,6 +73,8 @@ export function PurchasePanel({ product, productId, defaultVariantId }: Purchase
       product={product}
       productId={productId}
       defaultVariantId={defaultVariantId}
+      colourways={colourways}
+      currentSlug={currentSlug}
       query={query}
       onSelect={(index, value) => setQuery({ [keys[index]!]: paramValue(value) })}
       onAdd={(variant) =>
@@ -91,12 +108,16 @@ export function PurchasePanelFallback({
   product,
   productId,
   defaultVariantId,
+  colourways,
+  currentSlug,
 }: PurchasePanelProps) {
   return (
     <PanelView
       product={product}
       productId={productId}
       defaultVariantId={defaultVariantId}
+      colourways={colourways}
+      currentSlug={currentSlug}
       query={{}}
       onSelect={() => {}}
     />
@@ -110,7 +131,15 @@ type PanelViewProps = PurchasePanelProps & {
 };
 
 /** Everything the panel draws, given a selection somebody else read. */
-function PanelView({ product, defaultVariantId, query, onSelect, onAdd }: PanelViewProps) {
+function PanelView({
+  product,
+  defaultVariantId,
+  colourways,
+  currentSlug,
+  query,
+  onSelect,
+  onAdd,
+}: PanelViewProps) {
   const { axes, variants } = product;
   const keys = axisParamKeys(axes);
 
@@ -140,8 +169,9 @@ function PanelView({ product, defaultVariantId, query, onSelect, onAdd }: PanelV
       : "Sin stock";
 
   return (
-    <div className="flex w-full flex-col gap-5">
-      {priced && <PriceBlock variant={priced} />}
+    <>
+      <div data-purchase-panel className="flex w-full flex-col gap-5">
+        {priced && <PriceBlock variant={priced} />}
 
       <hr className="border-border" />
 
@@ -159,101 +189,46 @@ function PanelView({ product, defaultVariantId, query, onSelect, onAdd }: PanelV
         type="button"
         disabled={!canAddToCart}
         onClick={() => selected && onAdd?.(selected)}
+        // Height, not decoration: 48px on mobile / 56px on desktop is the
+        // usual band for a primary e-commerce CTA — comfortably over the
+        // 44px touch-target floor (WCAG 2.1 AAA 2.5.5, Apple HIG) and over
+        // Material 3's 48dp baseline, without the 56/64 it carried before,
+        // which reads as a hero block rather than a button.
+        //
         // The artboard turns the whole block muted rather than fading the red:
         // red at 40% is still red, and a washed-out version of the one control
         // you are meant to press reads as a rendering fault rather than a
         // deliberate state.
-        className="h-14 w-full bg-primary font-display text-xl text-primary-foreground transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 md:h-16 md:text-2xl"
+        className="h-12 w-full bg-primary font-display text-lg text-primary-foreground transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100 md:h-14 md:text-xl"
       >
         {ctaLabel}
       </button>
-    </div>
-  );
-}
 
-type AxisSelectorProps = {
-  axis: OptionAxis;
-  values: AxisValueView[];
-  selected: string | null;
-  onSelect: (value: string) => void;
-};
-
-/**
- * One axis, drawn as labelled boxes.
- *
- * There is no colour-dot branch here any more, and that is a consequence of
- * the catalogue's shape rather than a styling choice: colours are separate
- * products, so an axis on a product is a size, a length, a cut — something
- * whose value is a word worth printing. The colour choice lives in
- * `ColourwaySelector`, which navigates instead of setting state.
- */
-function AxisSelector({ axis, values, selected, onSelect }: AxisSelectorProps) {
-  return (
-    <div className="flex flex-col gap-4">
-      <p className="flex items-center gap-2 font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
-        <span>Seleccionar {axis.label}</span>
-      </p>
-
-      <div role="group" aria-label={axis.label} className="flex items-center gap-2.5">
-        {values.map(({ value, state }) => (
-          <AxisOption
-            key={value}
-            axisLabel={axis.label}
-            value={value}
-            state={state}
-            isSelected={value === selected}
-            onSelect={onSelect}
-          />
-        ))}
       </div>
-    </div>
-  );
-}
 
-type AxisOptionProps = {
-  axisLabel: string;
-  value: string;
-  state: AxisValueView["state"];
-  isSelected: boolean;
-  onSelect: (value: string) => void;
-};
+      {/* The mobile shortcut. It renders from THIS component, which already
+          resolved the variant, rather than from the page beside it:
+          everything it shows — which sizes are buyable, which one is chosen,
+          what the button says, what it costs — is derived above, and deriving
+          it a second time somewhere else is how two controls for one choice
+          start disagreeing.
 
-function AxisOption({
-  axisLabel,
-  value,
-  state,
-  isSelected,
-  onSelect,
-}: AxisOptionProps) {
-  // Both unbuyable states are unselectable, but only one of them is worth
-  // explaining: "sold out" is a fact about this drop, while a combination that
-  // was never offered has nothing to announce beyond being unavailable.
-  const isDisabled = state !== "available";
-  const label = state === "soldOut" ? `${axisLabel} ${value} — agotado` : undefined;
-
-  return (
-    <button
-      type="button"
-      aria-pressed={isSelected}
-      aria-label={label}
-      disabled={isDisabled}
-      onClick={() => onSelect(value)}
-      className={cn(
-        "size-13 font-sans text-sm transition-colors md:text-base",
-        // An option can be selected AND unbuyable at once — a shared link
-        // carries a combination that has since sold out. The filled
-        // "selected" treatment is reserved for something you can actually
-        // buy; an unbuyable one keeps the muted box and marks the selection
-        // with a ring instead, so it never reads as a live choice.
-        isDisabled
-          ? "bg-muted text-muted-foreground line-through opacity-60"
-          : isSelected
-            ? "bg-secondary text-secondary-foreground"
-            : "bg-muted text-neutral-300",
-        isDisabled && isSelected && "ring-1 ring-inset ring-muted-foreground",
-      )}
-    >
-      {value}
-    </button>
+          It is a SIBLING of the panel rather than a child. `position: fixed`
+          makes its DOM position irrelevant to where it lands on screen, and
+          keeping it out of the panel's box is what lets the panel still be
+          addressed as one thing — by a test, or by anything else that needs
+          "the panel" to mean the panel and not the panel plus its echo. */}
+      <PurchaseWidget
+        product={product}
+        selection={selection}
+        colourways={colourways}
+        currentSlug={currentSlug}
+        priced={priced}
+        canAddToCart={canAddToCart}
+        ctaLabel={ctaLabel}
+        onSelect={onSelect}
+        onAdd={() => selected && onAdd?.(selected)}
+      />
+    </>
   );
 }

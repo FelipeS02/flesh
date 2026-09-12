@@ -146,6 +146,20 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* The promo band's drift.
+
+   The track holds the copy TWICE, so travelling -50% of it lands exactly one
+   lane along — the second lane arrives where the first started and the loop
+   has no seam to hide. Anything other than -50% needs a fade or a jump.
+
+   Stopping it is handled at the call site with `motion-reduce:animate-none`
+   rather than here, so the rule stays next to the component that owns it. */
+@keyframes promo-marquee-drift {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;

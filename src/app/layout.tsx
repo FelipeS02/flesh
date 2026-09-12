@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist_Mono } from "next/font/google";
 import localFont from "next/font/local";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { BackgroundPlate } from "@/components/shared/background-plate";
 import { BRAND, BRAND_LOCALE } from "@/lib/brand";
 import { siteUrl } from "@/lib/site-url";
 import { toCartCatalog } from "@/modules/cart/domain/catalog-projection";
@@ -103,14 +104,20 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="es"
-      className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full antialiased`}
+      className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full max-w-svw antialiased overflow-x-hidden`}
     >
       {/* `useQueryState` throws without an adapter mounted above it, and the
           PDP's variant selection is the first consumer. The adapter puts its
           own `useSearchParams` reader behind an internal `<Suspense>`, so
           mounting it at the root does NOT opt every page into dynamic
           rendering. */}
-      <body className="min-h-full flex flex-col overflow-x-hidden">
+      <body className="min-h-full flex flex-col ">
+        {/* Here and not in a page: a layout survives client-side navigation,
+            a page does not. Rendered per page, the plate's <video> was
+            remounted on every route change and restarted from the first
+            frame. Each page still draws its own `PageScrim` over it, which
+            is the only part of the plate the artboards vary. */}
+        <BackgroundPlate />
         <NuqsAdapter>
           {/* Inside the adapter, not outside it: the cart's own UI is the
               next thing to be built, and a drawer whose open state one day

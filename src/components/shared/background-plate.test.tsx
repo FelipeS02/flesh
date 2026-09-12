@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { render } from "@testing-library/react";
-import { BackgroundPlate } from "./background-plate";
+import { BackgroundPlate, PageScrim } from "./background-plate";
 
 describe("BackgroundPlate", () => {
   it("renders a looping, muted, inline-playing background video", () => {
@@ -42,19 +42,41 @@ describe("BackgroundPlate", () => {
     expect(container.firstElementChild?.className).toContain("fixed");
   });
 
-  it("applies the landing scrim strength (75% black) by default", () => {
+  // The scrim is a SIBLING rendered by the page, not a child of the plate:
+  // the plate is mounted once in the root layout so a route change cannot
+  // remount its <video>, and the scrim is the one part of it the artboards
+  // vary per page.
+  it("carries no scrim of its own — that belongs to the page", () => {
     const { container } = render(<BackgroundPlate />);
 
-    const scrim = container.querySelector("video ~ div") as HTMLElement | null;
+    expect(container.querySelector("video ~ div")).toBeNull();
+  });
+});
+
+describe("PageScrim", () => {
+  it("applies the landing scrim strength (75% black) by default", () => {
+    const { container } = render(<PageScrim />);
+
+    const scrim = container.firstElementChild as HTMLElement | null;
 
     expect(scrim?.style.backgroundColor).toBe("rgba(0, 0, 0, 0.75)");
   });
 
   it("accepts a caller-supplied scrim strength, e.g. the PDP's 70% black", () => {
-    const { container } = render(<BackgroundPlate scrim="#000000B3" />);
+    const { container } = render(<PageScrim scrim="#000000B3" />);
 
-    const scrim = container.querySelector("video ~ div") as HTMLElement | null;
+    const scrim = container.firstElementChild as HTMLElement | null;
 
     expect(scrim?.style.backgroundColor).toBe("rgba(0, 0, 0, 0.7)");
+  });
+
+  it("pins itself to the viewport and stays behind the page content", () => {
+    const { container } = render(<PageScrim />);
+
+    const scrim = container.firstElementChild;
+
+    expect(scrim?.className).toContain("fixed");
+    expect(scrim?.className).toContain("-z-10");
+    expect(scrim?.getAttribute("aria-hidden")).toBe("true");
   });
 });

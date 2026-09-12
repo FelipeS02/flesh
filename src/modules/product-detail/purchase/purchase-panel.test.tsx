@@ -82,7 +82,13 @@ function renderPanel(
 ) {
   return render(
     <CartProvider catalog={CART_CATALOG} transferRateBp={1000}>
-      <PurchasePanel product={product} productId={101} defaultVariantId={defaultVariantId} />
+      <PurchasePanel
+        product={product}
+        productId={101}
+        defaultVariantId={defaultVariantId}
+        colourways={[]}
+        currentSlug="remera-classic"
+      />
       <CartProbe />
     </CartProvider>,
     {
@@ -91,8 +97,23 @@ function renderPanel(
   );
 }
 
+/**
+ * The panel, scoped away from its own shortcut.
+ *
+ * The mobile widget draws the SAME axis groups and the same add-to-cart
+ * button, on purpose — so an unscoped `getByRole` now matches twice. These
+ * assertions are about the panel, and the widget has its own file.
+ */
+function panel(): HTMLElement {
+  return document.querySelector<HTMLElement>("[data-purchase-panel]")!;
+}
+
 function axisGroup(label: string): HTMLElement {
-  return screen.getByRole("group", { name: label });
+  return within(panel()).getByRole("group", { name: label });
+}
+
+function addToCart(name: RegExp | string): HTMLButtonElement {
+  return within(panel()).getByRole("button", { name });
 }
 
 function options(label: string): HTMLButtonElement[] {
@@ -113,7 +134,7 @@ describe("PurchasePanel", () => {
   it("renders one selector group per axis, whatever the axes are called", () => {
     renderPanel();
 
-    expect(screen.getAllByRole("group")).toHaveLength(2);
+    expect(within(panel()).getAllByRole("group")).toHaveLength(2);
     expect(options("Talle").map((button) => button.textContent?.trim())).toEqual([
       "M",
       "L",
@@ -131,13 +152,13 @@ describe("PurchasePanel", () => {
       variants: [variant(301, ["M", "Noir", "Regular"])],
     });
 
-    expect(screen.getAllByRole("group")).toHaveLength(3);
+    expect(within(panel()).getAllByRole("group")).toHaveLength(3);
   });
 
   it("renders no selector group at all for a product with no axes", () => {
     renderPanel({ axes: [], variants: [variant(401, [])] }, { defaultVariantId: 401 });
 
-    expect(screen.queryAllByRole("group")).toHaveLength(0);
+    expect(within(panel()).queryAllByRole("group")).toHaveLength(0);
     expect(screen.getByText("$27.000")).toBeDefined();
   });
 
@@ -196,13 +217,13 @@ describe("PurchasePanel", () => {
     const onUrlUpdate = vi.fn();
     renderPanel(TEE, { onUrlUpdate });
 
-    const addToCart = screen.getByRole("button", { name: /agregar al carrito/i });
+    const cta = addToCart(/agregar al carrito/i);
     await act(async () => {
-      addToCart.click();
+      cta.click();
     });
 
     expect(onUrlUpdate).not.toHaveBeenCalled();
-    expect(addToCart.getAttribute("disabled")).toBeNull();
+    expect(cta.getAttribute("disabled")).toBeNull();
     expect(screen.getByTestId("cart-lines").textContent).toBe("201 x1");
   });
 
@@ -211,7 +232,7 @@ describe("PurchasePanel", () => {
 
     // A disabled button still reading "Agregar al carrito" reads as a broken
     // site. Naming the reason is what makes the disabled state legible.
-    const cta = screen.getByRole("button", { name: /sin stock/i });
+    const cta = addToCart(/sin stock/i);
 
     expect((cta as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByRole("button", { name: /agregar al carrito/i })).toBeNull();
@@ -220,7 +241,7 @@ describe("PurchasePanel", () => {
   it("shows the transfer price, its label and the list price", () => {
     renderPanel();
 
-    expect(screen.getByText("$24.300")).toBeDefined();
+    expect(within(panel()).getByText("$24.300")).toBeDefined();
     expect(screen.getByText("$27.000")).toBeDefined();
     expect(screen.getByText(/con transferencia/i)).toBeDefined();
   });
@@ -242,7 +263,7 @@ describe("PurchasePanel", () => {
 
     expect(struck.tagName).toBe("S");
     expect(screen.getByText("$18.900")).toBeDefined();
-    expect(screen.getByText("$17.010")).toBeDefined();
+    expect(within(panel()).getByText("$17.010")).toBeDefined();
   });
 });
 
@@ -255,30 +276,54 @@ describe("PurchasePanel", () => {
  */
 describe("PurchasePanelFallback", () => {
   it("prices the default variant, so the price is in the prerendered HTML", () => {
-    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={201} />);
+    render(<PurchasePanelFallback
+        product={TEE}
+        productId={101}
+        defaultVariantId={201}
+        colourways={[]}
+        currentSlug="remera-classic"
+      />);
 
     expect(screen.getByText("$27.000")).toBeDefined();
   });
 
   it("opens on the default variant's selection, not on an empty one", () => {
-    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={204} />);
+    render(<PurchasePanelFallback
+        product={TEE}
+        productId={101}
+        defaultVariantId={204}
+        colourways={[]}
+        currentSlug="remera-classic"
+      />);
 
-    const sizes = within(screen.getByRole("group", { name: "Talle" }));
+    const sizes = within(axisGroup("Talle"));
     expect(sizes.getByRole("button", { name: "M" }).getAttribute("aria-pressed")).toBe(
       "true",
     );
   });
 
   it("renders every axis, so the layout does not shift when the panel hydrates", () => {
-    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={201} />);
+    render(<PurchasePanelFallback
+        product={TEE}
+        productId={101}
+        defaultVariantId={201}
+        colourways={[]}
+        currentSlug="remera-classic"
+      />);
 
-    expect(screen.getByRole("group", { name: "Talle" })).toBeDefined();
-    expect(screen.getByRole("group", { name: "Color" })).toBeDefined();
+    expect(axisGroup("Talle")).toBeDefined();
+    expect(axisGroup("Color")).toBeDefined();
   });
 
   it("says what the default variant's CTA says", () => {
-    render(<PurchasePanelFallback product={TEE} productId={101} defaultVariantId={202} />);
+    render(<PurchasePanelFallback
+        product={TEE}
+        productId={101}
+        defaultVariantId={202}
+        colourways={[]}
+        currentSlug="remera-classic"
+      />);
 
-    expect(screen.getByRole("button", { name: "Sin stock" })).toBeDefined();
+    expect(addToCart("Sin stock")).toBeDefined();
   });
 });

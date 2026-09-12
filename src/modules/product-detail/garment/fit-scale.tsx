@@ -19,7 +19,9 @@ export function FitScale({ fit }: FitScaleProps) {
       <div aria-hidden="true" className="relative flex h-2.5 items-center">
         <span className="block h-px w-full bg-border" />
         <span data-fit-marker className="absolute top-1/2 block -translate-x-1/2 -translate-y-1/2" style={{ left: `${percent}%` }}>
-          <FleshLogo className="size-6" />
+          {/* The mark draws itself in `currentColor` so the promo band can
+              tint it; the marker on this scale is white, and says so. */}
+          <FleshLogo className="size-6 text-foreground" />
         </span>
       </div>
       <div className="flex font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">

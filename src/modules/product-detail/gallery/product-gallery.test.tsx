@@ -114,10 +114,44 @@ describe("ProductGallery", () => {
       container.querySelectorAll<HTMLElement>('[data-slot="carousel-item"]'),
     ).map((slide) => slide.style.filter);
 
+    // The resting slide carries NO filter at all — an empty string, not
+    // `blur(0px)`. A zero-radius filter still promotes the photo to its own
+    // composited layer, which is what left a parked mobile slide looking soft.
     expect(filters).toEqual([
-      "blur(0px)",
+      "",
       ...Array<string>(4).fill(`blur(${MAX_BLUR_PX}px)`),
     ]);
+  });
+
+  // The PDP wraps its content in a 16px gutter (`px-4`). The photos are
+  // full-bleed studio shots, so honouring that gutter left the page
+  // background showing as two strips down the sides and read as a crop.
+  // Both halves matter: the negative margin alone would shift the stage
+  // without widening it.
+  it("breaks the stage out of the page gutter on mobile, and only on mobile", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    const stage = container.querySelector("[data-gallery-stage]");
+
+    expect(stage?.className).toContain("-mx-4");
+    expect(stage?.className).toContain("w-[calc(100%+2rem)]");
+    expect(stage?.className).toContain("md:mx-0");
+    expect(stage?.className).toContain("md:w-full");
+  });
+
+  // The stage gave up the gutter; the overlays carry it instead, so neither
+  // ends up flush against the screen edge.
+  it("keeps the badge and the counter clear of the screen edge on mobile", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} badge={<span>NEW</span>} />,
+    );
+
+    expect(container.querySelector("[data-gallery-badge]")?.className).toContain(
+      "left-7",
+    );
+    expect(screen.getByText("1 / 5").className).toContain("right-6");
   });
 
   it("renders neither a rail nor a counter for a single-image product", () => {

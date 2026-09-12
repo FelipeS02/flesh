@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
 import type { ProductView } from "@/modules/catalog/client";
-import { ReturnsPolicy } from "./returns-policy";
+import { ReturnsPolicy } from "@/modules/legal/returns-policy";
 import { SizeTable } from "./size-table";
 
 type InfoAccordionsProps = {
@@ -52,7 +52,9 @@ export function InfoAccordions({ product }: InfoAccordionsProps) {
       : []),
     {
       title: "Cambios y devoluciones",
-      content: <ReturnsPolicy />,
+      // The size table sits above this section on the PDP, so the copy is
+      // allowed to point at it. Nowhere else can.
+      content: <ReturnsPolicy sizeGuideNearby />,
     },
   ];
 

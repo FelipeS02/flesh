@@ -10,9 +10,7 @@ type NavItem = {
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Catalogo", href: "/#catalogo" },
   { label: "Instagram", href: "https://www.instagram.com/flesh.athletics/" },
-  // TODO(flesh-storefront/5b.3): destination genuinely undecided by the
-  // user — do not invent a URL for "Devolucion" until it is resolved.
-  { label: "Devolucion", href: "#" },
+  { label: "Devolucion", href: "/devoluciones" },
   {
     label: "Playlist",
     href: "https://open.spotify.com/playlist/3UAamrU7cnusH3qizK9wsv?si=e6d80b910a7e40c9",

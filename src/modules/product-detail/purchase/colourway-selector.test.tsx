@@ -49,7 +49,7 @@ describe("ColourwaySelector", () => {
       <ColourwaySelector links={links} currentSlug="remera-cruz-noir" />,
     );
 
-    const fills = [...container.querySelectorAll<HTMLElement>("span.size-10")];
+    const fills = [...container.querySelectorAll<HTMLElement>("[data-swatch]")];
 
     expect(fills.map((fill) => fill.style.backgroundColor)).toEqual([
       "rgb(10, 10, 10)",

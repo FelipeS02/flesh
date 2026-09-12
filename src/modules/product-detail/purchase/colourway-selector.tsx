@@ -1,6 +1,5 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
 import type { ColourwayLink } from "@/modules/catalog/client";
+import { ColourwaySwatches } from "./colourway-swatches";
 
 type ColourwaySelectorProps = {
   links: ColourwayLink[];
@@ -18,6 +17,10 @@ type ColourwaySelectorProps = {
  *
  * Sizes remain in the panel, where they belong: those genuinely are a choice
  * within this page.
+ *
+ * The row itself lives in `ColourwaySwatches` because the mobile widget draws
+ * the same colours in a smaller box. This component is what wraps them in the
+ * label that names the current one.
  */
 export function ColourwaySelector({ links, currentSlug }: ColourwaySelectorProps) {
   if (links.length === 0) {
@@ -27,7 +30,7 @@ export function ColourwaySelector({ links, currentSlug }: ColourwaySelectorProps
   const current = links.find((link) => link.slug === currentSlug);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-2">
       <p className="flex items-center gap-2 font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
         <span>Seleccionar Color</span>
         {/* A dot cannot say its own name, so the row prints the current one
@@ -36,47 +39,7 @@ export function ColourwaySelector({ links, currentSlug }: ColourwaySelectorProps
         {current && <span className="text-foreground">{current.name}</span>}
       </p>
 
-      <ul aria-label="Colores" className="flex items-center gap-2.5">
-        {links.map((link) => (
-          <li key={link.slug}>
-            {link.slug === currentSlug ? (
-              <span
-                aria-current="true"
-                className="flex size-12.5 items-center justify-center rounded-full ring-1 ring-inset ring-foreground"
-              >
-                <Swatch link={link} />
-                <span className="sr-only">{link.name}</span>
-              </span>
-            ) : (
-              <Link
-                href={`/producto/${link.slug}`}
-                className={cn(
-                  "flex size-12.5 items-center justify-center rounded-full",
-                  // A sold-out colour stays reachable on purpose: its page
-                  // carries the photographs and the sizes, and telling someone
-                  // they cannot even LOOK at it is a harsher answer than the
-                  // page itself gives.
-                  !link.inStock && "opacity-40",
-                )}
-              >
-                <Swatch link={link} />
-                <span className="sr-only">
-                  {link.inStock ? link.name : `${link.name} — agotado`}
-                </span>
-              </Link>
-            )}
-          </li>
-        ))}
-      </ul>
+      <ColourwaySwatches links={links} currentSlug={currentSlug} />
     </div>
-  );
-}
-
-function Swatch({ link }: { link: ColourwayLink }) {
-  return (
-    <span
-      className="block size-10 rounded-full border border-border"
-      style={{ backgroundColor: link.hex }}
-    />
   );
 }

@@ -1,3 +1,10 @@
+import "server-only";
+
+// The limiter's window lives in module-local state, so it only limits anything
+// where there is one shared instance: the server. Bundled into the browser it
+// would silently become a per-tab counter that the caller resets by reloading,
+// which is not a rate limit. The marker turns that mistake into a build error.
+
 export type CheckoutRateGuard = { consume: () => boolean };
 
 type Options = { now?: () => number; limit?: number; windowMs?: number };

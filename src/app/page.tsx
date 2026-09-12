@@ -1,4 +1,4 @@
-import { BackgroundPlate } from "@/components/shared/background-plate";
+import { PageScrim } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import { getColourwayIndex, getProducts } from "@/modules/catalog";
@@ -13,9 +13,9 @@ import { DropCatalog } from "@/modules/storefront/drop-catalog";
  * The page owns the vertical rhythm, not the shell: the artboards' `Content`
  * frame is a full-height `space-between` column with 16px of horizontal
  * padding on mobile, which is why `Header` carries only its top padding and
- * `Footer` only its bottom one. `BackgroundPlate` is absolutely positioned,
- * so this wrapper's `relative` is what gives it the full page height to
- * cover.
+ * `Footer` only its bottom one. The video plate lives in the root layout and
+ * the scrim is pinned to the viewport, so neither depends on this
+ * wrapper's height.
  */
 export default async function Home() {
   // Two reads, one round trip's worth of latency. Against the live API these
@@ -28,7 +28,7 @@ export default async function Home() {
 
   return (
     <div className="relative flex min-h-screen flex-1 flex-col justify-between gap-10 px-4 md:px-0">
-      <BackgroundPlate />
+      <PageScrim />
       <Header />
       <main>
         <DropCatalog products={products} colourways={colourways} />

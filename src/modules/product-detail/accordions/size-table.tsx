@@ -30,7 +30,7 @@ export function SizeTable({ sizeChart }: SizeTableProps) {
         </tr></thead>
         <tbody>
           {rows.map((key) => <tr key={key} className="border-t border-border">
-            <th scope="row" className="py-3.5 text-[9px] font-normal tracking-control text-muted-foreground md:text-[10px]">{measurementLabels[key]}</th>
+            <th scope="row" className="py-3.5 text-[9px] font-normal tracking-control text-muted-foreground md:text-[10px">{measurementLabels[key]}</th>
             {sizeChart.map(({ size, measurements }) => <td key={size} className="py-3.5 text-xs tracking-control text-foreground md:text-[13px]">{measurements[key] ?? "—"}</td>)}
           </tr>)}
         </tbody>
