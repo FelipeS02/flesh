@@ -25,6 +25,11 @@ export {
 export type { CatalogPort, CheckoutProduct, CheckoutVariant } from "./api/port";
 export { readTiendanubeConfig } from "./api/config";
 export type { TiendanubeConfig } from "./api/config";
+
+// The webhook that keeps the cached snapshot honest. Exported here so the
+// route handler under `app/` crosses the same boundary as every other
+// consumer instead of deep-importing `api/webhook`.
+export { handleCatalogWebhook, readCatalogWebhookSecret } from "./api/webhook";
 export type { ProductView } from "./domain/product";
 
 // The pricing policy port follows the same server-only pattern as the
