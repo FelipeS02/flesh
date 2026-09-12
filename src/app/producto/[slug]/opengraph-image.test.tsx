@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProductView } from "@/modules/catalog/client";
 import { makeProduct } from "../../../../test/fixtures/product-view";
@@ -15,6 +17,20 @@ const fetchMock = vi.fn<typeof fetch>();
 vi.stubGlobal("fetch", fetchMock);
 
 const PNG_MAGIC = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
+
+/**
+ * Width and height straight out of a PNG's IHDR chunk, which always sits at a
+ * fixed offset: the 8-byte signature, then the chunk's own 4-byte length and
+ * 4-byte type, putting width at 16 and height at 20.
+ */
+function pngSize(bytes: Buffer): { width: number; height: number } {
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
+
+/** The plate as it sits on disk — the shape every card has to agree with. */
+const PLATE_SIZE = pngSize(
+  readFileSync(join(process.cwd(), "public/product-og-image.png")),
+);
 
 function photoResponse(): Response {
   // A 1x1 PNG. Satori only has to decode it, not admire it.
@@ -44,6 +60,20 @@ describe("the product share card", () => {
 
     expect(png.subarray(0, 4)).toEqual(PNG_MAGIC);
     expect(png.byteLength).toBeGreaterThan(1000);
+  });
+
+  /**
+   * The plate is drawn edge to edge, so a card whose proportions differ from
+   * the file's are not a cropped plate — they are a STRETCHED one, and nothing
+   * in the output says so. Swapping the artwork for one of another shape is
+   * exactly how that happens, which is why the expectation is read from the
+   * file rather than written here as a number.
+   */
+  it("keeps the card at the plate's own proportions", async () => {
+    const { size } = await import("./opengraph-image");
+
+    expect(size).toEqual(PLATE_SIZE);
+    expect(pngSize(await render())).toEqual(PLATE_SIZE);
   });
 
   it("pulls the garment photo itself instead of leaving the fetch to satori", async () => {

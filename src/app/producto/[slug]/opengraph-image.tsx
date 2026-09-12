@@ -20,7 +20,6 @@ import { BRAND } from "@/lib/brand";
 import { getProductByHandle } from "@/modules/catalog";
 
 export const alt = `Prenda de ${BRAND} sobre la placa de cadenas`;
-export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
 /**
@@ -34,6 +33,59 @@ export const contentType = "image/png";
  */
 const plate = await readFile(join(process.cwd(), "public/product-og-image.png"));
 const PLATE_SRC = `data:image/png;base64,${plate.toString("base64")}`;
+
+/**
+ * The card is the plate, MEASURED rather than declared.
+ *
+ * The plate is drawn edge to edge, so these two numbers are not a frame around
+ * the artwork — they are its aspect ratio. Written by hand they are a second
+ * copy of a fact the file already states, and the day the artwork is redrawn
+ * in another shape the copy is simply wrong: the card keeps its old
+ * proportions and the plate is STRETCHED to fill them. Nothing errors, nothing
+ * looks broken in code review, and the distortion only ever shows up in
+ * somebody's chat preview.
+ *
+ * Reading it from the bytes removes that failure entirely. Swapping
+ * `public/product-og-image.png` for art of any size is now the whole change.
+ */
+export const size = plateSize(plate);
+
+/**
+ * How much of the card's shorter side the garment is allowed to occupy.
+ *
+ * The shorter side rather than the width or the height, so the composition
+ * survives a plate in either orientation: on a portrait card it is the width
+ * that runs out first, on a landscape one the height, and taking the smaller
+ * of the two means the garment never reaches an edge it was meant to float
+ * inside. THIS is the knob for how big the garment reads on the card.
+ */
+const GARMENT_SCALE = 0.8;
+const GARMENT_BOX = Math.round(Math.min(size.width, size.height) * GARMENT_SCALE);
+
+/**
+ * Width and height out of a PNG's IHDR chunk.
+ *
+ * Both live at fixed offsets — the 8-byte signature, then the chunk's own
+ * 4-byte length and 4-byte type put width at 16 and height at 20 — so this
+ * needs no decoder for a file we already hold in memory.
+ *
+ * It THROWS rather than falling back to a default, and at module scope that
+ * means the build fails. A share card silently drawn at some guessed size is
+ * the exact outcome this function exists to prevent, so it must not be able to
+ * produce one.
+ */
+function plateSize(bytes: Buffer): { width: number; height: number } {
+  const isPng =
+    bytes.subarray(0, 8).equals(
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    ) && bytes.subarray(12, 16).toString("ascii") === "IHDR";
+
+  if (!isPng) {
+    throw new Error("public/product-og-image.png is not a PNG with a leading IHDR chunk.");
+  }
+
+  return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+}
 
 /** `--background` from `globals.css`, in the only notation satori reads. */
 const INK = "#000000";
@@ -124,7 +176,11 @@ function Card({ photo }: { photo: string | null }) {
         <img
           alt=""
           src={photo}
-          style={{ height: 800, objectFit: "contain", width: 800 }}
+          style={{
+            height: GARMENT_BOX,
+            objectFit: "contain",
+            width: GARMENT_BOX,
+          }}
         />
       )}
     </div>
