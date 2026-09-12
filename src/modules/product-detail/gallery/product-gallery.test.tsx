@@ -29,6 +29,14 @@ function thumbnails(): HTMLElement[] {
   return screen.getAllByRole("button", { name: /imagen \d+ de \d+/i });
 }
 
+function slideFilters(container: HTMLElement): string[] {
+  return Array.from(
+    container.querySelectorAll<HTMLElement>('[data-slot="carousel-item"]'),
+  ).map((slide) => slide.style.filter);
+}
+
+const NO_BLUR = Array<string>(5).fill("");
+
 describe("ProductGallery", () => {
   it("renders one slide per image, ordered by position", () => {
     const { container } = render(
@@ -105,22 +113,62 @@ describe("ProductGallery", () => {
   // How the blur behaves *between* snaps is `slide-blur.test.ts`'s job —
   // jsdom has no layout for embla to scroll through. What this proves is the
   // wiring: the effect found the slide nodes and wrote a filter onto them.
-  it("blurs every slide that is not the resting one", () => {
+  it("blurs every slide that is not the resting one, on desktop", () => {
     const { container } = render(
       <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
     );
 
-    const filters = Array.from(
-      container.querySelectorAll<HTMLElement>('[data-slot="carousel-item"]'),
-    ).map((slide) => slide.style.filter);
+    act(() => setViewport("desktop"));
 
     // The resting slide carries NO filter at all — an empty string, not
     // `blur(0px)`. A zero-radius filter still promotes the photo to its own
-    // composited layer, which is what left a parked mobile slide looking soft.
-    expect(filters).toEqual([
+    // composited layer, which is what left a parked slide looking soft.
+    expect(slideFilters(container)).toEqual([
       "",
       ...Array<string>(4).fill(`blur(${MAX_BLUR_PX}px)`),
     ]);
+  });
+
+  // A phone pays for `filter: blur()` on a full-bleed photograph in the one
+  // currency the gallery cannot spend: a swipe that stutters behind the thumb
+  // dragging it.
+  //
+  // The second half is the part worth proving. The effect CLEARS rather than
+  // merely skipping, so a window narrowed across the breakpoint takes the
+  // filter back off — skipping alone would leave whatever was painted last
+  // frozen onto the slides, with no listener still running to remove it.
+  it("draws no blur on mobile, and strips one left over from desktop", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    expect(slideFilters(container)).toEqual(NO_BLUR);
+
+    act(() => setViewport("desktop"));
+    expect(slideFilters(container)).not.toEqual(NO_BLUR);
+
+    act(() => setViewport("mobile"));
+    expect(slideFilters(container)).toEqual(NO_BLUR);
+  });
+
+  // The thumbnail rail is a SIBLING of the stage, so a viewport budget spent
+  // entirely on the photograph does not squeeze the rail — it pushes it BELOW
+  // the fold, under the fixed purchase widget, where it cannot be reached.
+  // The column owns the budget and the stage takes what is left of it.
+  //
+  // jsdom computes no layout, so the classes are the only observable thing
+  // here; what they pin is WHICH box carries the measurement.
+  it("budgets the viewport on the column, not on the photograph", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    const stage = container.querySelector("[data-gallery-stage]");
+
+    expect(stage?.parentElement?.className).toContain("--pdp-widget-height");
+    expect(stage?.className).not.toContain("--pdp-widget-height");
+    expect(stage?.className).toContain("flex-1");
+    expect(stage?.className).toContain("min-h-0");
   });
 
   // The PDP wraps its content in a 16px gutter (`px-4`). The photos are

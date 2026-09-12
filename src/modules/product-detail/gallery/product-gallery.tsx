@@ -86,8 +86,27 @@ export function ProductGallery({
   // renders one, which does mean the server's markup is unblurred — but the
   // only slide the server's markup can show is the first one, and that one
   // is sharp at rest anyway.
+  //
+  // DESKTOP ONLY. `filter: blur()` on a full-bleed photograph is repainted
+  // every animation frame, and a phone pays for that in the one place the
+  // gallery cannot afford it: a swipe that stutters behind the thumb dragging
+  // it. The mouse wheel this effect was designed around does not exist here
+  // either — on mobile the same gesture scrolls the page.
+  //
+  // It CLEARS rather than merely skipping, because the breakpoint is crossed
+  // in both directions: a window narrowed from desktop would otherwise leave
+  // whatever blur was painted last frozen onto the slides, with no listener
+  // still running to take it off.
   useEffect(() => {
     if (!api) return;
+
+    if (!isDesktop) {
+      api.slideNodes().forEach((slide) => {
+        slide.style.filter = '';
+      });
+
+      return;
+    }
 
     const write = (blurs: number[]) => {
       api.slideNodes().forEach((slide, index) => {
@@ -133,7 +152,7 @@ export function ProductGallery({
       api.off('settle', paintResting);
       api.off('reInit', paintResting);
     };
-  }, [api]);
+  }, [api, isDesktop]);
 
   // Desktop only: the wheel is a mouse, and the vertical axis is the one it
   // reads as "next photo". A phone scrolls the page with the same gesture.
@@ -155,7 +174,29 @@ export function ProductGallery({
   }
 
   return (
-    <div className='flex w-full flex-col gap-4 md:flex-row md:items-start'>
+    // One screenful, minus the chrome that frames it: the sticky header band
+    // above and the fixed purchase widget below. Both heights are measured and
+    // published by `StageMetrics` — the fallbacks are what the first paint and
+    // any non-PDP use get, and they are deliberately close to the real thing
+    // rather than to zero, so a missing measurement reads as slightly off
+    // rather than as a full-bleed photograph.
+    //
+    // The budget belongs HERE, on the box that holds the stage AND the rail,
+    // not on the stage alone. Given to the stage, it is spent entirely on the
+    // photograph and the rail is then added BELOW it — pushing the controls
+    // off the bottom of the screen and under the purchase widget, which is
+    // exactly the bug this arrangement removes. The stage takes what is left
+    // over (`flex-1`) instead of taking everything.
+    //
+    // `dvh` and not `vh`: on a phone the browser chrome retracts as you
+    // scroll, and `vh` is the LARGE viewport — sized against it, the column
+    // would hide its own bottom edge behind the URL bar on the one screen this
+    // layout exists to fit exactly.
+    //
+    // Desktop opts out entirely (`md:h-auto`): the two-column PDP puts the
+    // panel beside the gallery, so the stage is a fixed height there and owes
+    // the viewport nothing.
+    <div className='flex h-[calc(100dvh-var(--pdp-band-height,6.5rem)-var(--pdp-widget-height,9.5rem))] w-full flex-col gap-4 md:h-auto md:flex-row md:items-start'>
       {/* 560px is the artboard's stage width at a 1440 viewport, so it is a
           CEILING, not a fixed size: on any narrower desktop the two-column PDP
           has less than 1296px to divide between gallery and panel, and a rigid
@@ -176,7 +217,7 @@ export function ProductGallery({
         ref={stage}
         data-gallery-stage
         data-orientation={orientation}
-        className='relative -mx-4 w-[calc(100%+2rem)] md:mx-0 md:w-full md:max-w-140 md:min-w-0 md:flex-1'
+        className='relative -mx-4 min-h-0 w-[calc(100%+2rem)] flex-1 md:mx-0 md:w-full md:max-w-140 md:min-w-0'
       >
         {/* `duration` is embla's own transition, in its internal units, not
             milliseconds — 25 is the default. Trimmed because the wheel can
@@ -188,29 +229,31 @@ export function ProductGallery({
           setApi={setApi}
           // The photo fades, the badge over it does not — the badge is the
           // thing explaining WHY the photo is faded.
-          className={cn('w-full', dimmed && 'opacity-40')}
+          //
+          // `h-full` twice over, and the second one is not decoration: the
+          // height now starts at the COLUMN and has to reach the track, and
+          // between them sits embla's own `overflow-hidden` wrapper, whose
+          // class list this component does not own. A percentage height stops
+          // dead at the first ancestor that is auto, so without the descendant
+          // rule the wrapper collapses to its content and the track has
+          // nothing to measure against.
+          className={cn(
+            'h-full w-full *:data-[slot=carousel-content]:h-full',
+            dimmed && 'opacity-40',
+          )}
         >
-          {/* The height lives on the TRACK, not on a wrapper: embla measures
-              the overflow container, and that container takes its height from
-              this element. A vertical carousel with an auto-height viewport
-              has nothing to scroll within. */}
-          {/* One screenful, minus the chrome that frames it: the sticky
-              header band above and the fixed purchase widget below. Both
-              heights are measured and published by `StageMetrics` — the
-              fallbacks are what the first paint and any non-PDP use get, and
-              they are deliberately close to the real thing rather than to
-              zero, so a missing measurement reads as slightly off rather than
-              as a full-bleed photograph.
+          {/* The track still needs an explicit height — embla measures the
+              overflow container, and that container takes its height from this
+              element, so a vertical carousel with an auto-height viewport has
+              nothing to scroll within. What changed is where the number comes
+              FROM: on mobile it is now inherited from the column above, which
+              has already set aside the rail's share, rather than claimed
+              straight from the viewport.
 
-              `dvh` and not `vh`: on a phone the browser chrome retracts as
-              you scroll, and `vh` is the LARGE viewport — sized against it,
-              the stage would hide its own bottom edge behind the URL bar on
-              the one screen this layout exists to fit exactly.
-
-              Desktop is unchanged: the two-column PDP has the panel beside
-              the gallery, so the stage is a fixed 722px there and owes the
+              Desktop is unchanged: the two-column PDP has the panel beside the
+              gallery, so the stage is a fixed 722px there and owes the
               viewport nothing. */}
-          <CarouselContent className='mt-0 ml-0 h-[calc(100dvh-var(--pdp-band-height,6.5rem)-var(--pdp-widget-height,9.5rem))] md:h-180.5'>
+          <CarouselContent className='mt-0 ml-0 h-full md:h-180.5'>
             {ordered.map((image, index) => (
               <CarouselItem key={image.id} className='pt-0 pl-0'>
                 <div className='relative size-full'>
