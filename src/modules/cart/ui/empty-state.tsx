@@ -1,8 +1,29 @@
+import Link from "next/link";
 import type { CartState } from "../domain/reducer";
 
 type EmptyStateProps = {
   state: CartState;
+  /**
+   * Closes the drawer, and it is REQUIRED rather than optional on purpose.
+   *
+   * The drawer is an overlay sitting over the very catalogue this component
+   * points at, so a CTA that navigates without closing lands the shopper on
+   * the drop with the cart still covering it. Made optional, that is a bug a
+   * caller can introduce by simply not thinking about it; made required, the
+   * type system asks the question at every call site.
+   */
+  onBrowse: () => void;
 };
+
+/**
+ * Where the CTA sends a shopper with nothing in the cart.
+ *
+ * The landing's product area, by the same anchor the header nav uses (see
+ * `DropCatalog`) rather than a route of its own — there is no catalogue page
+ * to send anyone to, and inventing a URL here would create a second answer to
+ * "where do the clothes live".
+ */
+const CATALOG_HREF = "/#catalogo";
 
 /**
  * The cart with zero lines — tasks 3a.1/3a.2, amended by Engram obs #248.
@@ -16,10 +37,13 @@ type EmptyStateProps = {
  * authority, which is exactly what the union exists to make impossible
  * (design D4 / obs #248).
  *
- * No discount summary and no CTA render here on purpose (spec "Empty cart
- * state"): there is nothing to total and nothing to check out.
+ * Closing is INJECTED rather than taken from the sheet's own `SheetClose`.
+ * That component reads Base UI's dialog context and throws without it, which
+ * would make this one unrenderable outside a drawer — including in its own
+ * tests. A callback keeps the component presentational and the behaviour
+ * where the state already lives.
  */
-export function EmptyState({ state }: EmptyStateProps) {
+export function EmptyState({ state, onBrowse }: EmptyStateProps) {
   if (state.status !== "ready" || state.lines.length !== 0) {
     return null;
   }
@@ -28,10 +52,27 @@ export function EmptyState({ state }: EmptyStateProps) {
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-20 text-center">
       {/* ASCII-only: display-font Spanish copy cannot carry accents (spec
           "Checkout and empty-state copy is ASCII-only"; Kraut's measured
-          `unicode-range` has no Latin-1 accented block). */}
+          `unicode-range` has no Latin-1 accented block). The rule is applied
+          to the whole block rather than to the display line alone, so moving a
+          phrase between the two faces can never introduce a missing glyph. */}
       <p className="font-display text-2xl text-foreground md:text-3xl">
         Tu carrito esta vacio
       </p>
+
+      {/* Cased in the source and uppercased in CSS, not typed in capitals: a
+          screen reader given "VOLUMEN" may spell it out letter by letter,
+          while `text-transform` changes only what is painted. */}
+      <p className="max-w-64 font-sans text-[11px] leading-relaxed tracking-control text-muted-foreground uppercase">
+        Todavia no elegiste ninguna pieza del Volumen I
+      </p>
+
+      <Link
+        href={CATALOG_HREF}
+        onClick={onBrowse}
+        className="mt-4 flex h-12 w-full items-center justify-center bg-foreground font-display text-lg text-background transition-opacity hover:opacity-90 md:h-14 md:text-xl"
+      >
+        Ver el drop
+      </Link>
     </div>
   );
 }
