@@ -110,7 +110,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           own `useSearchParams` reader behind an internal `<Suspense>`, so
           mounting it at the root does NOT opt every page into dynamic
           rendering. */}
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col overflow-x-hidden">
         <NuqsAdapter>
           {/* Inside the adapter, not outside it: the cart's own UI is the
               next thing to be built, and a drawer whose open state one day
