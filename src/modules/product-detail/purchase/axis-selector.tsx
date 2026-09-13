@@ -34,7 +34,7 @@ export function AxisSelector({
   compact,
 }: AxisSelectorProps) {
   return (
-    <div className={cn("flex flex-col", compact ? "gap-2" : "gap-4")}>
+    <div className={cn("flex flex-col", compact ? "gap-1" : "gap-2")}>
       <p
         className={cn(
           "flex items-center gap-2 font-sans tracking-control text-muted-foreground",

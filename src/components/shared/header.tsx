@@ -2,11 +2,16 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { ShoppingBag } from 'lucide-react';
+import ShoppingBag from '@/components/shared/shopping-bag';
 import Link from 'next/link';
 import FleshLogotype from '@/components/shared/flesh-logotype';
 import { PromoMarquee } from '@/components/shared/promo-marquee';
-import { CartDrawer, CartToastViewport, itemCount, useCartState } from '@/modules/cart';
+import {
+  CartDrawer,
+  CartToastViewport,
+  itemCount,
+  useCartState,
+} from '@/modules/cart';
 
 const HEADER_SCROLL_RANGE = 160;
 const LOGOTYPE_TARGET_SCALE = 0.75;
@@ -88,13 +93,13 @@ export function Header() {
             type='button'
             aria-label='Abrir carrito'
             onClick={() => setCartOpen(true)}
-            className='relative col-start-3 mr-4 justify-self-end text-foreground'
+            className='relative col-start-3 md:mr-4 justify-self-end text-foreground'
           >
-            <ShoppingBag aria-hidden='true' className='size-5' />
+            <ShoppingBag aria-hidden='true' className='size-6 md:size-8' />
             {count !== null && (
               <span
                 aria-label={`${count} productos en el carrito`}
-                className='absolute -right-2 -top-2 grid size-4 place-items-center rounded-full bg-primary font-sans text-[9px] text-primary-foreground'
+                className='absolute -right-2 -top-1 md:-right-1 md:top-0 grid size-4 place-items-center rounded-full bg-primary font-sans text-[9px] text-primary-foreground'
               >
                 {count}
               </span>
