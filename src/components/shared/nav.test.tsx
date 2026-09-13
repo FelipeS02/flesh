@@ -1,6 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { Nav, NAV_ITEMS } from "./nav";
+
+const route = vi.hoisted(() => ({ pathname: "/" }));
+
+vi.mock("next/navigation", () => ({
+  usePathname: () => route.pathname,
+}));
 
 describe("Nav", () => {
   it("exposes exactly four nav items, in the designed order", () => {
@@ -60,5 +66,36 @@ describe("Nav", () => {
     expect(catalogo.getAttribute("rel")).toBeNull();
     expect(devolucion.getAttribute("target")).toBeNull();
     expect(devolucion.getAttribute("rel")).toBeNull();
+  });
+
+  it("marks Catalogo active only on the root pathname", () => {
+    route.pathname = "/";
+    render(<Nav />);
+
+    const catalogo = screen.getByRole("link", { name: "Catalogo" });
+    const devolucion = screen.getByRole("link", { name: "Devolucion" });
+
+    expect(catalogo.className).toContain("text-primary");
+    expect(catalogo.getAttribute("aria-current")).toBe("page");
+    expect(devolucion.className).toContain("text-foreground");
+    expect(devolucion.getAttribute("aria-current")).toBeNull();
+  });
+
+  it("marks Devolucion active on /devoluciones and never marks external links active", () => {
+    route.pathname = "/devoluciones";
+    render(<Nav />);
+
+    const catalogo = screen.getByRole("link", { name: "Catalogo" });
+    const devolucion = screen.getByRole("link", { name: "Devolucion" });
+    const instagram = screen.getByRole("link", { name: "Instagram" });
+    const playlist = screen.getByRole("link", { name: "Playlist" });
+
+    expect(catalogo.className).toContain("text-foreground");
+    expect(devolucion.className).toContain("text-primary");
+    expect(devolucion.getAttribute("aria-current")).toBe("page");
+    [instagram, playlist].forEach((link) => {
+      expect(link.className).toContain("text-foreground");
+      expect(link.getAttribute("aria-current")).toBeNull();
+    });
   });
 });

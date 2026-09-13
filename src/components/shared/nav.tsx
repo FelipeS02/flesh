@@ -1,5 +1,7 @@
-import { Fragment } from "react";
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 type NavItem = {
@@ -22,44 +24,45 @@ function isExternalHref(href: string): boolean {
   return href.startsWith("http://") || href.startsWith("https://");
 }
 
+function internalPathname(href: string): string {
+  return href.split(/[?#]/, 1)[0] || "/";
+}
+
 /**
- * Four-item nav. Sync server component.
+ * Four-item nav.
  *
  * Single DOM list, styled entirely by CSS — no duplicated items for mobile
- * vs desktop. Mobile splits into two visual rows (2 + 2); rather than two
- * hardcoded row elements, a single invisible break item forces the wrap
- * deterministically after the 2nd item on mobile only (`md:hidden`
- * `basis-full`). Text-width-based `flex-wrap` was rejected: with variable
- * label lengths it cannot reliably reproduce the exact 2+2 split across
- * viewports/font metrics — the forced-break item gives the same single-DOM
- * benefit without that fragility.
+ * vs desktop. All four items stay on ONE row at every width. The earlier
+ * mobile 2+2 split needed `flex-wrap` plus an invisible `basis-full` break
+ * item, and the second row it produced made the footer tall enough to crowd
+ * the viewport on short phones. A tighter `gap-x-1` below `md` buys that
+ * room instead, so the wrap machinery is deleted rather than left disabled.
  */
 export function Nav() {
+  const pathname = usePathname();
+
   return (
     <nav aria-label="Principal">
-      <ul className="flex flex-wrap items-center justify-center gap-x-4 md:gap-x-6.5">
-        {NAV_ITEMS.map((item, index) => {
+      <ul className="flex items-center justify-center gap-x-1 md:gap-x-6.5">
+        {NAV_ITEMS.map((item) => {
           const external = isExternalHref(item.href);
+          const active = !external && pathname === internalPathname(item.href);
 
           return (
-            <Fragment key={item.label}>
-              <li>
-                <Link
-                  href={item.href}
-                  target={external ? "_blank" : undefined}
-                  rel={external ? "noopener noreferrer" : undefined}
-                  className={cn(
-                    "font-display text-[22px] md:text-4xl",
-                    index === 0 ? "text-primary" : "text-foreground",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              </li>
-              {index === 1 && (
-                <li aria-hidden="true" className="basis-full md:hidden" />
-              )}
-            </Fragment>
+            <li key={item.label}>
+              <Link
+                href={item.href}
+                target={external ? "_blank" : undefined}
+                rel={external ? "noopener noreferrer" : undefined}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "font-display text-[22px] md:text-4xl",
+                  active ? "text-primary" : "text-foreground",
+                )}
+              >
+                {item.label}
+              </Link>
+            </li>
           );
         })}
       </ul>
