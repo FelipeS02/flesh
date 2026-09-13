@@ -21,6 +21,8 @@ import {
   type CartCatalog,
 } from '../domain/catalog-projection';
 import type { CartLineId } from '../api/port';
+import CartBackground from '../assets/cart-background.png';
+import Image from 'next/image';
 
 type CartDrawerProps = { open: boolean; onOpenChange: (open: boolean) => void };
 type Buyer = { firstName: string; lastName: string; email: string };
@@ -43,6 +45,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         initialFocus={closeButtonRef}
         className='max-md:w-svw! max-w-md gap-0 bg-background p-6 shadow-2xl'
       >
+        <Image className='-z-1 opacity-35' fill src={CartBackground} alt='background' aria-hidden />
         <SheetHeader className='flex-row items-center justify-between border-b border-border p-0 pb-4'>
           <div>
             <SheetTitle className='font-display text-2xl text-foreground'>
