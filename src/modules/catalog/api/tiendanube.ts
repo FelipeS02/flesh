@@ -28,7 +28,19 @@ type Dependencies = {
 };
 
 export type CatalogSnapshot = {
-  all: ProductView[];
+  // Every product that is not `hidden` — the answer to "can this be ordered
+  // at all", per Tiendanube's three-state visibility rule (`visible`,
+  // `unlisted`, `hidden`). PDP resolution, colourway links and checkout all
+  // need THIS set, because an `unlisted` colourway variant is deliberately
+  // reachable and fully purchasable via direct URL — it is only excluded
+  // from discovery surfaces, not from sale.
+  purchasable: ProductView[];
+  // `visible`-only. Answers a MERCHANDISING question — what appears on
+  // discovery surfaces (the grid, the sitemap, static-params) — which is a
+  // different question from purchasability above. Conflating the two is
+  // exactly the bug this split fixes: an `unlisted` product was purchasable
+  // via its own PDP but invisible to the cart's catalog index, because the
+  // cart was built off `listed` instead of `purchasable`.
   listed: ProductView[];
   checkout: CheckoutProduct[];
 };
@@ -145,7 +157,7 @@ export function createTiendanubeCatalogLoader(
     if (fits.diagnostics.length > 0) warn(`[catalog] Ignored ${fits.diagnostics.length} malformed fit owner(s).`);
     if (sizeCharts.diagnostics.length > 0) warn(`[catalog] Ignored ${sizeCharts.diagnostics.length} malformed size-chart owner(s).`);
 
-    const all: ProductView[] = [];
+    const purchasable: ProductView[] = [];
     const listed: ProductView[] = [];
     const checkout: CheckoutProduct[] = [];
     for (const product of products) {
@@ -153,7 +165,12 @@ export function createTiendanubeCatalogLoader(
         fit: fits.values.get(product.id) ?? null,
         sizeChart: sizeCharts.values.get(product.id) ?? null,
       });
-      all.push(view);
+      // Explicit rule, not an accident of the `visibility=visible,unlisted`
+      // query param above: if that param is ever widened, or the API ever
+      // returns a hidden product anyway, a hidden good must still never
+      // become orderable.
+      if (product.visibility === "hidden") continue;
+      purchasable.push(view);
       checkout.push({
         productId: product.id,
         variants: product.variants.map((variant, index) => ({
@@ -167,7 +184,7 @@ export function createTiendanubeCatalogLoader(
       if (product.visibility === "visible") listed.push(view);
     }
 
-    return { all, listed, checkout };
+    return { purchasable, listed, checkout };
   };
 }
 

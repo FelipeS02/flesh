@@ -18,6 +18,7 @@
 // instead of merely being discouraged.
 export {
   getProducts,
+  getPurchasableProducts,
   getCheckoutProducts,
   getProductByHandle,
   getColourwayIndex,

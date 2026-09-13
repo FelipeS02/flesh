@@ -17,19 +17,23 @@ const lists = new Set<{ list: StubbedList; listeners: Set<MediaQueryListener> }>
 
 let width = 390;
 
-/** Matches only the `(min-width: Npx)` form the app actually writes. */
+/** Matches the `(min-width: Npx)` and `(max-width: Npx)` forms the app writes. */
 function evaluate(query: string): boolean {
-  const match = /\(min-width:\s*(\d+)px\)/.exec(query);
-
-  if (!match) {
-    throw new Error(
-      `viewport stub: unsupported media query ${JSON.stringify(query)}. ` +
-        `Only '(min-width: Npx)' is modelled — extend this helper rather ` +
-        `than letting an unmatched query silently report false.`,
-    );
+  const min = /\(min-width:\s*(\d+)px\)/.exec(query);
+  if (min) {
+    return width >= Number(min[1]);
   }
 
-  return width >= Number(match[1]);
+  const max = /\(max-width:\s*(\d+)px\)/.exec(query);
+  if (max) {
+    return width <= Number(max[1]);
+  }
+
+  throw new Error(
+    `viewport stub: unsupported media query ${JSON.stringify(query)}. ` +
+      `Only '(min-width: Npx)' and '(max-width: Npx)' are modelled — extend ` +
+      `this helper rather than letting an unmatched query silently report false.`,
+  );
 }
 
 export const VIEWPORTS = {

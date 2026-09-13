@@ -66,14 +66,17 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
           </p>
         ) : (
           <>
+            {/* The one scroller in the drawer. Lines and notices are rows of
+                the same column on purpose: a notice explains what happened to
+                a line, and a box of its own forces a height nobody can guess
+                right for both one notice and five. */}
             <div className='min-h-0 flex-1 overflow-y-auto'>
               {state.lines.map((line) => (
                 <LineRow key={line.variantId} line={line} />
               ))}
+              <CartNotices />
               <EmptyState state={state} onBrowse={() => onOpenChange(false)} />
             </div>
-
-            <CartNotices />
 
             <div className='shrink-0 pt-4'>
               <CartSummary />

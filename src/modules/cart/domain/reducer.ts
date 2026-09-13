@@ -78,8 +78,12 @@ export const initialCartState: CartReducerState = { status: "hydrating", pending
  * so a dismissal is not merely cosmetic (design D3/D4).
  */
 export type CartAction =
-  | { type: "add"; productId: number; variantId: CartLineId; price: Money; quantity?: number }
-  | { type: "increment"; variantId: CartLineId }
+  // `limit` is REQUIRED, not optional, on purpose: a caller that forgets it
+  // must fail to compile rather than silently hand back unlimited quantity —
+  // see `purchaseLimit` (catalog/domain/product.ts) for what a caller passes,
+  // and `null` for "no limit" (untracked stock).
+  | { type: "add"; productId: number; variantId: CartLineId; price: Money; quantity?: number; limit: number | null }
+  | { type: "increment"; variantId: CartLineId; limit: number | null }
   | { type: "decrement"; variantId: CartLineId }
   | { type: "remove"; variantId: CartLineId }
   | { type: "clear" }
@@ -101,7 +105,10 @@ export function cartReducer(state: CartReducerState, action: CartAction): CartRe
     case "add":
       return withLines(state, addLine(heldLines(state), action));
     case "increment":
-      return withLines(state, adjustQuantity(heldLines(state), action.variantId, 1));
+      return withLines(
+        state,
+        adjustQuantity(heldLines(state), action.variantId, 1, action.limit),
+      );
     case "decrement":
       return withLines(state, adjustQuantity(heldLines(state), action.variantId, -1));
     case "remove":
@@ -141,6 +148,17 @@ function rehydrate(
   state: CartReducerState,
   action: Extract<CartAction, { type: "rehydrate" }>,
 ): CartReducerState {
+  // Hydration happens ONCE. A second dispatch is a duplicate, never a merge:
+  // the buffer below holds lines added before storage was read, and a ready
+  // cart has none left in flight — `heldLines` would hand back the very lines
+  // this action already carries, and `addLine` would sum them into themselves.
+  // StrictMode makes that the normal case, not the edge one: it mounts the
+  // provider's read effect twice, so without this guard every stored quantity
+  // doubles on each reload in development.
+  if (state.status === "ready") {
+    return state;
+  }
+
   const merged = heldLines(state).reduce(
     (lines, held) =>
       addLine(lines, {
@@ -149,6 +167,13 @@ function rehydrate(
         variantId: held.variantId,
         price: held.price,
         quantity: held.quantity,
+        // `null`, not the variant's real limit: each side of this merge (the
+        // stored line and the mid-flight one) was already clamped at its OWN
+        // add time, against whatever limit was current then. Re-clamping the
+        // merge would silently drop quantity from two independently valid
+        // adds — the bug `addLine`'s no-op-safe rule exists to avoid, arriving
+        // through a different door.
+        limit: null,
       }),
     action.lines,
   );
@@ -204,14 +229,19 @@ function addLine(
   if (existing) {
     return lines.map((line) =>
       line.variantId === action.variantId
-        ? { ...line, quantity: line.quantity + quantity }
+        ? { ...line, quantity: clampToLimit(line.quantity + quantity, action.limit) }
         : line,
     );
   }
 
   return [
     ...lines,
-    { productId: action.productId, variantId: action.variantId, price: action.price, quantity },
+    {
+      productId: action.productId,
+      variantId: action.variantId,
+      price: action.price,
+      quantity: clampToLimit(quantity, action.limit),
+    },
   ];
 }
 
@@ -219,9 +249,33 @@ function addLine(
  * Shared by `increment`/`decrement` so the "remove at zero" rule lives in
  * exactly one place — `decrement` never emits a `quantity: 0` line for a
  * caller to accidentally render.
+ *
+ * `limit` defaults to `null` (no clamp) because `decrement` has nothing to
+ * bound against — a shopper can always take one away — so only `increment`
+ * ever passes one.
  */
-function adjustQuantity(lines: CartLine[], variantId: CartLineId, delta: number): CartLine[] {
+function adjustQuantity(
+  lines: CartLine[],
+  variantId: CartLineId,
+  delta: number,
+  limit: number | null = null,
+): CartLine[] {
   return lines
-    .map((line) => (line.variantId === variantId ? { ...line, quantity: line.quantity + delta } : line))
+    .map((line) =>
+      line.variantId === variantId
+        ? { ...line, quantity: clampToLimit(line.quantity + delta, limit) }
+        : line,
+    )
     .filter((line) => line.quantity > 0);
+}
+
+/**
+ * `null` means no limit (untracked stock — see `purchaseLimit`), so it is the
+ * one branch this does NOT clamp. Otherwise floors at the limit itself: a
+ * line already sitting AT the limit must come back unchanged rather than
+ * throwing or being read as an error, which is what makes a repeated "add
+ * when already maxed" click a safe no-op instead of a bug report.
+ */
+function clampToLimit(quantity: number, limit: number | null): number {
+  return limit === null ? quantity : Math.min(quantity, limit);
 }

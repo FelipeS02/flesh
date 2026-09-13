@@ -34,7 +34,34 @@ export type VariantView = {
   price: Money;
   compareAt: Money | null;
   inStock: boolean;
+  // Same names and shape `CheckoutVariant` (`api/port.ts`) already uses, so
+  // the codebase has ONE vocabulary for "how much of this is left" instead of
+  // a server-only number and a client-only boolean drifting apart. `inStock`
+  // above answers "any at all?"; these answer "how many?" — see `purchaseLimit`.
+  stockManagement: boolean;
+  stock: number | null;
 };
+
+/**
+ * The one place the "how many of this variant can go in the cart" rule is
+ * decided, so the reducer and every add-to-cart surface enforce the exact
+ * same ceiling the merchant actually set — see `map.ts`'s `isSoldOut`, which
+ * this mirrors: `stockManagement: false` means the merchant never turned on
+ * tracking for this variant, so there is no honest number to cap at and it
+ * stays purchasable without limit.
+ *
+ * `null` means "no limit" everywhere a caller reads this — never "unknown" or
+ * "zero".
+ */
+export function purchaseLimit(
+  variant: Pick<VariantView, "stockManagement" | "stock">,
+): number | null {
+  if (!variant.stockManagement) {
+    return null;
+  }
+
+  return Math.max(0, variant.stock ?? 0);
+}
 
 export type ProductView = {
   id: number;

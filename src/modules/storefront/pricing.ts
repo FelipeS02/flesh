@@ -50,3 +50,28 @@ export function discountPercent(price: Money, compareAt: Money | null): number |
 
   return Math.round((1 - price.amount / compareAt.amount) * 100);
 }
+
+/** What a promo-aware price line — the cart drawer, the added-to-cart toast — needs, together. */
+export type PromoPriceView = {
+  current: Money;
+  previous: Money | null;
+  percent: number | null;
+};
+
+/**
+ * Bundles the two transfer prices a promo line shows plus the percent badge,
+ * from one raw price/compareAt pair.
+ *
+ * `percent` is computed from the RAW pair, before either amount is
+ * transfer-converted — the same discipline `price-block.tsx` already
+ * follows. Computing it from `current`/`previous` instead would compound two
+ * independent roundings (transfer conversion, then the percentage) into a
+ * badge that can disagree with the PDP's for the same garment.
+ */
+export function promoPriceView(price: Money, compareAt: Money | null): PromoPriceView {
+  return {
+    current: transferPrice(price),
+    previous: compareAt && transferPrice(compareAt),
+    percent: discountPercent(price, compareAt),
+  };
+}

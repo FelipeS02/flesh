@@ -11,7 +11,16 @@ function variant(
   combination: string[],
   overrides: Partial<VariantView> = {},
 ): VariantView {
-  return { id, combination, price: LIST, compareAt: null, inStock: true, ...overrides };
+  return {
+    id,
+    combination,
+    price: LIST,
+    compareAt: null,
+    inStock: true,
+    stockManagement: false,
+    stock: null,
+    ...overrides,
+  };
 }
 
 const TEE: VariantMatrix = {

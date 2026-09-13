@@ -7,7 +7,7 @@ import { BRAND, BRAND_LOCALE } from "@/lib/brand";
 import { siteUrl } from "@/lib/site-url";
 import { toCartCatalog } from "@/modules/cart/domain/catalog-projection";
 import { CartProvider } from "@/modules/cart/state/cart-context";
-import { getPricingPolicy, getProducts } from "@/modules/catalog";
+import { getPricingPolicy, getPurchasableProducts } from "@/modules/catalog";
 import "./globals.css";
 
 const geistMono = Geist_Mono({
@@ -93,12 +93,21 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   // no `descriptionHtml`, no axes, no tags. What crosses the boundary below is
   // that projection and a number, never a function.
   //
+  // `getPurchasableProducts()`, not `getProducts()`: the cart must know every
+  // variant a shopper can legitimately add, and that is a purchasability
+  // question, not a merchandising one. An unlisted colourway is deliberately
+  // excluded from `getProducts()` (the visible-only discovery set), but it is
+  // still reachable and fully purchasable from its own PDP — building this
+  // catalog off `getProducts()` left such a variant out of the index, so
+  // `AddedToast` rendered empty after adding it and `reconcile` dropped the
+  // line as an unknown variant on reload.
+  //
   // Named cost, not a free lunch: the root layout is now a catalog consumer.
   // Today `getProducts` is a synchronous fixture scan, so this is free. Against
   // a live Tiendanube source it becomes a per-request call on EVERY route,
   // under a leaky-bucket rate limit, and caching the snapshot is real work
   // nobody has done yet. The `await`s are here for that day.
-  const catalog = toCartCatalog(await getProducts());
+  const catalog = toCartCatalog(await getPurchasableProducts());
   const { transferRateBp } = await getPricingPolicy();
 
   return (

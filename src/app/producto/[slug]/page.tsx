@@ -195,23 +195,28 @@ export default async function ProductPage({
             {product.title}
           </h1>
 
-          {/* Above the panel, and server-rendered: choosing a colour LEAVES
-              this page, so it belongs beside the title rather than inside a
-              control that sets state. Nothing here reads the query string, so
-              it stays in the static HTML. */}
-          <ColourwaySelector links={links} currentSlug={product.slug} />
-
           {/* The one dynamic slot on an otherwise prerendered page. Reading
               the query string during a static build is a CSR bailout, so the
-              reader has to sit inside a boundary â€” and the fallback renders
-              the DEFAULT selection rather than a skeleton, which is what keeps
-              the price in the prerendered HTML. */}
+              reader has to sit inside a boundary, and the fallback renders the
+              DEFAULT selection rather than a skeleton, which is what keeps the
+              price in the prerendered HTML.
+
+              The colourway selector is passed IN as an element rather than
+              rendered here, because it has to appear between the price and the
+              variant axes, which are both inside the panel. Built here, it
+              stays server-rendered: choosing a colour LEAVES this page, so it
+              is navigation, not state, and nothing in it reads the query
+              string. Both branches get their own element so the fallback and
+              the hydrated panel render identical markup. */}
           <Suspense
             fallback={
               <PurchasePanelFallback
                 product={{ axes: product.axes, variants: product.variants }}
                 productId={product.id}
                 defaultVariantId={product.defaultVariantId}
+                colourwaySelector={
+                  <ColourwaySelector links={links} currentSlug={product.slug} />
+                }
                 colourways={links}
                 currentSlug={product.slug}
               />
@@ -224,6 +229,9 @@ export default async function ProductPage({
               product={{ axes: product.axes, variants: product.variants }}
               productId={product.id}
               defaultVariantId={product.defaultVariantId}
+              colourwaySelector={
+                <ColourwaySelector links={links} currentSlug={product.slug} />
+              }
               // Only the widget uses these; the panel hands them straight
               // through. They are plain link data, not the catalogue.
               colourways={links}

@@ -86,6 +86,11 @@ function mapVariant(variant: TiendanubeVariant): VariantView {
     price: parseMoney(hasPromotion ? variant.promotional_price! : variant.price),
     compareAt: hasPromotion ? parseMoney(variant.price) : null,
     inStock: !isSoldOut(variant),
+    // Carried straight off the wire, unlike `inStock` which is already a
+    // derived verdict: `purchaseLimit` (catalog/domain/product.ts) needs the
+    // raw facts, not `isSoldOut`'s boolean, to compute an actual ceiling.
+    stockManagement: variant.stock_management,
+    stock: variant.stock,
   };
 }
 

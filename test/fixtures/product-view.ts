@@ -13,6 +13,11 @@ export function makeVariant(overrides: Partial<VariantView> = {}): VariantView {
     price: { amount: 2_700_000, currency: "ARS" },
     compareAt: null,
     inStock: true,
+    // Untracked by default so `purchaseLimit` reads `null` (no ceiling) for
+    // every existing test that never asked about stock counts in the first
+    // place — a test proving the purchase-limit rule opts in explicitly.
+    stockManagement: false,
+    stock: null,
     ...overrides,
   };
 }

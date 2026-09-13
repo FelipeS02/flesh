@@ -23,7 +23,13 @@ function catalogWith(variants: Array<{ id: number; inStock: boolean }>): CartCat
         id,
         combination: ["M", "Negro"],
         price: PRICE,
+        compareAt: null,
         inStock,
+        // Only `inStock` is under test here (design D5) — real values, not a
+        // cast, so `stockManagement`/`stock` still agree with `isSoldOut`'s
+        // own rule (`map.ts:97-100`) rather than an arbitrary placeholder.
+        stockManagement: !inStock,
+        stock: inStock ? null : 0,
       })),
     },
   ];

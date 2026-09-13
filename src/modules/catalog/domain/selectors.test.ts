@@ -10,7 +10,15 @@ function buildVariant(
   combination: string[],
   inStock: boolean,
 ): VariantView {
-  return { id, combination, price: PRICE, compareAt: null, inStock };
+  return {
+    id,
+    combination,
+    price: PRICE,
+    compareAt: null,
+    inStock,
+    stockManagement: false,
+    stock: null,
+  };
 }
 
 function buildProductView(overrides: Partial<ProductView> = {}): ProductView {

@@ -1,16 +1,17 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { parseAsString, useQueryStates } from "nuqs";
 import {
   deriveAxisStates,
+  purchaseLimit,
   resolveVariant,
   type ColourwayLink,
   type Selection,
   type VariantMatrix,
   type VariantView,
 } from "@/modules/catalog/client";
-import { useCartDispatch } from "@/modules/cart";
+import { showAddedToCart, useCartDispatch, useCartState } from "@/modules/cart";
 import { AxisSelector } from "./axis-selector";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
@@ -19,13 +20,9 @@ import { PurchaseWidget } from "./purchase-widget";
 type PurchasePanelProps = {
   /** Domain identity needed by the cart reducer; plain RSC-safe data. */
   productId: number;
-  /**
-   * The colour row, repeated on the mobile widget.
-   *
-   * It reaches the panel only to be handed to that widget — the panel itself
-   * draws no colours, because picking one is a navigation the server-rendered
-   * `ColourwaySelector` above already owns.
-   */
+  /** Server-rendered colourway navigation inserted into the desktop sequence. */
+  colourwaySelector: ReactNode;
+  /** The colour row, repeated on the mobile widget. */
   colourways: ColourwayLink[];
   currentSlug: string;
   /**
@@ -52,11 +49,13 @@ export function PurchasePanel({
   product,
   productId,
   defaultVariantId,
+  colourwaySelector,
   colourways,
   currentSlug,
 }: PurchasePanelProps) {
   const { axes } = product;
   const dispatch = useCartDispatch();
+  const state = useCartState();
 
   // Keyed by axis label, so a product with axes we have never seen still gets
   // readable params. Memoised because `useQueryStates` treats the key map as
@@ -73,18 +72,37 @@ export function PurchasePanel({
       product={product}
       productId={productId}
       defaultVariantId={defaultVariantId}
+      colourwaySelector={colourwaySelector}
       colourways={colourways}
       currentSlug={currentSlug}
       query={query}
+      // Read here, where `state` already exists, rather than inside `PanelView`
+      // — the fallback below renders `PanelView` with no `CartProvider` at all
+      // (it runs during the static build), so the held-quantity lookup has to
+      // live on the side that actually has a cart to ask.
+      heldQuantity={(variantId) =>
+        state.status === "ready"
+          ? (state.lines.find((line) => line.variantId === variantId)?.quantity ?? 0)
+          : 0
+      }
       onSelect={(index, value) => setQuery({ [keys[index]!]: paramValue(value) })}
-      onAdd={(variant) =>
+      onAdd={(variant) => {
+        // Computed BEFORE the dispatch below — this is the only place the
+        // "was this variant already in the cart" fact exists unambiguously
+        // (design D6); reading it after would always see the line this same
+        // dispatch is about to create or increment.
+        const repeat =
+          state.status === "ready" && state.lines.some((line) => line.variantId === variant.id);
+
         dispatch({
           type: "add",
           productId,
           variantId: variant.id,
           price: variant.price,
-        })
-      }
+          limit: purchaseLimit(variant),
+        });
+        showAddedToCart({ variantId: variant.id, repeat });
+      }}
     />
   );
 }
@@ -108,6 +126,7 @@ export function PurchasePanelFallback({
   product,
   productId,
   defaultVariantId,
+  colourwaySelector,
   colourways,
   currentSlug,
 }: PurchasePanelProps) {
@@ -116,6 +135,7 @@ export function PurchasePanelFallback({
       product={product}
       productId={productId}
       defaultVariantId={defaultVariantId}
+      colourwaySelector={colourwaySelector}
       colourways={colourways}
       currentSlug={currentSlug}
       query={{}}
@@ -128,17 +148,25 @@ type PanelViewProps = PurchasePanelProps & {
   query: Readonly<Record<string, string | null | undefined>>;
   onSelect: (axisIndex: number, value: string) => void;
   onAdd?: (variant: VariantView) => void;
+  /**
+   * How many units of a given variant the cart already holds. Defaults to
+   * always-zero for the fallback, which never has a `CartProvider` to ask —
+   * it renders during the static build, before any cart exists at all.
+   */
+  heldQuantity?: (variantId: number) => number;
 };
 
 /** Everything the panel draws, given a selection somebody else read. */
 function PanelView({
   product,
   defaultVariantId,
+  colourwaySelector,
   colourways,
   currentSlug,
   query,
   onSelect,
   onAdd,
+  heldQuantity,
 }: PanelViewProps) {
   const { axes, variants } = product;
   const keys = axisParamKeys(axes);
@@ -156,17 +184,26 @@ function PanelView({
 
   const selected = resolveVariant(product, selection);
   const priced = selected ?? defaultVariant;
-  const canAddToCart = selected?.inStock === true;
+  const limit = selected ? purchaseLimit(selected) : null;
+  // The fallback never has a cart to ask (see `heldQuantity`'s own comment),
+  // so it reads zero held — which is also the honest pre-hydration truth.
+  const held = selected ? (heldQuantity?.(selected.id) ?? 0) : 0;
+  const atLimit = limit !== null && held >= limit;
+  const canAddToCart = selected?.inStock === true && !atLimit;
 
-  // Three different facts deserve three different sentences. A dead button
-  // reading "Agregar al carrito" tells you the site is broken; one reading
-  // "Sin stock" tells you the garment is gone, which is the truth and is also
-  // what makes the disabled state make sense.
+  // Four different facts deserve four different sentences. A dead button
+  // reading "Agregar al carrito" tells you the site is broken; "Sin stock"
+  // tells you the garment is gone; "Máximo disponible" tells you it is the
+  // CART, not the catalog, that is full — a shopper who already holds every
+  // unit the merchant has needs a different sentence than one who never
+  // could have gotten one.
   const ctaLabel = !selected
     ? "No disponible"
-    : selected.inStock
-      ? "Agregar al carrito"
-      : "Sin stock";
+    : !selected.inStock
+      ? "Sin stock"
+      : atLimit
+        ? "Máximo disponible"
+        : "Agregar al carrito";
 
   return (
     <>
@@ -174,6 +211,8 @@ function PanelView({
         {priced && <PriceBlock variant={priced} />}
 
       <hr className="border-border" />
+
+      {colourwaySelector}
 
       {axes.map((axis, index) => (
         <AxisSelector
@@ -187,6 +226,10 @@ function PanelView({
 
       <button
         type="button"
+        // Read by the toast's mobile dismiss-on-interaction hook, which must
+        // not treat the tap that CREATES the toast as one that hides it —
+        // see `cart/ui/toast/use-dismiss-on-interaction.ts`.
+        data-cart-add=""
         disabled={!canAddToCart}
         onClick={() => selected && onAdd?.(selected)}
         // Height, not decoration: 48px on mobile / 56px on desktop is the

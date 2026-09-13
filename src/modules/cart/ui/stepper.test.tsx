@@ -17,12 +17,22 @@ const CATALOG: CartCatalog = [
     slug: "remera-classic",
     title: "Remera Classic",
     image: null,
-    variants: [{ id: 201, combination: ["M"], price: PRICE, inStock: true }],
+    variants: [
+      {
+        id: 201,
+        combination: ["M"],
+        price: PRICE,
+        compareAt: null,
+        inStock: true,
+        stockManagement: false,
+        stock: null,
+      },
+    ],
   },
 ];
 
 /** Seeds one line at quantity 1 via the real reducer, then renders `Stepper` for it. */
-function Harness() {
+function Harness({ limit = null }: { limit?: number | null } = {}) {
   const dispatch = useCartDispatch();
   const state = useCartState();
   const line = state.status === "ready" ? state.lines[0] : undefined;
@@ -33,22 +43,22 @@ function Harness() {
       <button
         type="button"
         onClick={() =>
-          dispatch({ type: "add", productId: 101, variantId: 201, price: PRICE })
+          dispatch({ type: "add", productId: 101, variantId: 201, price: PRICE, limit })
         }
       >
         seed
       </button>
-      {line && <Stepper line={line} />}
+      {line && <Stepper line={line} limit={limit} />}
       <p data-testid="quantity">{line?.quantity ?? "none"}</p>
       <p data-testid="line-count">{lineCount}</p>
     </div>
   );
 }
 
-function renderHarness() {
+function renderHarness(limit: number | null = null) {
   return render(
     <CartProvider catalog={CATALOG} transferRateBp={1000} storage={emptyStorage()}>
-      <Harness />
+      <Harness limit={limit} />
     </CartProvider>,
   );
 }
@@ -81,17 +91,58 @@ describe("Stepper", () => {
     expect(screen.getByTestId("quantity").textContent).toBe("none");
   });
 
-  // QUITAR must dispatch the explicit remove action, not merely decrement
-  // down to zero. Seeded to quantity 2 first so a decrement-based
-  // implementation would leave a line at quantity 1 instead of removing it —
-  // the only setup that actually distinguishes the two actions.
-  it("QUITAR dispatches the explicit remove, not a decrement", () => {
+  // QUITAR moved out of this component when the drawer was laid out to the
+  // artboard — it belongs to the title row, the stepper to the bottom row.
+  // Its behaviour is proven in `remove-line-button.test.tsx`; what this file
+  // asserts here is that the stepper no longer offers it, so a future edit
+  // cannot quietly put a second remove control back inside the quantity
+  // group where the artboard has none.
+  it("offers no remove control of its own", () => {
     renderHarness();
     seed();
+
+    expect(screen.queryByRole("button", { name: "QUITAR" })).toBeNull();
+  });
+});
+
+/**
+ * The reducer owns the clamp (`reducer.test.ts`'s "purchase limit" describe);
+ * `disabled` here is affordance only — it must never be the only thing
+ * stopping the quantity from growing past what the merchant has in stock.
+ */
+describe("Stepper — purchase limit affordance", () => {
+  it("disables Sumar once the line is at the limit", () => {
+    renderHarness(1);
+    seed();
+
+    expect(screen.getByRole("button", { name: "Sumar" }).hasAttribute("disabled")).toBe(true);
+  });
+
+  it("leaves Sumar enabled below the limit", () => {
+    renderHarness(2);
+    seed();
+
+    expect(screen.getByRole("button", { name: "Sumar" }).hasAttribute("disabled")).toBe(false);
+  });
+
+  it("never disables Sumar when the limit is null (untracked stock)", () => {
+    renderHarness(null);
+    seed();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sumar" }));
     fireEvent.click(screen.getByRole("button", { name: "Sumar" }));
 
-    fireEvent.click(screen.getByRole("button", { name: "QUITAR" }));
+    expect(screen.getByRole("button", { name: "Sumar" }).hasAttribute("disabled")).toBe(false);
+    expect(screen.getByTestId("quantity").textContent).toBe("3");
+  });
 
-    expect(screen.getByTestId("line-count").textContent).toBe("0");
+  it("passes the limit on the increment it dispatches, so a stale limit cannot be worked around by clicking through a race", () => {
+    renderHarness(2);
+    seed();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sumar" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sumar" }));
+
+    expect(screen.getByTestId("quantity").textContent).toBe("2");
   });
 });

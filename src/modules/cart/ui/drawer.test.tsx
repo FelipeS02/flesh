@@ -15,7 +15,17 @@ const CATALOG: CartCatalog = [
     slug: "remera-classic",
     title: "Remera Classic",
     image: null,
-    variants: [{ id: 201, combination: ["M"], price: PRICE, inStock: true }],
+    variants: [
+      {
+        id: 201,
+        combination: ["M"],
+        price: PRICE,
+        compareAt: null,
+        inStock: true,
+        stockManagement: false,
+        stock: null,
+      },
+    ],
   },
 ];
 
@@ -35,7 +45,9 @@ function Harness({ addLine = false }: { addLine?: boolean }) {
       {addLine && (
         <button
           type="button"
-          onClick={() => dispatch({ type: "add", productId: 101, variantId: 201, price: PRICE })}
+          onClick={() =>
+            dispatch({ type: "add", productId: 101, variantId: 201, price: PRICE, limit: null })
+          }
         >
           seed
         </button>
@@ -160,8 +172,40 @@ describe("CartDrawer", () => {
     expect(alert.textContent).toContain("Remera Classic / M");
     expect(alert.textContent).toContain("999");
   });
+
+  it("scrolls notices with the lines instead of giving them a box of their own", () => {
+    const storage: CartStoragePort = {
+      read: () => ({
+        lines: [
+          {
+            productId: 101,
+            variantId: 201,
+            quantity: 1,
+            unitPriceMinor: PRICE.amount,
+            currency: PRICE.currency,
+          },
+        ],
+        notices: [
+          { kind: "removed", reason: "unknown-variant", variantId: 999, item: null },
+        ],
+      }),
+      write: () => {},
+      clear: () => {},
+    };
+
+    render(
+      <CartProvider catalog={CATALOG} transferRateBp={1000} storage={storage}>
+        <CartDrawer open onOpenChange={() => {}} />
+      </CartProvider>,
+    );
+
+    const notices = screen.getByRole("region", { name: "Avisos del carrito" });
+    const line = screen.getByText("Remera Classic");
+
+    // One scroller for the whole column: whatever scrolls the lines has to be
+    // the very same element that scrolls the notices, or the two regions get
+    // their own scrollbars and their own hand-tuned heights again.
+    expect(notices.closest(".overflow-y-auto")).toBe(line.closest(".overflow-y-auto"));
+    expect(notices.closest(".overflow-y-auto")).not.toBeNull();
+  });
 });
-
-
-
-

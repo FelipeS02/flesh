@@ -19,7 +19,7 @@ export function PriceBlock({ variant }: PriceBlockProps) {
   const promo = discountPercent(variant.price, variant.compareAt);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col">
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <span className="font-display tabular-nums text-3xl text-foreground md:text-[38px]">
           {formatMoney(transferPrice(variant.price))}

@@ -46,6 +46,7 @@ describe("cartReducer", () => {
       productId: 101,
       variantId: 201,
       price: PRICE,
+      limit: null,
     });
 
     expect(result).toEqual(ready([buildLine({ quantity: 1 })]));
@@ -59,6 +60,7 @@ describe("cartReducer", () => {
       productId: 101,
       variantId: 201,
       price: PRICE,
+      limit: null,
     });
 
     expect(result).toEqual(ready([buildLine({ quantity: 2 })]));
@@ -67,7 +69,7 @@ describe("cartReducer", () => {
   it("increments the quantity of the matching line", () => {
     const existing = ready([buildLine({ quantity: 1 })]);
 
-    const result = cartReducer(existing, { type: "increment", variantId: 201 });
+    const result = cartReducer(existing, { type: "increment", variantId: 201, limit: null });
 
     expect(result).toEqual(ready([buildLine({ quantity: 2 })]));
   });
@@ -105,7 +107,7 @@ describe("cartReducer", () => {
   });
 
   it("never holds two lines for the same variant after repeated adds", () => {
-    const add = { type: "add", productId: 101, variantId: 201, price: PRICE } as const;
+    const add = { type: "add", productId: 101, variantId: 201, price: PRICE, limit: null } as const;
     let state = cartReducer(ready([]), add);
     state = cartReducer(state, add);
     state = cartReducer(state, add);
@@ -145,6 +147,7 @@ describe("hydration", () => {
       productId: 101,
       variantId: 201,
       price: PRICE,
+      limit: null,
     });
 
     expect(result.status).toBe("hydrating");
@@ -185,6 +188,7 @@ describe("hydration", () => {
       productId: 101,
       variantId: 201,
       price: PRICE,
+      limit: null,
     });
 
     const result = cartReducer(clicked, {
@@ -196,12 +200,35 @@ describe("hydration", () => {
     expect(result).toEqual(ready([buildLine({ variantId: 201, quantity: 3 })]));
   });
 
+  // StrictMode mounts every effect twice in development, so the mount effect
+  // in `cart-context.tsx` dispatches this action twice with the SAME stored
+  // lines. Merging the second one folds the already-hydrated cart into itself
+  // and doubles every quantity on reload — the buffer this action merges only
+  // ever holds lines added BEFORE hydration, and once ready there are none.
+  it("ignores a second rehydrate instead of folding the ready cart into itself", () => {
+    const stored = buildLine({ variantId: 201, quantity: 2 });
+    const hydrated = cartReducer(initialCartState, {
+      type: "rehydrate",
+      lines: [stored],
+      notices: [REPRICED],
+    });
+
+    const result = cartReducer(hydrated, {
+      type: "rehydrate",
+      lines: [stored],
+      notices: [REPRICED],
+    });
+
+    expect(result).toEqual(ready([stored], [REPRICED]));
+  });
+
   it("keeps a mid-flight add for a variant storage never held", () => {
     const clicked = cartReducer(initialCartState, {
       type: "add",
       productId: 101,
       variantId: 202,
       price: PRICE,
+      limit: null,
     });
 
     const result = cartReducer(clicked, {
@@ -213,6 +240,87 @@ describe("hydration", () => {
     expect(result).toEqual(
       ready([buildLine({ variantId: 201 }), buildLine({ variantId: 202 })]),
     );
+  });
+});
+
+/**
+ * `limit` is REQUIRED on `add`/`increment` precisely so a caller cannot forget
+ * it and silently get unlimited growth back (see the type's own comment in
+ * `reducer.ts`) — these tests are about the clamp itself, not about whether
+ * the field compiles.
+ */
+describe("purchase limit", () => {
+  it("clamps a new line's quantity at the limit on add", () => {
+    const result = cartReducer(ready([]), {
+      type: "add",
+      productId: 101,
+      variantId: 201,
+      price: PRICE,
+      quantity: 5,
+      limit: 3,
+    });
+
+    expect(result).toEqual(ready([buildLine({ quantity: 3 })]));
+  });
+
+  it("clamps a merged add at the limit rather than summing past it", () => {
+    const existing = ready([buildLine({ quantity: 2 })]);
+
+    const result = cartReducer(existing, {
+      type: "add",
+      productId: 101,
+      variantId: 201,
+      price: PRICE,
+      limit: 3,
+    });
+
+    expect(result).toEqual(ready([buildLine({ quantity: 3 })]));
+  });
+
+  // The reducer must not treat "already at the limit" as an error state: no
+  // throw, and — since a clamp that reads as "quantity 0" would otherwise
+  // fall through `adjustQuantity`'s remove-at-zero filter — no removal either.
+  it("is a no-op-safe add when the line already sits at the limit", () => {
+    const existing = ready([buildLine({ quantity: 3 })]);
+
+    const result = cartReducer(existing, {
+      type: "add",
+      productId: 101,
+      variantId: 201,
+      price: PRICE,
+      limit: 3,
+    });
+
+    expect(result).toEqual(ready([buildLine({ quantity: 3 })]));
+  });
+
+  it("does not clamp add when the limit is null (untracked stock)", () => {
+    const result = cartReducer(ready([]), {
+      type: "add",
+      productId: 101,
+      variantId: 201,
+      price: PRICE,
+      quantity: 50,
+      limit: null,
+    });
+
+    expect(result).toEqual(ready([buildLine({ quantity: 50 })]));
+  });
+
+  it("clamps increment at the limit", () => {
+    const existing = ready([buildLine({ quantity: 3 })]);
+
+    const result = cartReducer(existing, { type: "increment", variantId: 201, limit: 3 });
+
+    expect(result).toEqual(ready([buildLine({ quantity: 3 })]));
+  });
+
+  it("does not clamp increment when the limit is null", () => {
+    const existing = ready([buildLine({ quantity: 3 })]);
+
+    const result = cartReducer(existing, { type: "increment", variantId: 201, limit: null });
+
+    expect(result).toEqual(ready([buildLine({ quantity: 4 })]));
   });
 });
 

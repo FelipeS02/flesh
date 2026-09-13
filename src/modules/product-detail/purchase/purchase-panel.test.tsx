@@ -1,10 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { withNuqsTestingAdapter, type OnUrlUpdateFunction } from "nuqs/adapters/testing";
 import type { OptionAxis, VariantMatrix, VariantView } from "@/modules/catalog";
 import type { CartCatalog } from "@/modules/cart/domain/catalog-projection";
 import { CartProvider, useCartState } from "@/modules/cart";
 import { PurchasePanel, PurchasePanelFallback } from "./purchase-panel";
+
+// `vi.hoisted` because `vi.mock` factories run before this file's own
+// top-level statements (import hoisting) — see `header.test.tsx` for the
+// same pattern.
+const showAddedToCartSpy = vi.hoisted(() => vi.fn());
+
+vi.mock("@/modules/cart", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/cart")>();
+  return { ...actual, showAddedToCart: showAddedToCartSpy };
+});
+
+afterEach(() => {
+  showAddedToCartSpy.mockClear();
+});
 
 const ARS = "ARS";
 const LIST = { amount: 2_700_000, currency: ARS };
@@ -20,6 +34,11 @@ function variant(
     price: LIST,
     compareAt: null,
     inStock: true,
+    // Untracked by default: most fixture variants exist only to prove axis
+    // selection, not the stock-limit rule, and `stockManagement: false` is
+    // the shape that keeps `purchaseLimit` returning `null` for them.
+    stockManagement: false,
+    stock: null,
     ...overrides,
   };
 }
@@ -53,7 +72,10 @@ const CART_CATALOG: CartCatalog = [
       id: variant.id,
       combination: variant.combination,
       price: variant.price,
+      compareAt: variant.compareAt,
       inStock: variant.inStock,
+      stockManagement: variant.stockManagement,
+      stock: variant.stock,
     })),
   },
 ];
@@ -86,6 +108,7 @@ function renderPanel(
         product={product}
         productId={101}
         defaultVariantId={defaultVariantId}
+        colourwaySelector={<div data-testid="colourway-selector" />}
         colourways={[]}
         currentSlug="remera-classic"
       />
@@ -130,7 +153,30 @@ function option(label: string, value: string): HTMLButtonElement {
   return found;
 }
 
+function expectDesktopConfigurationOrder() {
+  const price = within(panel()).getByText("$24.300");
+  const separator = within(panel()).getByRole("separator");
+  const colourwaySelector = within(panel()).getByTestId("colourway-selector");
+  const firstAxis = axisGroup("Talle");
+  const cta = addToCart(/agregar al carrito/i);
+
+  for (const [before, after] of [
+    [price, separator],
+    [separator, colourwaySelector],
+    [colourwaySelector, firstAxis],
+    [firstAxis, cta],
+  ]) {
+    expect(before.compareDocumentPosition(after) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  }
+}
+
 describe("PurchasePanel", () => {
+  it("places colourway navigation between the separator and variant axes", () => {
+    renderPanel();
+
+    expectDesktopConfigurationOrder();
+  });
+
   it("renders one selector group per axis, whatever the axes are called", () => {
     renderPanel();
 
@@ -227,6 +273,30 @@ describe("PurchasePanel", () => {
     expect(screen.getByTestId("cart-lines").textContent).toBe("201 x1");
   });
 
+  it("shows the added-to-cart toast, with repeat=false on the first add and repeat=true on re-add", async () => {
+    // `renderPanel` gives `CartProvider` no `storage` override anywhere in
+    // this file, so it falls back to the REAL `window.localStorage` — which
+    // persists across tests in this file (one jsdom window per file, not per
+    // test). Another test in this suite also adds variant 201; without
+    // clearing here, this test's cart would rehydrate already containing it.
+    window.localStorage.clear();
+    renderPanel(TEE);
+    const cta = addToCart(/agregar al carrito/i);
+
+    await act(async () => {
+      cta.click();
+    });
+    expect(showAddedToCartSpy).toHaveBeenLastCalledWith({ variantId: 201, repeat: false });
+
+    // `repeat` is computed from the lines BEFORE this dispatch (design D6) —
+    // the variant is already in the cart from the click above, so this one
+    // is a re-add.
+    await act(async () => {
+      cta.click();
+    });
+    expect(showAddedToCartSpy).toHaveBeenLastCalledWith({ variantId: 201, repeat: true });
+  });
+
   it("says the garment is gone rather than offering a dead add-to-cart", () => {
     renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
 
@@ -236,6 +306,29 @@ describe("PurchasePanel", () => {
 
     expect((cta as HTMLButtonElement).disabled).toBe(true);
     expect(screen.queryByRole("button", { name: /agregar al carrito/i })).toBeNull();
+  });
+
+  it("disables the CTA and reads Máximo disponible once the cart already holds the limit", async () => {
+    // See the toast test's own note above `renderPanel`: with no `storage`
+    // override this file's provider falls back to the REAL `localStorage`,
+    // which survives across tests in the same jsdom window.
+    window.localStorage.clear();
+    const limited: VariantMatrix = {
+      axes: [SIZE],
+      variants: [variant(601, ["M"], { stockManagement: true, stock: 1 })],
+    };
+
+    renderPanel(limited, { defaultVariantId: 601 });
+    const cta = addToCart(/agregar al carrito/i);
+
+    await act(async () => {
+      cta.click();
+    });
+
+    const maxed = addToCart(/m[aá]ximo disponible/i);
+    expect(maxed).toBe(cta);
+    expect(maxed.disabled).toBe(true);
+    expect(screen.getByTestId("cart-lines").textContent).toBe("601 x1");
   });
 
   it("shows the transfer price, its label and the list price", () => {
@@ -280,6 +373,7 @@ describe("PurchasePanelFallback", () => {
         product={TEE}
         productId={101}
         defaultVariantId={201}
+        colourwaySelector={<div data-testid="colourway-selector" />}
         colourways={[]}
         currentSlug="remera-classic"
       />);
@@ -292,6 +386,7 @@ describe("PurchasePanelFallback", () => {
         product={TEE}
         productId={101}
         defaultVariantId={204}
+        colourwaySelector={<div data-testid="colourway-selector" />}
         colourways={[]}
         currentSlug="remera-classic"
       />);
@@ -307,6 +402,7 @@ describe("PurchasePanelFallback", () => {
         product={TEE}
         productId={101}
         defaultVariantId={201}
+        colourwaySelector={<div data-testid="colourway-selector" />}
         colourways={[]}
         currentSlug="remera-classic"
       />);
@@ -320,10 +416,24 @@ describe("PurchasePanelFallback", () => {
         product={TEE}
         productId={101}
         defaultVariantId={202}
+        colourwaySelector={<div data-testid="colourway-selector" />}
         colourways={[]}
         currentSlug="remera-classic"
       />);
 
     expect(addToCart("Sin stock")).toBeDefined();
+  });
+
+  it("keeps the colourway slot in the same configuration order", () => {
+    render(<PurchasePanelFallback
+        product={TEE}
+        productId={101}
+        defaultVariantId={201}
+        colourwaySelector={<div data-testid="colourway-selector" />}
+        colourways={[]}
+        currentSlug="remera-classic"
+      />);
+
+    expectDesktopConfigurationOrder();
   });
 });

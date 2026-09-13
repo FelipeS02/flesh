@@ -1,18 +1,28 @@
 "use client";
 
+import { MinusIcon, PlusIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import type { CartLine } from "../domain/line";
 import { useCartDispatch } from "../state/cart-context";
 
 type StepperProps = {
   line: CartLine;
+  /** From `purchaseLimit` (catalog/client.ts) — `null` means no ceiling. */
+  limit: number | null;
 };
 
 /**
- * Quantity control plus the explicit remove for one line — tasks 3a.5/3a.6.
+ * The quantity control for one line — tasks 3a.5/3a.6.
  *
  * "No `setQuantity`" is design D7's own rule: the artboards show a stepper
  * and a `QUITAR` action, never a free-text input, so this dispatches only
- * `increment` / `decrement` / `remove`.
+ * `increment` / `decrement`.
+ *
+ * The remove action is NOT here, even though the two were one component
+ * until the drawer was brought in line with the `Cart Items / Promocion`
+ * artboard. That board puts `QUITAR` on the title row beside the garment's
+ * name and the stepper on the bottom row beside the price — two different
+ * rows, so they cannot be one box. See `RemoveLineButton`.
  *
  * Decrementing at quantity 1 is NOT special-cased here. It dispatches the
  * same `decrement` unconditionally, and the reducer's own remove-at-zero
@@ -20,46 +30,44 @@ type StepperProps = {
  * button at 1 would duplicate a rule that already lives in exactly one
  * place, and duplicating it is how the two would eventually disagree.
  */
-export function Stepper({ line }: StepperProps) {
+export function Stepper({ line, limit }: StepperProps) {
   const dispatch = useCartDispatch();
 
   return (
-    <div className="flex items-center gap-4">
-      <div
-        role="group"
-        aria-label="Cantidad"
-        className="flex items-center gap-3 font-sans text-sm text-foreground"
+    <div
+      role="group"
+      aria-label="Cantidad"
+      className="flex items-center font-sans text-sm text-foreground"
+    >
+      <Button
+        variant="outline"
+        size="icon"
+        aria-label="Restar"
+        onClick={() => dispatch({ type: "decrement", variantId: line.variantId })}
+        className="size-8.5"
       >
-        <button
-          type="button"
-          aria-label="Restar"
-          onClick={() => dispatch({ type: "decrement", variantId: line.variantId })}
-          className="flex size-7 items-center justify-center border border-border"
-        >
-          −
-        </button>
-        <span className="tabular-nums" aria-live="polite">
-          {line.quantity}
-        </span>
-        <button
-          type="button"
-          aria-label="Sumar"
-          onClick={() => dispatch({ type: "increment", variantId: line.variantId })}
-          className="flex size-7 items-center justify-center border border-border"
-        >
-          +
-        </button>
-      </div>
-
-      {/* The explicit remove, distinct from decrement — it drops the line at
-          any quantity, not only at 1 (spec: "Explicit remove and clear"). */}
-      <button
-        type="button"
-        onClick={() => dispatch({ type: "remove", variantId: line.variantId })}
-        className="font-display text-xs tracking-control text-muted-foreground md:text-sm"
+        <MinusIcon />
+      </Button>
+      <span
+        className="flex size-8.5 items-center justify-center tabular-nums"
+        aria-live="polite"
       >
-        QUITAR
-      </button>
+        {line.quantity}
+      </span>
+      <Button
+        variant="outline"
+        size="icon"
+        aria-label="Sumar"
+        onClick={() => dispatch({ type: "increment", variantId: line.variantId, limit })}
+        // Affordance only — same reasoning as decrement's NON-clamp above, in
+        // reverse: the reducer already refuses to grow past `limit` (proven in
+        // `reducer.test.ts`'s "purchase limit" suite), so this disables the
+        // click rather than duplicating that ceiling here.
+        disabled={limit !== null && line.quantity >= limit}
+        className="size-8.5"
+      >
+        <PlusIcon />
+      </Button>
     </div>
   );
 }

@@ -215,7 +215,31 @@ describe("mapToProductView — sold-out requires explicit stock management", () 
   });
 });
 
-describe("mapToProductView � independent garment fields", () => {
+describe("mapToProductView — carries the raw stock facts a purchase limit is computed from", () => {
+  it("carries stock_management and stock straight onto the variant view", () => {
+    const wire = buildWireProduct({
+      variants: [buildWireVariant({ stock_management: true, stock: 7 })],
+    });
+
+    const result = mapToProductView(wire);
+
+    expect(result.variants[0]?.stockManagement).toBe(true);
+    expect(result.variants[0]?.stock).toBe(7);
+  });
+
+  it("carries a null stock through untouched, rather than coercing it to 0", () => {
+    const wire = buildWireProduct({
+      variants: [buildWireVariant({ stock_management: false, stock: null })],
+    });
+
+    const result = mapToProductView(wire);
+
+    expect(result.variants[0]?.stockManagement).toBe(false);
+    expect(result.variants[0]?.stock).toBeNull();
+  });
+});
+
+describe("mapToProductView � independent garment fields", () => {
   it("retains Fit when its chart has no matching axis", () => {
     const product = buildWireProduct({ variants: [buildWireVariant({ values: [] })] });
     const result = mapToProductView(product, null, {

@@ -107,8 +107,8 @@ describe("Tiendanube catalog loader", () => {
       "https://api.tiendanube.com/unstable/123/products/custom-fields/custom/size_chart/owners?limit=200",
     ]);
     expect(snapshot.listed).toHaveLength(1);
-    expect(snapshot.all[0]).toMatchObject({ slug: "remera", colourway: { group: "tee" }, fit: { type: "top" } });
-    expect(snapshot.all[0]?.sizeChart).toEqual([{ size: "M", measurements: { chest_width: 50 } }]);
+    expect(snapshot.purchasable[0]).toMatchObject({ slug: "remera", colourway: { group: "tee" }, fit: { type: "top" } });
+    expect(snapshot.purchasable[0]?.sizeChart).toEqual([{ size: "M", measurements: { chest_width: 50 } }]);
   });
 
   it("follows safe product Link pagination and rejects an escaping link", async () => {
@@ -235,7 +235,7 @@ describe("Tiendanube catalog loader", () => {
       { entity_id: "101", value: { group: "tee", hex: "#000", color_name: "Black" } },
     ])));
     const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl, warn })();
-    expect(snapshot.all[0]?.colourway?.name).toBe("Black");
+    expect(snapshot.purchasable[0]?.colourway?.name).toBe("Black");
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("colourway"));
     expect(String(warn.mock.calls[0])).not.toContain("#000");
 
@@ -268,6 +268,7 @@ describe("Tiendanube catalog loader", () => {
     const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
 
     expect(snapshot.listed.map((view) => view.id)).toEqual([101]);
+    expect(snapshot.purchasable.map((view) => view.id).sort()).toEqual([101, 102]);
     expect(snapshot.checkout.map((item) => item.productId).sort()).toEqual([101, 102]);
     expect(snapshot.checkout.find((item) => item.productId === 101)?.variants).toEqual([
       { productId: 101, variantId: 201, price: { amount: 10000, currency: "ARS" }, stockManagement: true, stock: 2 },
@@ -275,5 +276,34 @@ describe("Tiendanube catalog loader", () => {
     expect(snapshot.checkout.find((item) => item.productId === 102)?.variants).toEqual([
       { productId: 102, variantId: 202, price: { amount: 5000, currency: "ARS" }, stockManagement: false, stock: null },
     ]);
+  });
+
+  it("excludes a hidden product from purchasable and checkout, keeping only visible/unlisted purchasable", async () => {
+    // `hidden` means "not shown anywhere and NOT purchasable" (see the
+    // three-state visibility rule in tiendanube.ts). Today the fetch URL
+    // already asks for `visibility=visible,unlisted`, so a hidden product
+    // never actually reaches this loop in production — this test proves the
+    // loop enforces the rule itself, independent of that query param, so a
+    // stray hidden product from the API can never become orderable.
+    const unlistedProduct = {
+      ...product,
+      id: 102,
+      handle: { es: "remera-unlisted" },
+      visibility: "unlisted",
+      variants: [{ ...product.variants[0], id: 202, product_id: 102 }],
+    };
+    const hiddenProduct = {
+      ...product,
+      id: 103,
+      handle: { es: "remera-hidden" },
+      visibility: "hidden",
+      variants: [{ ...product.variants[0], id: 203, product_id: 103 }],
+    };
+    const fetchImpl = successfulFetch([product, unlistedProduct, hiddenProduct]);
+    const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
+
+    expect(snapshot.purchasable.map((view) => view.id).sort()).toEqual([101, 102]);
+    expect(snapshot.listed.map((view) => view.id)).toEqual([101]);
+    expect(snapshot.checkout.map((item) => item.productId).sort()).toEqual([101, 102]);
   });
 });

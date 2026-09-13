@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyRate, TRANSFER_RATE_BP } from "@/modules/catalog/client";
-import { discountPercent, transferPrice } from "./pricing";
+import { discountPercent, promoPriceView, transferPrice } from "./pricing";
 
 const ars = (amount: number) => ({ amount, currency: "ARS" });
 
@@ -73,5 +73,25 @@ describe("discountPercent", () => {
   it("rounds to a whole percent, the way a badge is read", () => {
     // 27.000 -> 18.910 is 29.96%.
     expect(discountPercent(ars(1_891_000), ars(2_700_000))).toBe(30);
+  });
+});
+
+describe("promoPriceView", () => {
+  it("splits a markdown into its transfer current/previous prices and its raw-pair percent", () => {
+    // compareAt (original, higher) 150.000; price (current, lower) 92.000.
+    const view = promoPriceView(ars(9_200_000), ars(15_000_000));
+
+    expect(view.current).toEqual({ amount: 8_280_000, currency: "ARS" });
+    expect(view.previous).toEqual({ amount: 13_500_000, currency: "ARS" });
+    // `discountPercent` returns the whole percent, unsigned — `DiscountBadge`
+    // is what prepends the "-" a shopper reads.
+    expect(view.percent).toBe(39);
+  });
+
+  it("reports no markdown at all when there is no compareAt", () => {
+    const view = promoPriceView(ars(2_700_000), null);
+
+    expect(view.previous).toBeNull();
+    expect(view.percent).toBeNull();
   });
 });

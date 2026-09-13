@@ -30,9 +30,33 @@ const CATALOG: CartCatalog = [
     title: "Remera Classic",
     image: null,
     variants: [
-      { id: 201, combination: ["M"], price: CATALOG_PRICE_201, inStock: true },
-      { id: 202, combination: ["L"], price: CATALOG_PRICE_202, inStock: true },
-      { id: 203, combination: ["XL"], price: CATALOG_PRICE_201, inStock: false },
+      {
+        id: 201,
+        combination: ["M"],
+        price: CATALOG_PRICE_201,
+        compareAt: null,
+        inStock: true,
+        stockManagement: false,
+        stock: null,
+      },
+      {
+        id: 202,
+        combination: ["L"],
+        price: CATALOG_PRICE_202,
+        compareAt: null,
+        inStock: true,
+        stockManagement: false,
+        stock: null,
+      },
+      {
+        id: 203,
+        combination: ["XL"],
+        price: CATALOG_PRICE_201,
+        compareAt: null,
+        inStock: false,
+        stockManagement: true,
+        stock: 0,
+      },
     ],
   },
 ];
@@ -92,7 +116,7 @@ function Controls() {
       <button
         type="button"
         onClick={() =>
-          dispatch({ type: "add", productId: 101, variantId: 202, price: CATALOG_PRICE_202 })
+          dispatch({ type: "add", productId: 101, variantId: 202, price: CATALOG_PRICE_202, limit: null })
         }
       >
         agregar
@@ -119,7 +143,7 @@ function MidFlightAdd({ statusAtClick }: { statusAtClick: string[] }) {
     // cart was still hydrating when this dispatch went out Ã¢â‚¬â€ otherwise it
     // would be green without the merge path ever running.
     statusAtClick.push(state.status);
-    dispatch({ type: "add", productId: 101, variantId: 201, price: CATALOG_PRICE_201 });
+    dispatch({ type: "add", productId: 101, variantId: 201, price: CATALOG_PRICE_201, limit: null });
     // Fires once, at the moment before the provider's own mount effect.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

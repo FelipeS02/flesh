@@ -3,18 +3,36 @@ import type { CartLineId } from "../api/port";
 
 /**
  * The narrow, serializable slice of a product the client-side cart is
- * allowed to see. Deliberately excludes `descriptionHtml`, `axes`,
- * `compareAt`, and `tags` — same reasoning the storefront design applied to
- * `PurchasePanel` (design D1): the cart never renders a description, never
- * lets a shopper re-pick axes from inside the drawer, and the transfer
- * discount computes on `variant.price` (already the promotional price when
- * one is active — `compareAt` is not needed to know that).
+ * allowed to see. Deliberately excludes `descriptionHtml`, `axes`, and
+ * `tags`: the cart never renders a description and never lets a shopper
+ * re-pick axes from inside the drawer.
+ *
+ * `compareAt` used to be on that exclusion list, for the reason that the
+ * transfer discount computes on `variant.price` — already the promotional
+ * price when one is active — so the original was not needed to know what to
+ * charge. That reasoning was about ARITHMETIC and it still holds: nothing in
+ * this module prices off `compareAt`. What changed is that the drawer now
+ * has to SAY a garment is marked down (struck previous price plus a percent
+ * badge, see `ui/line-row.tsx`), and a markdown cannot be announced from the
+ * effective price alone — announcing it needs the price it was marked down
+ * FROM.
+ *
+ * It is display-only and nullable, and it stops here. `CartLine` deliberately
+ * does not carry it (see `domain/line.ts`): a line's `price` is a drift
+ * WITNESS for `reconcile`, and a second price on that record would be a
+ * field `reconcile` has no rule for.
  */
 export type CartCatalogVariant = {
   id: CartLineId;
   combination: string[];
   price: Money;
+  compareAt: Money | null;
   inStock: boolean;
+  // Carried through so `purchaseLimit` (catalog/client.ts) can be computed
+  // client-side, exactly as it is for the PDP's own add-to-cart control —
+  // otherwise the drawer's stepper would have no ceiling to clamp against.
+  stockManagement: boolean;
+  stock: number | null;
 };
 
 export type CartCatalogProduct = {
@@ -44,7 +62,10 @@ export function toCartCatalog(products: ProductView[]): CartCatalog {
       id: variant.id,
       combination: variant.combination,
       price: variant.price,
+      compareAt: variant.compareAt,
       inStock: variant.inStock,
+      stockManagement: variant.stockManagement,
+      stock: variant.stock,
     })),
   }));
 }

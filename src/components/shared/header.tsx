@@ -6,7 +6,7 @@ import { ShoppingBag } from 'lucide-react';
 import Link from 'next/link';
 import FleshLogotype from '@/components/shared/flesh-logotype';
 import { PromoMarquee } from '@/components/shared/promo-marquee';
-import { CartDrawer, itemCount, useCartState } from '@/modules/cart';
+import { CartDrawer, CartToastViewport, itemCount, useCartState } from '@/modules/cart';
 
 const HEADER_SCROLL_RANGE = 160;
 const LOGOTYPE_TARGET_SCALE = 0.75;
@@ -24,6 +24,12 @@ const LOGOTYPE_TARGET_SCALE = 0.75;
 export function Header() {
   const bandRef = useRef<HTMLDivElement>(null);
   const [cartOpen, setCartOpen] = useState(false);
+  // A callback ref into STATE, never a `useRef` object: `ToastPositioner`
+  // narrows its `anchor` prop with `isElement(anchorProp) ? anchorProp : null`
+  // (`@base-ui/react/toast/positioner/ToastPositioner.js:55`) BEFORE it ever
+  // reaches the generic ref-unwrapping path, so handing it a ref object
+  // silently becomes `null` — see design D5.
+  const [triggerEl, setTriggerEl] = useState<HTMLButtonElement | null>(null);
   const state = useCartState();
   const count = state.status === 'ready' ? itemCount(state.lines) : null;
 
@@ -78,6 +84,7 @@ export function Header() {
             <FleshLogotype className='w-28 md:w-40 origin-top scale-(--_logotype-scale)' />
           </Link>
           <button
+            ref={setTriggerEl}
             type='button'
             aria-label='Abrir carrito'
             onClick={() => setCartOpen(true)}
@@ -95,6 +102,12 @@ export function Header() {
           </button>
         </header>
       </div>
+      {/* Rendered ONLY while the drawer is closed — this is the whole
+          suppression mechanism (design D3). `createToastManager()` holds no
+          toast state of its own, so `showAddedToCart` fired while this is
+          unmounted simply emits into an empty listener set; no store entry,
+          no timer, nothing to clean up. */}
+      {!cartOpen && <CartToastViewport anchor={triggerEl} />}
       <CartDrawer open={cartOpen} onOpenChange={setCartOpen} />
     </>
   );

@@ -30,7 +30,7 @@ export function ColourwaySelector({ links, currentSlug }: ColourwaySelectorProps
   const current = links.find((link) => link.slug === currentSlug);
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col">
       <p className="flex items-center gap-2 font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
         <span>Seleccionar Color</span>
         {/* A dot cannot say its own name, so the row prints the current one

@@ -7,7 +7,17 @@ const catalogProduct = vi.hoisted(() => ({
   descriptionHtml: "<p>Remera</p>",
   images: [],
   axes: [],
-  variants: [{ id: 201, combination: [], price: { amount: 10000, currency: "ARS" }, compareAt: null, inStock: true }],
+  variants: [
+    {
+      id: 201,
+      combination: [],
+      price: { amount: 10000, currency: "ARS" },
+      compareAt: null,
+      inStock: true,
+      stockManagement: false,
+      stock: null,
+    },
+  ],
   defaultVariantId: 201,
   inStock: true,
   tags: [],

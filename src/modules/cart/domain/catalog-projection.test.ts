@@ -1,6 +1,22 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { makeProduct, makeVariant } from "../../../../test/fixtures/product-view";
 import { indexCartCatalog, toCartCatalog } from "./catalog-projection";
+
+// Mocked by string path, not imported: `@/modules/catalog/api/source` is the
+// catalog module's private wire layer (enforced by the no-restricted-imports
+// ESLint rule), so this suite reaches it only to stand in for the live
+// Tiendanube-backed implementation, never to import from it directly.
+const unlistedColourwayVariantId = 214;
+vi.mock("@/modules/catalog/api/source", () => ({
+  getPurchasableProducts: async () => [
+    { id: 108, slug: "cross-tee-noir", title: "Cross Tee Noir", images: [], variants: [{ id: 212, combination: [], price: { amount: 3_300_000, currency: "ARS" }, compareAt: null, inStock: true, stockManagement: true, stock: 4 }] },
+    // The secondary colourway: `unlisted`, reachable and fully purchasable
+    // from its own PDP, but deliberately absent from `getProducts()`
+    // (`listed`, visible-only) — see `tiendanube.ts`'s snapshot split.
+    { id: 109, slug: "cross-tee-bone", title: "Cross Tee Bone", images: [], variants: [{ id: unlistedColourwayVariantId, combination: [], price: { amount: 3_300_000, currency: "ARS" }, compareAt: null, inStock: false, stockManagement: true, stock: 0 }] },
+  ],
+}));
+const { getPurchasableProducts } = await import("@/modules/catalog");
 
 describe("toCartCatalog", () => {
   it("projects only the fields the cart needs, dropping descriptionHtml/axes/compareAt/tags", () => {
@@ -18,6 +34,8 @@ describe("toCartCatalog", () => {
           price: { amount: 2_700_000, currency: "ARS" },
           compareAt: { amount: 3_000_000, currency: "ARS" },
           inStock: true,
+          stockManagement: true,
+          stock: 3,
         }),
       ],
     });
@@ -34,14 +52,17 @@ describe("toCartCatalog", () => {
           id: 201,
           combination: ["M"],
           price: { amount: 2_700_000, currency: "ARS" },
+          compareAt: { amount: 3_000_000, currency: "ARS" },
           inStock: true,
+          stockManagement: true,
+          stock: 3,
         },
       ],
     });
     expect(projected).not.toHaveProperty("descriptionHtml");
     expect(projected).not.toHaveProperty("axes");
     expect(projected).not.toHaveProperty("tags");
-    expect(projected.variants[0]).not.toHaveProperty("compareAt");
+    expect(projected.variants[0]).toHaveProperty("compareAt");
   });
 
   it("projects a null image for a product with no images", () => {
@@ -89,5 +110,18 @@ describe("indexCartCatalog", () => {
     const index = indexCartCatalog(catalog);
 
     expect(index.has(999)).toBe(false);
+  });
+
+  it("resolves an unlisted colourway's variant, the exact case the cart used to drop (AddedToast rendered empty, reconcile dropped the line on reload)", async () => {
+    // Regression for the bug where `layout.tsx` built the cart catalog from
+    // `getProducts()` (`listed`, visible-only) instead of the purchasable
+    // set. An unlisted colourway is fully purchasable from its own PDP, but
+    // its variant was missing from the index — `AddedToast` got `undefined`
+    // from `index.get(variantId)` and rendered an empty box, and `reconcile`
+    // treated the line as an `unknown-variant` and dropped it on reload.
+    const catalog = toCartCatalog(await getPurchasableProducts());
+    const index = indexCartCatalog(catalog);
+
+    expect(index.has(unlistedColourwayVariantId)).toBe(true);
   });
 });

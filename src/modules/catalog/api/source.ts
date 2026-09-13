@@ -19,18 +19,23 @@ const getSnapshot = cache(loadPersistentSnapshot);
 export function createCatalogSource(loadSnapshot: () => Promise<CatalogSnapshot>): CatalogPort {
   return {
     async getProducts() { return (await loadSnapshot()).listed; },
+    async getPurchasableProducts() { return (await loadSnapshot()).purchasable; },
     async getCheckoutProducts() { return (await loadSnapshot()).checkout; },
     async getProductByHandle(slug: string) {
-      return (await loadSnapshot()).all.find((product) => product.slug === slug) ?? null;
+      // Reads `purchasable`, not `listed`: an unlisted colourway's PDP must
+      // resolve (it is reachable and fully purchasable by direct URL), while
+      // a hidden product — absent from `purchasable` — must 404 here.
+      return (await loadSnapshot()).purchasable.find((product) => product.slug === slug) ?? null;
     },
-    async getColourwayIndex() { return buildColourwayIndex((await loadSnapshot()).all); },
+    async getColourwayIndex() { return buildColourwayIndex((await loadSnapshot()).purchasable); },
   };
 }
 
 const source = createCatalogSource(getSnapshot);
 function getProducts(): Promise<ProductView[]> { return Promise.resolve(source.getProducts()); }
+function getPurchasableProducts(): Promise<ProductView[]> { return Promise.resolve(source.getPurchasableProducts()); }
 function getCheckoutProducts(): Promise<CheckoutProduct[]> { return Promise.resolve(source.getCheckoutProducts()); }
 function getProductByHandle(slug: string): Promise<ProductView | null> { return Promise.resolve(source.getProductByHandle(slug)); }
 function getColourwayIndex(): Promise<ColourwayIndex> { return Promise.resolve(source.getColourwayIndex()); }
 
-export { getProducts, getCheckoutProducts, getProductByHandle, getColourwayIndex, source };
+export { getProducts, getPurchasableProducts, getCheckoutProducts, getProductByHandle, getColourwayIndex, source };

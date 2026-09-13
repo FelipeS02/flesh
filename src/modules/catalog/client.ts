@@ -10,7 +10,7 @@
 // Rule of thumb: if it needs a product, it imports from `./index.ts` and runs
 // on the server. If it only needs to reason ABOUT a product it was handed, it
 // imports from here.
-export { CatalogContractError } from "./domain/product";
+export { CatalogContractError, purchaseLimit } from "./domain/product";
 export type {
   ImageView,
   Money,

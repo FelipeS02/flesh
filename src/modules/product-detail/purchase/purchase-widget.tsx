@@ -120,6 +120,9 @@ export function PurchaseWidget({
 
       <button
         type="button"
+        // See the panel's own add button: the toast's mobile dismiss hook
+        // reads this so the tap that creates the toast cannot hide it.
+        data-cart-add=""
         disabled={!canAddToCart}
         onClick={() => onAdd?.()}
         // Label left, price right. The price is the transfer price and only

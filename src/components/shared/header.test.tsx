@@ -1,10 +1,35 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { useLayoutEffect } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { fireEvent, render, screen } from '@testing-library/react';
 import type { CartCatalog } from '@/modules/cart/domain/catalog-projection';
 import { CartProvider, useCartDispatch } from '@/modules/cart';
 import { Header } from './header';
+
+// Captures what `Header` actually hands `CartToastViewport` as `anchor`,
+// without depending on Floating UI resolving a real position in jsdom (it
+// never does — jsdom has no layout, so even a genuine anchor stays at
+// `opacity: 0`, which makes that style useless as a test signal here). A
+// `useRef` object passed by mistake would show up here as `{current: ...}`,
+// never as an `Element` — that IS the regression this test guards against.
+// `vi.hoisted` is required because `vi.mock` factories run before this
+// file's own top-level statements, due to import hoisting.
+const toastViewportProbe = vi.hoisted(() => ({
+  anchor: undefined as unknown,
+  renderCount: 0,
+}));
+
+vi.mock('@/modules/cart', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/modules/cart')>();
+  return {
+    ...actual,
+    CartToastViewport: (props: { anchor: Element | null }) => {
+      toastViewportProbe.anchor = props.anchor;
+      toastViewportProbe.renderCount += 1;
+      return null;
+    },
+  };
+});
 
 const PRICE = { amount: 2_700_000, currency: 'ARS' } as const;
 const CATALOG: CartCatalog = [
@@ -13,7 +38,17 @@ const CATALOG: CartCatalog = [
     slug: 'remera-classic',
     title: 'Remera Classic',
     image: null,
-    variants: [{ id: 201, combination: ['M'], price: PRICE, inStock: true }],
+    variants: [
+      {
+        id: 201,
+        combination: ['M'],
+        price: PRICE,
+        compareAt: null,
+        inStock: true,
+        stockManagement: false,
+        stock: null,
+      },
+    ],
   },
 ];
 
@@ -28,6 +63,7 @@ function SeedCart({ quantity }: { quantity: number }) {
         variantId: 201,
         price: PRICE,
         quantity,
+        limit: null,
       });
     }
   }, [dispatch, quantity]);
@@ -43,6 +79,11 @@ function renderHeader(quantity = 0) {
     </CartProvider>,
   );
 }
+
+afterEach(() => {
+  toastViewportProbe.anchor = undefined;
+  toastViewportProbe.renderCount = 0;
+});
 
 describe('Header', () => {
   it('renders a link to the homepage wrapping the wordmark', () => {
@@ -140,5 +181,30 @@ describe('Header', () => {
 
     expect(markup).not.toContain('aria-label="0 productos en el carrito"');
     expect(markup).not.toContain('aria-label="2 productos en el carrito"');
+  });
+
+  it('hands the toast viewport the cart trigger itself as its anchor, not a ref object', () => {
+    renderHeader();
+
+    const trigger = screen.getByRole('button', { name: 'Abrir carrito' });
+
+    // A `useRef` object passed by mistake would show up here as
+    // `{current: HTMLButtonElement}`, never as the element itself — see
+    // `isElement`'s narrowing in `ToastPositioner.js:55`, which is exactly
+    // the trap a callback ref into state avoids.
+    expect(toastViewportProbe.anchor).toBe(trigger);
+  });
+
+  it('stops rendering the toast viewport while the cart drawer is open', () => {
+    renderHeader();
+    const renderCountWhileClosed = toastViewportProbe.renderCount;
+    expect(renderCountWhileClosed).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir carrito' }));
+
+    // `Header` re-renders on `cartOpen` changing — if `CartToastViewport`
+    // were still in the tree it would render again too. Suppression is a
+    // conditional EXCLUSION (design D3), not a prop toggle.
+    expect(toastViewportProbe.renderCount).toBe(renderCountWhileClosed);
   });
 });

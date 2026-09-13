@@ -20,15 +20,20 @@ export function CartSummary() {
   const breakdown = totals(state.lines, transferRateBp);
 
   return (
-    <section aria-label="Resumen del carrito" className="border-t border-border pt-4">
+    <section aria-label="Resumen del carrito" className="border-t border-border pt-2">
       <dl className="space-y-2 font-sans text-sm tabular-nums">
+        {/* Both rows below render `breakdown.total` — the SAME transfer
+            figure — on purpose. Design D1: the domain keeps its one
+            rounding site (`selectors.ts`/`catalog/lib/pricing.ts` stay
+            untouched); only the LABEL changes, because the transfer price
+            is what every shopper actually pays and "Subtotal" now names
+            that number instead of the un-discounted list sum. */}
         <div className="flex items-center justify-between gap-4">
           <dt>Subtotal</dt>
-          <dd>{formatMoney(breakdown.subtotal)}</dd>
+          <dd>{formatMoney(breakdown.total)}</dd>
         </div>
-        <div className="flex items-center justify-between gap-4 text-muted-foreground">
-          <dt>Descuento por transferencia</dt>
-          <dd>-{formatMoney(breakdown.discount)}</dd>
+        <div className="flex items-center justify-between gap-4 text-muted-foreground mb-2">
+          <dt>ya incluye 10% off por transferencia</dt>
         </div>
         <div className="flex items-center justify-between gap-4 border-t border-border pt-3 font-display text-lg">
           <dt>Total</dt>

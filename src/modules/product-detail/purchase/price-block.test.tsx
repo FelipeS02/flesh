@@ -10,6 +10,8 @@ function variant(overrides: Partial<VariantView> = {}): VariantView {
     price: { amount: 1_890_000, currency: "ARS" },
     compareAt: null,
     inStock: true,
+    stockManagement: false,
+    stock: null,
     ...overrides,
   };
 }
