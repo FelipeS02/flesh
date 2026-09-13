@@ -1,4 +1,6 @@
 import Link from "next/link";
+import SkullSwatch from "@/components/shared/skull-swatch";
+import SkullSwatchMarker from "@/components/shared/skull-swatch-marker";
 import { cn } from "@/lib/utils";
 import type { ColourwayLink } from "@/modules/catalog/client";
 
@@ -35,12 +37,9 @@ export function ColourwaySwatches({
           {link.slug === currentSlug ? (
             <span
               aria-current="true"
-              className={cn(
-                "flex items-center justify-center rounded-full ring-1 ring-inset ring-foreground",
-                hit,
-              )}
+              className={cn("flex items-center justify-center rounded-full", hit)}
             >
-              <Swatch link={link} className={dot} />
+              <Swatch link={link} className={dot} selected />
               <span className="sr-only">{link.name}</span>
             </span>
           ) : (
@@ -74,12 +73,48 @@ export function ColourwaySwatches({
  * tappable square at the touch-target floor while the visible swatch stays
  * the size the artboard drew.
  */
-function Swatch({ link, className }: { link: ColourwayLink; className: string }) {
+function Swatch({
+  link,
+  className,
+  selected = false,
+}: {
+  link: ColourwayLink;
+  className: string;
+  selected?: boolean;
+}) {
   return (
     <span
       data-swatch
-      className={cn("block rounded-full border border-border", className)}
-      style={{ backgroundColor: link.hex }}
-    />
+      className={cn("relative block", className)}
+    >
+      <SkullSwatch
+        aria-hidden="true"
+        className="size-full"
+        style={{ color: link.hex }}
+      />
+      {selected && (
+        <SkullSwatchMarker
+          aria-hidden="true"
+          className="absolute -inset-y-1 -inset-x-0.75 size-[120%] text-foreground"
+        />
+      )}
+      {!link.inStock && (
+        <svg
+          viewBox="0 0 12 12"
+          aria-hidden="true"
+          className="absolute inset-0 size-full text-muted-foreground"
+        >
+          <line
+            x1="1.5"
+            y1="10.5"
+            x2="10.5"
+            y2="1.5"
+            stroke="currentColor"
+            strokeWidth="1"
+            strokeLinecap="round"
+          />
+        </svg>
+      )}
+    </span>
   );
 }

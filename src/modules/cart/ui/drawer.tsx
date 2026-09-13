@@ -41,7 +41,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
       <SheetContent
         showCloseButton={false}
         initialFocus={closeButtonRef}
-        className='w-full max-w-md gap-0 bg-background p-6 shadow-2xl sm:data-[side=right]:max-w-md'
+        className='max-md:w-svw! max-w-md gap-0 bg-background p-6 shadow-2xl'
       >
         <SheetHeader className='flex-row items-center justify-between border-b border-border p-0 pb-4'>
           <div>

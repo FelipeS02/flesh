@@ -33,9 +33,13 @@ describe("ColourwaySelector", () => {
   });
 
   it("says a colour is sold out instead of only dimming it", () => {
-    render(<ColourwaySelector links={links} currentSlug="remera-cruz-noir" />);
+    const { container } = render(
+      <ColourwaySelector links={links} currentSlug="remera-cruz-noir" />,
+    );
 
     expect(screen.getByText(/Bone.*agotado/i)).not.toBeNull();
+    expect(container.querySelector("[data-swatch] svg")).not.toBeNull();
+    expect(container.querySelector("[data-swatch] line")).not.toBeNull();
   });
 
   it("keeps a sold-out colour reachable — its page still has the photos", () => {
@@ -49,9 +53,11 @@ describe("ColourwaySelector", () => {
       <ColourwaySelector links={links} currentSlug="remera-cruz-noir" />,
     );
 
-    const fills = [...container.querySelectorAll<HTMLElement>("[data-swatch]")];
+    const fills = [
+      ...container.querySelectorAll<SVGElement>("[data-swatch] > svg:first-child"),
+    ];
 
-    expect(fills.map((fill) => fill.style.backgroundColor)).toEqual([
+    expect(fills.map((fill) => fill.style.color)).toEqual([
       "rgb(10, 10, 10)",
       "rgb(232, 228, 218)",
     ]);

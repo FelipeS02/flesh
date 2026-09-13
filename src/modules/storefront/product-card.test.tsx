@@ -95,10 +95,14 @@ describe("ProductCard", () => {
   it("marks a sold-out colour as such", () => {
     const { noir, colourways } = makeColourGroup();
 
-    render(<ProductCard product={noir} colourways={colourways} />);
+    const { container } = render(
+      <ProductCard product={noir} colourways={colourways} />,
+    );
 
     expect(screen.getByText(/Bone.*agotado/i)).not.toBeNull();
     expect(screen.getByText("Noir")).not.toBeNull();
+    expect(container.querySelector("[data-swatch-row] svg")).not.toBeNull();
+    expect(container.querySelector("line")).not.toBeNull();
   });
 
   it("links a sibling colour to its own page, since each colour is its own product", () => {
