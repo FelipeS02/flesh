@@ -7,3 +7,27 @@ This version has breaking changes — APIs, conventions, and file structure may 
 This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
 
 <!-- END:nextjs-agent-rules -->
+
+# Project conventions
+
+## shadcn first — this is not a preference, it is the design system
+
+`src/components/ui/` is the design system. When it already provides a component for what you are building, **use it**; when shadcn ships one that fits and the project does not have it yet, **install it**. Do not hand-roll a `<button>`, dialog, drawer, or any other primitive it covers.
+
+The reason is not tidiness. Those components carry the focus-visible ring, disabled handling, press feedback, `aria-*` wiring and icon sizing that a hand-written element silently lacks — the cart drawer had to be rebuilt onto `Sheet` once already for exactly this.
+
+Composing rather than replacing: Base UI parts (`SheetClose`, `Toast.Close`, …) take a `render` prop, so pass the design system's `Button` into it instead of writing a bare element. `cn()` is `twMerge`, so per-use overrides in `className` win cleanly over a variant's defaults.
+
+Deviating is allowed when the design genuinely calls for it — say so in a comment at the call site, naming what the component could not do.
+
+## Hard edges
+
+`--radius` is `0`. Every corner in this app is square; the only round things are circles asked for explicitly with `rounded-full`. Do not reintroduce a radius scale or add `rounded-*` to app components.
+
+## Spanish ships, English is written
+
+Shopper-facing copy is Spanish and stays Spanish, exactly as specified — `AGREGADO AL CARRITO`, `QUITAR`, `Finalizar compra`. Everything else is English: identifiers, comments, commit messages, test names, docs.
+
+## Comments explain WHY
+
+This codebase's comments carry the reasoning and name the failure the code prevents; they never restate the line below them. Match that register, and when a comment's reasoning stops being true, rewrite it rather than leaving it to contradict the code.
