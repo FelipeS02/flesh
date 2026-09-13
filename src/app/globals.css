@@ -56,7 +56,15 @@
      available, and it doubles as identity. */
   --ring: oklch(0.577 0.245 27.325);
 
-  --radius: 0.625rem;
+  /* Zero, and it is the brand rather than a reset: FLESH is drawn with hard
+     edges everywhere — every corner in the app is square, and the only round
+     things are circles asked for explicitly with `rounded-full` (the colour
+     swatches). 0.625rem was what `shadcn init` emitted and the one token in
+     the map nobody tuned afterwards, which is why every shadcn primitive
+     arrived 10px-rounded and reading as foreign. Tuned here rather than
+     overridden per component, so the design system's own components are
+     correct by default instead of needing `rounded-none` at each call site. */
+  --radius: 0;
 
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
