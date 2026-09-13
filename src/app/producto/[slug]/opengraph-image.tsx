@@ -59,7 +59,7 @@ export const size = plateSize(plate);
  * of the two means the garment never reaches an edge it was meant to float
  * inside. THIS is the knob for how big the garment reads on the card.
  */
-const GARMENT_SCALE = 0.8;
+const GARMENT_SCALE = 0.9;
 const GARMENT_BOX = Math.round(Math.min(size.width, size.height) * GARMENT_SCALE);
 
 /**
