@@ -3,7 +3,7 @@ import { createBuyerProfilePort } from "./buyer-profile.client";
 
 describe("createBuyerProfilePort", () => {
   it("returns the injected action's result unchanged", async () => {
-    const summary = { hasProfile: true, maskedLabel: "Comprar como F••• S•••" };
+    const summary = { hasProfile: true, maskedLabel: "F••• S•••" };
     const port = createBuyerProfilePort(async () => summary);
 
     await expect(port.readSummary()).resolves.toEqual(summary);

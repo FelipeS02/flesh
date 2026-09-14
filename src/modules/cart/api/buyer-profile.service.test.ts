@@ -15,7 +15,7 @@ describe("readBuyerProfileSummary", () => {
   it("returns the masked label and hasProfile:true for a valid stored buyer", async () => {
     await expect(readBuyerProfileSummary(dependencies())).resolves.toEqual({
       hasProfile: true,
-      maskedLabel: "Comprar como F••• S•••",
+      maskedLabel: "F••• S•••",
     });
   });
 

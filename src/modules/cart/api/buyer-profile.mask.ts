@@ -9,7 +9,7 @@ const BULLETS = "•••";
 
 /** `Array.from` takes the first character as a whole codepoint, so an accented or astral first letter is never split mid-codepoint. */
 export function maskBuyerLabel(buyer: CheckoutBuyer): string {
-  return `Comprar como ${maskPart(buyer.firstName)} ${maskPart(buyer.lastName)}`;
+  return `${maskPart(buyer.firstName)} ${maskPart(buyer.lastName)}`;
 }
 
 function maskPart(name: string): string {
