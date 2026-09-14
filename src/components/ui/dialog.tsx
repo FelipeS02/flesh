@@ -49,7 +49,15 @@ function DialogContent({
 }) {
   return (
     <DialogPortal>
-      <DialogOverlay />
+      {/* `forceRender` deviates from Base UI's default, which drops a NESTED
+          dialog's backdrop so the parent shows cleanly behind it. This app's
+          only nesting is the buyer modal over the cart drawer, and there the
+          missing backdrop left the whole drawer — rows, stepper, Pagar — still
+          taking clicks under an open modal. It changes nothing for a top-level
+          dialog, whose backdrop renders either way, so it is set here rather
+          than opted into at each call site: the same reason `--radius` is
+          tuned at the token instead of per component. */}
+      <DialogOverlay forceRender />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(

@@ -362,6 +362,45 @@ describe("CartDrawer buyer modal nested-dialog stacking (main risk)", () => {
     expect(screen.getByRole("dialog", { name: "Carrito" })).not.toBeNull();
   });
 
+  it("renders its own backdrop over the drawer, so the cart underneath stops taking clicks", async () => {
+    const checkout = await openWithLine(absentProfile());
+    fireEvent.click(checkout);
+    await screen.findByRole("dialog", { name: "Tus datos" });
+
+    // Base UI suppresses a NESTED dialog's backdrop by default, so the parent
+    // shows cleanly behind it — which here left the drawer's rows, stepper and
+    // Pagar fully clickable underneath the modal. `forceRender` brings the
+    // barrier back. jsdom cannot hit-test, so this asserts the barrier EXISTS;
+    // that it actually swallows the click is a browser check.
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]');
+    const drawer = screen.getByRole("dialog", { name: "Carrito" });
+    expect(overlay).not.toBeNull();
+
+    // Both carry z-50, so what actually decides which one receives the click
+    // is document order: the later element paints on top. Asserting the
+    // relationship rather than trusting that the portal happens to mount last.
+    expect(
+      drawer.compareDocumentPosition(overlay!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("pressing the modal's backdrop dismisses only the modal, never the drawer under it", async () => {
+    const checkout = await openWithLine(absentProfile());
+    fireEvent.click(checkout);
+    await screen.findByRole("dialog", { name: "Tus datos" });
+    const overlay = document.querySelector('[data-slot="dialog-overlay"]')!;
+
+    // The barrier that stops the click-through is itself an outside press for
+    // the drawer sitting behind it. If that reached the Sheet too, dismissing
+    // the modal would take the whole cart with it.
+    fireEvent.pointerDown(overlay);
+    fireEvent.pointerUp(overlay);
+    fireEvent.click(overlay);
+
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Tus datos" })).toBeNull());
+    expect(screen.getByRole("dialog", { name: "Carrito" })).not.toBeNull();
+  });
+
   it("focus returns to Finalizar compra after the modal it opened closes", async () => {
     const checkout = await openWithLine(absentProfile());
     checkout.focus();
