@@ -15,27 +15,36 @@ import { EmptyState } from './empty-state';
 import { LineRow } from './line-row';
 import { CartNotices } from './notices';
 import { CartSummary } from './summary';
+import { BuyerDialog } from './buyer-dialog';
+import { describeCheckoutOutcome } from './checkout-outcome';
 import { useCartEnvironment, useCartState } from '../state/cart-context';
-import { useCheckout } from '../state/use-checkout';
-import {
-  indexCartCatalog,
-  type CartCatalog,
-} from '../domain/catalog-projection';
-import type { CartLineId } from '../api/port';
+import { useCheckout, type CheckoutUiState } from '../state/use-checkout';
+import type { CartCatalog } from '../domain/catalog-projection';
 import type { CheckoutBuyer } from '../domain/line';
 import CartBackground from '../assets/cart-background.png';
 import Image from 'next/image';
 
 type CartDrawerProps = { open: boolean; onOpenChange: (open: boolean) => void };
-const EMPTY_BUYER: CheckoutBuyer = { firstName: '', lastName: '', email: '' };
+const IDLE: CheckoutUiState = { phase: 'idle' };
 
 /**
- * Mirrors design D2's four-phase skip path. `loading` is the only phase a
- * late `readSummary` resolution is ever allowed to leave — once the shopper
- * has moved to `editing` (or the read already settled to `absent`), a
- * resolution arriving afterwards must not swap the form out from under them.
+ * `loading` is the only phase a late `readSummary` resolution is ever
+ * allowed to leave (design D2 skip path) — once the read has settled to
+ * `absent` or `saved`, a resolution arriving afterwards must not overwrite
+ * what the shopper is doing. The former `editing` phase is gone: entering
+ * buyer details now always happens in the modal (`BuyerDialog`), which owns
+ * its own local form state instead of a fourth drawer phase.
  */
-type ProfilePhase = 'loading' | 'absent' | 'saved' | 'editing';
+type ProfilePhase = 'loading' | 'absent' | 'saved';
+
+/**
+ * Tracks which surface the in-flight/settled checkout attempt belongs to, so
+ * a failure renders in the one place it started from: the drawer's own
+ * one-click `saved` submit keeps its inline alert exactly as it shipped
+ * before this change, and a modal-started attempt (first-time buyer, or
+ * `CAMBIAR`) keeps its notice inside the modal instead.
+ */
+type CheckoutOrigin = 'drawer' | 'modal' | null;
 
 /** Keeps buyer details in local component state so checkout data is never persisted with cart state. */
 export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
@@ -43,12 +52,11 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   const { catalog, checkout, buyerProfile } = useCartEnvironment();
   const checkoutMachine = useCheckout(checkout);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [buyer, setBuyer] = useState(EMPTY_BUYER);
   const [profile, setProfile] = useState<ProfilePhase>('loading');
   const [maskedLabel, setMaskedLabel] = useState<string | null>(null);
   const [wasOpen, setWasOpen] = useState(open);
-  const updateBuyer = (field: keyof CheckoutBuyer, value: string) =>
-    setBuyer((current) => ({ ...current, [field]: value }));
+  const [modalOpen, setModalOpen] = useState(false);
+  const [origin, setOrigin] = useState<CheckoutOrigin>(null);
 
   // "Adjusting state when a prop changes", called during render rather than
   // from an effect (react.dev/learn/you-might-not-need-an-effect) — closing
@@ -62,16 +70,15 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
   // The dependency array alone gives the "runs at most once per open"
   // guarantee (design D2): this effect only re-executes when `open` itself
-  // flips, never merely because `profile`/`buyer` changed while it stayed
-  // open.
+  // flips, never merely because `profile` changed while it stayed open.
   useEffect(() => {
     if (!open) return;
     buyerProfile
       .readSummary()
       .then((summary) => {
         // Only `loading` may be overwritten — a shopper who already reached
-        // `editing` (or an already-settled `absent`) keeps what they have,
-        // per the "late resolution never discards typed input" scenario.
+        // `saved`/`absent` keeps what they have, per the "late resolution
+        // never discards typed input" scenario.
         setProfile((current) => {
           if (current !== 'loading') return current;
           if (summary.hasProfile) {
@@ -89,18 +96,29 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
       });
   }, [open, buyerProfile]);
 
-  function handleCambiar() {
-    setBuyer(EMPTY_BUYER);
-    setProfile('editing');
+  function handleDrawerSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    // Only ever wired up as a real `type="submit"` control in the `saved`
+    // phase (see the button below) — no buyer is sent, so `resolveBuyer`
+    // falls through to the httpOnly cookie server-side (already unit-tested
+    // there; this path deliberately does not duplicate that logic).
+    const lines = state.status === 'ready' ? state.lines : [];
+    setOrigin('drawer');
+    checkoutMachine.start({ lines });
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    // Only ever wired up inside the `status === 'ready'` branch below, but
-    // the guard lives in JSX, not in this closure's type narrowing.
+  function handleModalSubmit(buyer: CheckoutBuyer) {
     const lines = state.status === 'ready' ? state.lines : [];
-    checkoutMachine.start(profile === 'saved' ? { lines } : { buyer, lines });
+    setOrigin('modal');
+    checkoutMachine.start({ buyer, lines });
   }
+
+  // Each surface only ever sees the outcome of an attempt it started —
+  // otherwise a modal failure would also flash the drawer's own alert (or
+  // vice versa), even though only one of the two was ever open when the
+  // shopper submitted.
+  const drawerCheckoutState: CheckoutUiState = origin === 'drawer' ? checkoutMachine.state : IDLE;
+  const modalCheckoutState: CheckoutUiState = origin === 'modal' ? checkoutMachine.state : IDLE;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -149,98 +167,73 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
               <CartSummary />
               {state.lines.length > 0 && (
                 <div className='pt-4'>
-                  {/* One <form> for all four phases (design D6) — Pagar stays
-                      `type='submit'` even in `saved`, where the form holds no
-                      inputs, so Enter and click reach the identical handler. */}
-                  <form onSubmit={handleSubmit}>
+                  {/* `saved` is the only phase this form actually submits:
+                      `absent` (and `loading`) render Pagar as `type="button"`
+                      so it opens the modal instead of firing this handler. */}
+                  <form onSubmit={handleDrawerSubmit}>
                     {profile === 'loading' && (
                       // Fixed height so the layout does not jump once the
-                      // real content (form or label) replaces it — matches
-                      // neither shrinking to nothing nor guessing a form's
-                      // eventual height.
+                      // real content (row or plain button) replaces it.
                       <div
-                        className='h-33'
+                        className='h-24'
                         aria-hidden='true'
                         data-testid='buyer-profile-loading'
                       />
                     )}
-                    {(profile === 'absent' || profile === 'editing') && (
-                      <fieldset
-                        className='grid gap-2'
-                        disabled={checkoutMachine.state.phase === 'pending'}
-                      >
-                        <label className='text-sm' htmlFor='checkout-first-name'>
-                          Nombre
-                        </label>
-                        <input
-                          id='checkout-first-name'
-                          name='firstName'
-                          required
-                          value={buyer.firstName}
-                          onChange={(event) =>
-                            updateBuyer('firstName', event.target.value)
-                          }
-                          autoComplete='given-name'
-                        />
-                        <label className='text-sm' htmlFor='checkout-last-name'>
-                          Apellido
-                        </label>
-                        <input
-                          id='checkout-last-name'
-                          name='lastName'
-                          required
-                          value={buyer.lastName}
-                          onChange={(event) =>
-                            updateBuyer('lastName', event.target.value)
-                          }
-                          autoComplete='family-name'
-                        />
-                        <label className='text-sm' htmlFor='checkout-email'>
-                          Email
-                        </label>
-                        <input
-                          id='checkout-email'
-                          name='email'
-                          type='email'
-                          required
-                          value={buyer.email}
-                          onChange={(event) =>
-                            updateBuyer('email', event.target.value)
-                          }
-                          autoComplete='email'
-                        />
-                      </fieldset>
-                    )}
                     {profile === 'saved' && (
-                      <div className='flex items-center justify-between gap-2'>
-                        {/* The visible text itself IS the accessible name
-                            (spec "Accessible name matches visible text") — no
-                            `aria-label` here that could carry the real name. */}
-                        <p className='font-sans text-sm text-foreground'>{maskedLabel}</p>
-                        <Button type='button' variant='link' onClick={handleCambiar}>
-                          Cambiar
+                      <div className='flex items-center justify-between gap-2 pb-2'>
+                        <div>
+                          <p className='font-sans text-xs uppercase tracking-wide text-muted-foreground'>
+                            CONTINUAR COMO
+                          </p>
+                          {/* The visible text itself IS the accessible name
+                              (spec "Accessible name matches visible text") —
+                              no `aria-label` here that could carry the real
+                              name. */}
+                          <p className='font-sans text-sm text-foreground'>{maskedLabel}</p>
+                        </div>
+                        <Button
+                          type='button'
+                          variant='link'
+                          onClick={() => setModalOpen(true)}
+                        >
+                          CAMBIAR
                         </Button>
                       </div>
                     )}
                     <Button
-                      type='submit'
+                      type={profile === 'saved' ? 'submit' : 'button'}
+                      onClick={profile === 'absent' ? () => setModalOpen(true) : undefined}
                       disabled={checkoutMachine.state.phase === 'pending' || profile === 'loading'}
-                      className='mt-4 h-12 w-full bg-primary font-display text-lg text-primary-foreground hover:bg-primary disabled:bg-muted disabled:text-muted-foreground md:h-14 md:text-xl'
+                      className='h-12 w-full bg-primary font-display text-lg text-primary-foreground hover:bg-primary disabled:bg-muted disabled:text-muted-foreground md:h-14 md:text-xl'
                     >
-                      {checkoutMachine.state.phase === 'pending'
+                      {drawerCheckoutState.phase === 'pending'
                         ? 'Finalizando compra...'
                         : 'Finalizar compra'}
                     </Button>
-                    <CheckoutOutcome
-                      catalog={catalog}
-                      state={checkoutMachine.state}
-                    />
+                    {/* The drawer's own one-click (`saved`) failure path,
+                        unchanged from before the modal existed. A
+                        modal-started failure never reaches here — see
+                        `modalCheckoutState` and `BuyerDialog` instead. */}
+                    <CheckoutOutcome catalog={catalog} state={drawerCheckoutState} />
                   </form>
                 </div>
               )}
             </div>
           </>
         )}
+        {/* Rendered inside the sheet's own content on purpose (the "main
+            risk" this change carries): a second Base UI dialog stacked
+            inside the cart's, so Escape must close only this one and focus
+            must return to whichever control opened it, never to the
+            drawer's close button. */}
+        <BuyerDialog
+          open={modalOpen}
+          onOpenChange={setModalOpen}
+          onSubmit={handleModalSubmit}
+          checkoutState={modalCheckoutState}
+          catalog={catalog}
+        />
       </SheetContent>
     </Sheet>
   );
@@ -248,33 +241,14 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
 type CheckoutOutcomeProps = {
   catalog: CartCatalog;
-  state: ReturnType<typeof useCheckout>['state'];
+  state: CheckoutUiState;
 };
 function CheckoutOutcome({ catalog, state }: CheckoutOutcomeProps) {
-  if (state.phase !== 'settled') return null;
-  const message =
-    state.outcome.status === 'unavailable'
-      ? state.outcome.reason
-      : state.outcome.status === 'rejected'
-        ? `Algunos productos ya no estan disponibles: ${describeRejectedLines(state.outcome.lines, catalog)}.`
-        : 'Redirigiendo al checkout…';
+  const message = describeCheckoutOutcome(state, catalog);
+  if (!message) return null;
   return (
     <p role='alert' className='pt-3 font-sans text-sm text-muted-foreground'>
       {message}
     </p>
   );
-}
-function describeRejectedLines(
-  lines: CartLineId[],
-  catalog: CartCatalog,
-): string {
-  const index = indexCartCatalog(catalog);
-  return lines
-    .map((variantId) => {
-      const entry = index.get(variantId);
-      return entry
-        ? `${entry.product.title} / ${entry.variant.combination.join(', ')}`
-        : `Variante #${variantId}`;
-    })
-    .join(', ');
 }

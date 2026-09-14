@@ -1,0 +1,136 @@
+'use client';
+
+import { useState, type FormEvent } from 'react';
+import { X } from 'lucide-react';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import type { CheckoutBuyer } from '../domain/line';
+import type { CartCatalog } from '../domain/catalog-projection';
+import type { CheckoutUiState } from '../state/use-checkout';
+import { describeCheckoutOutcome, isCheckoutFailure } from './checkout-outcome';
+
+const EMPTY_BUYER: CheckoutBuyer = { firstName: '', lastName: '', email: '' };
+
+type BuyerDialogProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSubmit: (buyer: CheckoutBuyer) => void;
+  checkoutState: CheckoutUiState;
+  catalog: CartCatalog;
+};
+
+/**
+ * Holds the real `<form>` the maintainer's pen.dev screens moved out of the
+ * drawer — a genuine `type="submit"` control is the only reason the browser
+ * offers to save the profile and autofills it next time (the entire point
+ * of the shipped skip path), so this must never become a synthetic submit
+ * dispatched from a button click handler.
+ */
+export function BuyerDialog({ open, onOpenChange, onSubmit, checkoutState, catalog }: BuyerDialogProps) {
+  const [buyer, setBuyer] = useState(EMPTY_BUYER);
+  const [wasOpen, setWasOpen] = useState(open);
+
+  // Adjusting state during render (react.dev/learn/you-might-not-need-an-effect)
+  // rather than in an effect, matching the drawer's own D2 precedent. Every
+  // open comes up blank on purpose: the real buyer values live in an
+  // httpOnly cookie that never reaches the client (see `readSummary` at
+  // drawer.tsx), so even reopening for a shopper the drawer already
+  // recognizes as `saved` has nothing to prefill from. Do not "fix" this by
+  // wiring the masked summary in here — there is no unmasked value behind it.
+  if (open !== wasOpen) {
+    setWasOpen(open);
+    if (open) setBuyer(EMPTY_BUYER);
+  }
+
+  const updateBuyer = (field: keyof CheckoutBuyer, value: string) =>
+    setBuyer((current) => ({ ...current, [field]: value }));
+
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    onSubmit(buyer);
+  }
+
+  const failed = isCheckoutFailure(checkoutState);
+  const message = describeCheckoutOutcome(checkoutState, catalog);
+  const pending = checkoutState.phase === 'pending';
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* The shared `dialog.tsx` default close button is suppressed because it
+          ships an untranslated "Close" label, and shopper copy here is Spanish
+          (AGENTS.md). It is replaced rather than dropped: Escape is no exit on
+          touch, and tapping outside a modal stacked over the drawer reads as
+          ambiguous. Same composition the drawer uses for `SheetClose`. */}
+      <DialogContent className='max-w-sm' showCloseButton={false}>
+        <DialogHeader className='flex-row items-center justify-between'>
+          <DialogTitle>Tus datos</DialogTitle>
+          <DialogClose
+            aria-label='Cerrar'
+            render={<button type='button' className='text-foreground' />}
+          >
+            <X aria-hidden='true' className='size-5' />
+          </DialogClose>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className='grid gap-2'>
+          <fieldset className='grid gap-2' disabled={pending}>
+            <label className='text-sm' htmlFor='checkout-first-name'>
+              Nombre
+            </label>
+            <input
+              id='checkout-first-name'
+              name='firstName'
+              required
+              value={buyer.firstName}
+              onChange={(event) => updateBuyer('firstName', event.target.value)}
+              autoComplete='given-name'
+            />
+            <label className='text-sm' htmlFor='checkout-last-name'>
+              Apellido
+            </label>
+            <input
+              id='checkout-last-name'
+              name='lastName'
+              required
+              value={buyer.lastName}
+              onChange={(event) => updateBuyer('lastName', event.target.value)}
+              autoComplete='family-name'
+            />
+            <label className='text-sm' htmlFor='checkout-email'>
+              Email
+            </label>
+            <input
+              id='checkout-email'
+              name='email'
+              type='email'
+              required
+              value={buyer.email}
+              onChange={(event) => updateBuyer('email', event.target.value)}
+              autoComplete='email'
+            />
+          </fieldset>
+          <Button
+            type='submit'
+            disabled={pending}
+            className='mt-2 h-12 w-full bg-primary font-display text-lg text-primary-foreground hover:bg-primary disabled:bg-muted disabled:text-muted-foreground'
+          >
+            {failed ? 'Reintentar' : 'Continuar al pago'}
+          </Button>
+          {/* Only a failure started from this modal ever reaches here — a
+              one-click drawer failure renders its own alert in drawer.tsx
+              and never touches `checkoutState` passed into this component. */}
+          {failed && message && (
+            <p role='alert' className='pt-1 font-sans text-sm text-muted-foreground'>
+              {message}
+            </p>
+          )}
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
