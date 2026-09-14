@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { MAX_BLUR_PX, slideBlurValues } from "./slide-blur";
+import {
+  MAX_BLUR_PX,
+  restingSlideVisualStates,
+  slideBlurValues,
+  slideVisualStates,
+} from "./slide-blur";
 
 describe("slideBlurValues", () => {
   it("blurs nothing when there is only one slide", () => {
@@ -59,5 +64,32 @@ describe("slideBlurValues", () => {
   // would silently disable the effect rather than fail loudly.
   it("treats an unmeasurable progress as resting on the first slide", () => {
     expect(slideBlurValues(Number.NaN, 3)).toEqual(slideBlurValues(0, 3));
+  });
+});
+
+describe("desktop slide visual states", () => {
+  it("uses the exact active, adjacent, and far resting contracts", () => {
+    expect(restingSlideVisualStates(2, 5)).toEqual([
+      { scale: 0.85, opacity: 0, blur: MAX_BLUR_PX, filter: `blur(${MAX_BLUR_PX}px)`, pointerEvents: "none" },
+      { scale: 0.85, opacity: 0.4, blur: MAX_BLUR_PX, filter: `blur(${MAX_BLUR_PX}px)`, pointerEvents: "none" },
+      { scale: 1, opacity: 1, blur: 0, filter: "", pointerEvents: "auto" },
+      { scale: 0.85, opacity: 0.4, blur: MAX_BLUR_PX, filter: `blur(${MAX_BLUR_PX}px)`, pointerEvents: "none" },
+      { scale: 0.85, opacity: 0, blur: MAX_BLUR_PX, filter: `blur(${MAX_BLUR_PX}px)`, pointerEvents: "none" },
+    ]);
+  });
+
+  it("interpolates the visual state while the selected slide is between snaps", () => {
+    const values = slideVisualStates(0.125, 5);
+
+    expect(values[0]).toMatchObject({ scale: 0.925, opacity: 0.7, blur: 3.5 });
+    expect(values[1]).toMatchObject({ scale: 0.925, opacity: 0.7, blur: 3.5 });
+    expect(values[2]).toMatchObject({ opacity: 0.4, blur: MAX_BLUR_PX });
+  });
+
+  it("omits a filter value for a sharp slide", () => {
+    expect(restingSlideVisualStates(0, 2)[0]?.filter).toBe("");
+    expect(restingSlideVisualStates(0, 2)[1]?.filter).toBe(
+      `blur(${MAX_BLUR_PX}px)`,
+    );
   });
 });

@@ -1,9 +1,82 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ImageView } from "@/modules/catalog";
 import { setViewport } from "../../../../test/fixtures/viewport";
 import { ProductGallery } from "./product-gallery";
 import { MAX_BLUR_PX } from "./slide-blur";
+
+const emblaHarness = vi.hoisted(() => ({
+  ready: true,
+  selected: 0,
+  viewport: null as HTMLElement | null,
+  slides: [] as HTMLElement[],
+  listeners: new Map<string, Set<(api: unknown) => void>>(),
+  renderers: new Set<() => void>(),
+  scrollTo: vi.fn(),
+  api: null as unknown,
+  apis: [] as Array<{
+    api: unknown;
+    listeners: Map<string, Set<(api: unknown) => void>>;
+    scrollTo: ReturnType<typeof vi.fn>;
+  }>,
+}));
+
+vi.mock("embla-carousel-react", async () => {
+  const React = await import("react");
+
+  function useEmblaCarousel() {
+    const [, render] = React.useReducer((value: number) => value + 1, 0);
+    const apiState = React.useMemo(() => {
+      const listeners = new Map<string, Set<(api: unknown) => void>>();
+      const scrollTo = vi.fn();
+      const api = {
+        canScrollPrev: () => emblaHarness.selected > 0,
+        canScrollNext: () => true,
+        off(event: string, listener: (api: unknown) => void) {
+          listeners.get(event)?.delete(listener);
+          return api;
+        },
+        on(event: string, listener: (api: unknown) => void) {
+          const eventListeners = listeners.get(event) ?? new Set();
+          eventListeners.add(listener);
+          listeners.set(event, eventListeners);
+          return api;
+        },
+        scrollNext: vi.fn(),
+        scrollPrev: vi.fn(),
+        scrollProgress: () => emblaHarness.selected,
+        scrollTo,
+        selectedScrollSnap: () => emblaHarness.selected,
+        slideNodes: () => emblaHarness.slides,
+      };
+
+      emblaHarness.api = api;
+      emblaHarness.listeners = listeners;
+      emblaHarness.scrollTo = scrollTo;
+      emblaHarness.apis.push({ api, listeners, scrollTo });
+      return api;
+    }, []);
+    const carouselRef = React.useCallback((node: HTMLElement | null) => {
+      emblaHarness.viewport = node;
+      if (node) {
+        emblaHarness.slides = Array.from(
+          node.firstElementChild?.children ?? [],
+        ) as HTMLElement[];
+      }
+    }, []);
+
+    React.useEffect(() => {
+      emblaHarness.renderers.add(render);
+      return () => {
+        emblaHarness.renderers.delete(render);
+      };
+    }, []);
+
+    return [carouselRef, emblaHarness.ready ? apiState : undefined] as const;
+  }
+
+  return { default: useEmblaCarousel };
+});
 
 /**
  * Deliberately shuffled: `position` is the wire's ordering field, and the
@@ -35,7 +108,53 @@ function slideFilters(container: HTMLElement): string[] {
   ).map((slide) => slide.style.filter);
 }
 
+function mobileStage(container: HTMLElement): HTMLDivElement {
+  const stage = container.querySelector<HTMLDivElement>("[data-gallery-mobile-stage]");
+
+  if (!stage) throw new Error("Expected the native mobile gallery stage");
+
+  return stage;
+}
+
+function observeMobileIndex(container: HTMLElement, index: number): void {
+  const stage = mobileStage(container);
+
+  Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
+  Object.defineProperty(stage, "scrollLeft", {
+    configurable: true,
+    writable: true,
+    value: index * 100,
+  });
+  fireEvent.scroll(stage);
+}
+
+function setEmblaReady(ready: boolean): void {
+  act(() => {
+    emblaHarness.ready = ready;
+    emblaHarness.renderers.forEach((render) => render());
+  });
+}
+
+function emitEmblaSelection(index: number): void {
+  act(() => {
+    emblaHarness.selected = index;
+    emblaHarness.listeners
+      .get("select")
+      ?.forEach((listener) => listener(emblaHarness.api));
+  });
+}
+
 const NO_BLUR = Array<string>(5).fill("");
+
+beforeEach(() => {
+  emblaHarness.ready = true;
+  emblaHarness.selected = 0;
+  emblaHarness.viewport = null;
+  emblaHarness.slides = [];
+  emblaHarness.listeners.clear();
+  emblaHarness.scrollTo.mockClear();
+  emblaHarness.apis = [];
+});
 
 describe("ProductGallery", () => {
   it("renders one slide per image, ordered by position", () => {
@@ -57,6 +176,16 @@ describe("ProductGallery", () => {
     ]);
   });
 
+  it("names the mobile carousel and its slide positions for assistive technology", () => {
+    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+
+    expect(
+      screen.getByRole("region", { name: `Galería de imágenes de ${TITLE}` }),
+    ).not.toBeNull();
+    expect(screen.getByRole("group", { name: "Imagen 1 de 5" })).not.toBeNull();
+    expect(screen.getByRole("group", { name: "Imagen 5 de 5" })).not.toBeNull();
+  });
+
   it("marks the first thumbnail active and dims the rest", () => {
     render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
 
@@ -71,21 +200,50 @@ describe("ProductGallery", () => {
     }
   });
 
-  it("selects a slide when its thumbnail is activated", () => {
-    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+  it("lets native scroll geometry confirm a mobile thumbnail selection", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+    const stage = mobileStage(container);
+    const scrollTo = vi.fn();
+
+    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(stage, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(stage, "scrollLeft", { configurable: true, writable: true, value: 0 });
 
     fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: "smooth" });
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+
+    stage.scrollLeft = 200;
+    fireEvent.scroll(stage);
 
     expect(thumbnails()[2]!.getAttribute("aria-pressed")).toBe("true");
     expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("counts the selected image on mobile, and follows the selection", () => {
+  it("renders thumbnails as native buttons without intercepting Enter", () => {
     render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+
+    const third = thumbnails()[2]!;
+    third.focus();
+    const enterDispatched = fireEvent.keyDown(third, { key: "Enter" });
+
+    expect(document.activeElement).toBe(third);
+    expect(third.tagName).toBe("BUTTON");
+    expect(third.getAttribute("type")).toBe("button");
+    expect(enterDispatched).toBe(true);
+  });
+
+  it("counts the selected image on mobile, and follows the selection", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
 
     expect(screen.getByText("1 / 5")).not.toBeNull();
 
-    fireEvent.click(thumbnails()[3]!);
+    observeMobileIndex(container, 3);
 
     expect(screen.getByText("4 / 5")).not.toBeNull();
   });
@@ -108,6 +266,77 @@ describe("ProductGallery", () => {
     act(() => setViewport("desktop"));
 
     expect(orientation()).toBe("vertical");
+  });
+
+  it("preserves the shared selection through both responsive engine handoffs", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    observeMobileIndex(container, 2);
+    expect(screen.getByText("3 / 5")).not.toBeNull();
+
+    act(() => setViewport("desktop"));
+    expect(thumbnails()[2]?.getAttribute("aria-current")).toBe("true");
+
+    act(() => setViewport("mobile"));
+    expect(screen.getByText("3 / 5")).not.toBeNull();
+  });
+
+  it("flushes a desktop selector command after Embla becomes ready and waits for confirmation", () => {
+    emblaHarness.ready = false;
+    act(() => setViewport("desktop"));
+    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+
+    fireEvent.click(thumbnails()[2]!);
+    fireEvent.click(thumbnails()[3]!);
+
+    expect(emblaHarness.scrollTo).not.toHaveBeenCalled();
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+
+    setEmblaReady(true);
+
+    expect(emblaHarness.scrollTo).toHaveBeenCalledTimes(1);
+    expect(emblaHarness.scrollTo).toHaveBeenCalledWith(3);
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+
+    emitEmblaSelection(3);
+
+    expect(thumbnails()[3]!.getAttribute("aria-pressed")).toBe("true");
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("does not let an unmounted Embla API consume a selector command on desktop re-entry", () => {
+    act(() => setViewport("desktop"));
+    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+
+    const oldApi = emblaHarness.apis[0]!;
+    oldApi.scrollTo.mockClear();
+
+    act(() => setViewport("mobile"));
+    setEmblaReady(false);
+    act(() => setViewport("desktop"));
+
+    const newApi = emblaHarness.apis[1]!;
+    expect(newApi.api).not.toBe(oldApi.api);
+    const oldCallCount = oldApi.scrollTo.mock.calls.length;
+
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(oldApi.scrollTo).toHaveBeenCalledTimes(oldCallCount);
+    expect(newApi.scrollTo).not.toHaveBeenCalled();
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+
+    setEmblaReady(true);
+
+    expect(oldApi.scrollTo).toHaveBeenCalledTimes(oldCallCount);
+    expect(newApi.scrollTo).toHaveBeenCalledTimes(1);
+    expect(newApi.scrollTo).toHaveBeenCalledWith(2);
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+
+    emitEmblaSelection(2);
+
+    expect(thumbnails()[2]!.getAttribute("aria-pressed")).toBe("true");
   });
 
   // How the blur behaves *between* snaps is `slide-blur.test.ts`'s job —
@@ -149,6 +378,32 @@ describe("ProductGallery", () => {
 
     act(() => setViewport("mobile"));
     expect(slideFilters(container)).toEqual(NO_BLUR);
+  });
+
+  it("gates desktop slide interaction and clears all owned styles on mobile handoff", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    act(() => setViewport("desktop"));
+    const slides = Array.from(
+      container.querySelectorAll<HTMLElement>('[data-slot="carousel-item"]'),
+    );
+
+    expect(slides[0]?.style.transform).toBe("scale(1)");
+    expect(slides[0]?.style.pointerEvents).toBe("auto");
+    expect(slides[1]?.style.transform).toBe("scale(0.85)");
+    expect(slides[1]?.style.opacity).toBe("0.4");
+    expect(slides[1]?.style.pointerEvents).toBe("none");
+
+    act(() => setViewport("mobile"));
+
+    for (const slide of slides) {
+      expect(slide.style.transform).toBe("");
+      expect(slide.style.opacity).toBe("");
+      expect(slide.style.filter).toBe("");
+      expect(slide.style.pointerEvents).toBe("");
+    }
   });
 
   // The thumbnail rail is a SIBLING of the stage, so a viewport budget spent
@@ -210,5 +465,68 @@ describe("ProductGallery", () => {
     expect(slideImages(container)).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /imagen \d+ de \d+/i })).toBeNull();
     expect(screen.queryByText(/^\d+ \/ \d+$/)).toBeNull();
+  });
+
+  it("observes the nearest native mobile slide without correcting a gesture", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+    const stage = mobileStage(container);
+    const scrollTo = vi.fn();
+
+    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(stage, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(stage, "scrollLeft", { configurable: true, writable: true, value: 160 });
+
+    fireEvent.scroll(stage);
+
+    expect(screen.getByText("3 / 5")).not.toBeNull();
+    expect(thumbnails()[2]?.getAttribute("aria-current")).toBe("true");
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("keeps a valid selection at zero width and scrolls only for thumbnail activation", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+    const stage = mobileStage(container);
+    const scrollTo = vi.fn();
+
+    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 0 });
+    Object.defineProperty(stage, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(stage, "scrollLeft", { configurable: true, writable: true, value: 400 });
+
+    fireEvent.scroll(stage);
+    expect(screen.getByText("1 / 5")).not.toBeNull();
+
+    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: "smooth" });
+    stage.scrollLeft = 200;
+    fireEvent.scroll(stage);
+    expect(thumbnails()[2]?.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("resets selection when image identity or order changes", () => {
+    const { container, rerender } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    observeMobileIndex(container, 3);
+    expect(screen.getByText("4 / 5")).not.toBeNull();
+
+    rerender(
+      <ProductGallery
+        images={[
+          ...FIVE_IMAGES.slice(0, 4),
+          { id: 304, src: "/products/replaced.png", position: 4 },
+        ]}
+        title={TITLE}
+      />,
+    );
+
+    expect(screen.getByText("1 / 5")).not.toBeNull();
+    expect(mobileStage(container).scrollLeft).toBe(0);
   });
 });

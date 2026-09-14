@@ -3,7 +3,15 @@
  * `filter: blur()` on a full-bleed photo is repainted every animation frame
  * while the carousel moves, and the cost climbs with the radius.
  */
-export const MAX_BLUR_PX = 10;
+export const MAX_BLUR_PX = 7;
+
+export type SlideVisualState = {
+  scale: number;
+  opacity: number;
+  blur: number;
+  filter: string;
+  pointerEvents: "auto" | "none";
+};
 
 /**
  * The blur radius, in pixels, for every slide at a given scroll position.
@@ -55,6 +63,36 @@ export function restingBlurValues(selectedIndex: number, slideCount: number): nu
   return blursFromPosition(selectedIndex, slideCount);
 }
 
+/**
+ * The complete desktop style contract while Embla is moving. It keeps the
+ * calculation pure so the animation loop can paint nodes directly instead of
+ * making React reconcile the whole gallery for every scroll frame.
+ */
+export function slideVisualStates(
+  progress: number,
+  slideCount: number,
+): SlideVisualState[] {
+  if (slideCount < 1) return [];
+
+  const clamped =
+    Number.isFinite(progress) ? Math.min(Math.max(progress, 0), 1) : 0;
+
+  return visualStatesFromPosition(clamped * Math.max(slideCount - 1, 0), slideCount);
+}
+
+/** The exact visual state after Embla has settled on one integer snap. */
+export function restingSlideVisualStates(
+  selectedIndex: number,
+  slideCount: number,
+): SlideVisualState[] {
+  if (slideCount < 1) return [];
+
+  return visualStatesFromPosition(
+    Math.min(Math.max(selectedIndex, 0), slideCount - 1),
+    slideCount,
+  );
+}
+
 function noBlur(slideCount: number): number[] {
   return Array.from({ length: Math.max(slideCount, 0) }, () => 0);
 }
@@ -68,5 +106,26 @@ function blursFromPosition(position: number, slideCount: number): number[] {
     const distance = Math.min(Math.abs(index - position), 1);
 
     return distance * MAX_BLUR_PX;
+  });
+}
+
+function visualStatesFromPosition(
+  position: number,
+  slideCount: number,
+): SlideVisualState[] {
+  return Array.from({ length: slideCount }, (_, index) => {
+    const distance = Math.abs(index - position);
+    const nearby = Math.min(distance, 1);
+    const opacity = distance >= 2 ? 0 : 1 - nearby * 0.6;
+    const scale = 1 - nearby * 0.15;
+    const blur = nearby * MAX_BLUR_PX;
+
+    return {
+      scale,
+      opacity,
+      blur,
+      filter: blur === 0 ? "" : `blur(${blur}px)`,
+      pointerEvents: distance === 0 ? "auto" : "none",
+    };
   });
 }
