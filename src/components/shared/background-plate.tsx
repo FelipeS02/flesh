@@ -1,5 +1,5 @@
 /** Landing artboard scrim: 75% black (`#000000BF`). */
-export const LANDING_SCRIM = "#000000BF";
+export const LANDING_SCRIM = '#000000BF';
 
 type PageScrimProps = {
   /**
@@ -39,18 +39,21 @@ type PageScrimProps = {
  */
 export function BackgroundPlate() {
   return (
-    <div className="fixed inset-0 -z-10" aria-hidden="true">
-      <video
-        className="h-full w-full object-cover motion-reduce:hidden"
-        autoPlay
-        muted
-        loop
-        playsInline
-        tabIndex={-1}
-      >
-        <source src="/background.webm" type="video/webm" />
-      </video>
-    </div>
+    <>
+      <PageScrim />
+      <div className='fixed inset-0 -z-10' aria-hidden='true'>
+        <video
+          className='h-full w-full object-cover motion-reduce:hidden'
+          autoPlay
+          muted
+          loop
+          playsInline
+          tabIndex={-1}
+        >
+          <source src='/background.webm' type='video/webm' />
+        </video>
+      </div>
+    </>
   );
 }
 
@@ -70,8 +73,8 @@ export function BackgroundPlate() {
 export function PageScrim({ scrim = LANDING_SCRIM }: PageScrimProps) {
   return (
     <div
-      aria-hidden="true"
-      className="fixed inset-0 -z-10"
+      aria-hidden='true'
+      className='fixed inset-0 -z-9'
       style={{ backgroundColor: scrim }}
     />
   );

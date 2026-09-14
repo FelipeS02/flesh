@@ -132,7 +132,7 @@ export default async function ProductPage({
           __html: serializeJsonLd(productJsonLd(product, siteUrl())),
         }}
       />
-      <PageScrim />
+      {/* <PageScrim /> */}
       <Header />
 
       {/* Renders nothing. It measures the sticky band and the fixed widget

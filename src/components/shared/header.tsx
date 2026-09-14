@@ -75,6 +75,7 @@ export function Header() {
           {
             '--header-scroll-progress': 0,
             '--_logotype-scale': 1,
+            viewTransitionName: 'site-header',
           } as CSSProperties
         }
       >
