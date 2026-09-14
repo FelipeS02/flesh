@@ -91,14 +91,14 @@ export function BuyerDialog({ open, onOpenChange, onSubmit, checkoutState, catal
           (AGENTS.md). It is replaced rather than dropped: Escape is no exit on
           touch, and tapping outside a modal stacked over the drawer reads as
           ambiguous. Same composition the drawer uses for `SheetClose`. */}
-      <DialogContent className='max-w-sm' showCloseButton={false}>
+      <DialogContent styledBackground className='max-w-sm' showCloseButton={false}>
         <DialogHeader className='flex-row items-start justify-between'>
           <div className='grid gap-1.5'>
             {/* The primitive's default title is `text-base`, sized for a
                 confirm prompt. This one is a surface the shopper lands on
                 mid-checkout, so it carries the drawer's own title weight. */}
             <DialogTitle className='font-display text-2xl text-foreground'>
-              Tus datos
+              Completá tus datos
             </DialogTitle>
             <DialogDescription className='font-sans text-xs uppercase tracking-[0.15em] text-muted-foreground'>
               Para iniciar tu compra
