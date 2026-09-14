@@ -303,7 +303,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   };
 
   return (
-    <div className='flex h-[calc(100svh-var(--pdp-band-height,6.5rem)-var(--pdp-widget-height,9.5rem))] w-full flex-col gap-4 md:h-auto md:flex-row md:items-start'>
+    <div className='flex h-[calc(100svh-var(--pdp-band-height,6.5rem)-var(--pdp-widget-height,9.5rem))] w-full flex-col max-md:pb-2 gap-4 md:h-auto md:flex-row md:items-start'>
       <div
         ref={stage}
         data-gallery-stage
@@ -373,7 +373,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
       </div>
 
       {hasRail && (
-        <ul className='flex shrink-0 gap-1.5 md:order-first md:flex-col md:gap-2'>
+        <ul className='flex shrink-0 gap-1.5 max-md:justify-center md:order-first md:flex-col md:gap-2'>
           {ordered.map((image, index) => {
             const active = index === selected;
 

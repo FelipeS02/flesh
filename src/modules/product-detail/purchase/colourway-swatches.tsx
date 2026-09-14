@@ -1,8 +1,8 @@
-import Link from "next/link";
-import SkullSwatch from "@/components/shared/skull-swatch";
-import SkullSwatchMarker from "@/components/shared/skull-swatch-marker";
-import { cn } from "@/lib/utils";
-import type { ColourwayLink } from "@/modules/catalog/client";
+import Link from 'next/link';
+import SkullSwatch from '@/components/shared/skull-swatch';
+import SkullSwatchMarker from '@/components/shared/skull-swatch-marker';
+import { cn } from '@/lib/utils';
+import type { ColourwayLink } from '@/modules/catalog/client';
 
 type ColourwaySwatchesProps = {
   links: ColourwayLink[];
@@ -24,39 +24,42 @@ export function ColourwaySwatches({
   currentSlug,
   compact,
 }: ColourwaySwatchesProps) {
-  const hit = compact ? "size-9" : "size-11";
-  const dot = compact ? "size-7" : "size-9";
+  const hit = compact ? 'size-9' : 'size-11';
+  const dot = compact ? 'size-7' : 'size-9';
 
   return (
     <ul
-      aria-label="Colores"
-      className={cn("flex items-center -ml-1", compact ? "gap-1.5" : "gap-2.5")}
+      aria-label='Colores'
+      className={cn('flex items-center -ml-1', compact ? 'gap-1.5' : 'gap-2.5')}
     >
       {links.map((link) => (
         <li key={link.slug}>
           {link.slug === currentSlug ? (
             <span
-              aria-current="true"
-              className={cn("flex items-center justify-center rounded-full", hit)}
+              aria-current='true'
+              className={cn(
+                'flex items-center justify-center rounded-full',
+                hit,
+              )}
             >
               <Swatch link={link} className={dot} selected />
-              <span className="sr-only">{link.name}</span>
+              <span className='sr-only'>{link.name}</span>
             </span>
           ) : (
             <Link
               href={`/producto/${link.slug}`}
               className={cn(
-                "flex items-center justify-center rounded-full",
+                'flex items-center justify-center rounded-full',
                 hit,
                 // A sold-out colour stays reachable on purpose: its page
                 // carries the photographs and the sizes, and telling someone
                 // they cannot even LOOK at it is a harsher answer than the
                 // page itself gives.
-                !link.inStock && "opacity-40",
+                !link.inStock && 'opacity-40',
               )}
             >
               <Swatch link={link} className={dot} />
-              <span className="sr-only">
+              <span className='sr-only'>
                 {link.inStock ? link.name : `${link.name} — agotado`}
               </span>
             </Link>
@@ -83,35 +86,33 @@ function Swatch({
   selected?: boolean;
 }) {
   return (
-    <span
-      data-swatch
-      className={cn("relative block", className)}
-    >
+    <span data-swatch className={cn('relative block', className)}>
       <SkullSwatch
-        aria-hidden="true"
-        className="size-full"
+        aria-hidden='true'
+        className='size-full'
         style={{ color: link.hex }}
       />
-      {selected && (
-        <SkullSwatchMarker
-          aria-hidden="true"
-          className="absolute -inset-y-1 -inset-x-0.75 size-[120%] text-foreground"
-        />
-      )}
+
+      <SkullSwatchMarker
+        data-selected={selected}
+        aria-hidden='true'
+        className='absolute -inset-y-1 -inset-x-0.75 size-[120%] not-data-selected:opacity-0 not-data-selected:hover:opacity-40 text-foreground'
+      />
+
       {!link.inStock && (
         <svg
-          viewBox="0 0 12 12"
-          aria-hidden="true"
-          className="absolute inset-0 size-full text-muted-foreground"
+          viewBox='0 0 12 12'
+          aria-hidden='true'
+          className='absolute inset-0 size-full text-muted-foreground'
         >
           <line
-            x1="1.5"
-            y1="10.5"
-            x2="10.5"
-            y2="1.5"
-            stroke="currentColor"
-            strokeWidth="1"
-            strokeLinecap="round"
+            x1='1.5'
+            y1='10.5'
+            x2='10.5'
+            y2='1.5'
+            stroke='currentColor'
+            strokeWidth='1'
+            strokeLinecap='round'
           />
         </svg>
       )}
