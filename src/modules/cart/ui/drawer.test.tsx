@@ -246,6 +246,19 @@ describe("CartDrawer buyer modal (spec: buyer details move into a modal)", () =>
     expect(await screen.findByRole("dialog", { name: "Tus datos" })).not.toBeNull();
   });
 
+  it("describes itself, so the dialog says what it is asking for and why", async () => {
+    const checkout = await openWithLine(absentProfile());
+    fireEvent.click(checkout);
+    const modal = await screen.findByRole("dialog", { name: "Tus datos" });
+
+    // Wired through `aria-describedby` rather than merely rendered nearby:
+    // "Tus datos" alone does not tell a shopper who just pressed Pagar why a
+    // window asking for their name appeared instead of the checkout.
+    const describedBy = modal.getAttribute("aria-describedby");
+    expect(describedBy).not.toBeNull();
+    expect(document.getElementById(describedBy!)?.textContent).toBe("Para iniciar tu compra");
+  });
+
   it("the modal holds a real <form> whose submit fires the checkout machine exactly once with the typed buyer", async () => {
     const start = vi.fn(async (): Promise<CheckoutOutcome> => ({ status: "redirect", url: "https://checkout.example.com/checkout/9/token" }));
     const checkout = await openWithLine(absentProfile(), { startCheckout: start });
