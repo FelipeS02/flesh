@@ -10,12 +10,35 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import type { CheckoutBuyer } from '../domain/line';
 import type { CartCatalog } from '../domain/catalog-projection';
 import type { CheckoutUiState } from '../state/use-checkout';
 import { describeCheckoutOutcome, isCheckoutFailure } from './checkout-outcome';
 
 const EMPTY_BUYER: CheckoutBuyer = { firstName: '', lastName: '', email: '' };
+
+/**
+ * The three fields differ only in these four values, so they are data rather
+ * than three near-identical copies of the same markup — the copies are how the
+ * `autoComplete` token on one of them eventually ends up wrong or missing, and
+ * those tokens are what make the browser fill this form in on the next visit.
+ *
+ * Labels stay in natural case here and are upper-cased in CSS: the artboards
+ * draw them uppercase, but the accessible name a screen reader announces (and
+ * the tests query) should read `Nombre`, not `NOMBRE`.
+ */
+const BUYER_FIELDS: {
+  name: keyof CheckoutBuyer;
+  label: string;
+  type?: string;
+  autoComplete: string;
+}[] = [
+  { name: 'firstName', label: 'Nombre', autoComplete: 'given-name' },
+  { name: 'lastName', label: 'Apellido', autoComplete: 'family-name' },
+  { name: 'email', label: 'Email', type: 'email', autoComplete: 'email' },
+];
 
 type BuyerDialogProps = {
   open: boolean;
@@ -78,41 +101,27 @@ export function BuyerDialog({ open, onOpenChange, onSubmit, checkoutState, catal
           </DialogClose>
         </DialogHeader>
         <form onSubmit={handleSubmit} className='grid gap-2'>
-          <fieldset className='grid gap-2' disabled={pending}>
-            <label className='text-sm' htmlFor='checkout-first-name'>
-              Nombre
-            </label>
-            <input
-              id='checkout-first-name'
-              name='firstName'
-              required
-              value={buyer.firstName}
-              onChange={(event) => updateBuyer('firstName', event.target.value)}
-              autoComplete='given-name'
-            />
-            <label className='text-sm' htmlFor='checkout-last-name'>
-              Apellido
-            </label>
-            <input
-              id='checkout-last-name'
-              name='lastName'
-              required
-              value={buyer.lastName}
-              onChange={(event) => updateBuyer('lastName', event.target.value)}
-              autoComplete='family-name'
-            />
-            <label className='text-sm' htmlFor='checkout-email'>
-              Email
-            </label>
-            <input
-              id='checkout-email'
-              name='email'
-              type='email'
-              required
-              value={buyer.email}
-              onChange={(event) => updateBuyer('email', event.target.value)}
-              autoComplete='email'
-            />
+          <fieldset className='grid gap-5' disabled={pending}>
+            {BUYER_FIELDS.map((field) => (
+              <div key={field.name} className='grid gap-2.5'>
+                <Label
+                  htmlFor={`checkout-${field.name}`}
+                  className='font-sans text-xs uppercase tracking-[0.15em] text-muted-foreground'
+                >
+                  {field.label}
+                </Label>
+                <Input
+                  id={`checkout-${field.name}`}
+                  name={field.name}
+                  type={field.type}
+                  required
+                  value={buyer[field.name]}
+                  onChange={(event) => updateBuyer(field.name, event.target.value)}
+                  autoComplete={field.autoComplete}
+                  className='h-13 border-input bg-foreground/5 px-4 font-sans text-base text-foreground'
+                />
+              </div>
+            ))}
           </fieldset>
           <Button
             type='submit'
