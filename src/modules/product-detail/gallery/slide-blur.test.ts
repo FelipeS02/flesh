@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  MASK_STOP_AT_REST,
+  MASK_STOP_MID_TRANSITION,
   MAX_BLUR_PX,
+  maskStop,
   restingSlideVisualStates,
   slideBlurValues,
   slideVisualStates,
@@ -91,5 +94,34 @@ describe("desktop slide visual states", () => {
     expect(restingSlideVisualStates(0, 2)[1]?.filter).toBe(
       `blur(${MAX_BLUR_PX}px)`,
     );
+  });
+});
+
+describe("maskStop", () => {
+  it("leaves the stage unmasked when there is nothing to transition between", () => {
+    expect(maskStop(0, 1)).toBe(MASK_STOP_AT_REST);
+    expect(maskStop(0, 0)).toBe(MASK_STOP_AT_REST);
+  });
+
+  it("leaves the stage unmasked while it rests on a snap", () => {
+    expect(maskStop(0, 5)).toBe(MASK_STOP_AT_REST);
+    expect(maskStop(0.5, 5)).toBe(MASK_STOP_AT_REST);
+    expect(maskStop(1, 5)).toBe(MASK_STOP_AT_REST);
+  });
+
+  // The reason the value is continuous rather than a moving/resting toggle:
+  // switching it on at `scroll` and off at `settle` pops at both ends.
+  it("deepens the fade towards the midpoint between two snaps", () => {
+    const quarterOfTheWay = 0.0625;
+    const halfway = 0.125;
+
+    expect(maskStop(quarterOfTheWay, 5)).toBe(94);
+    expect(maskStop(halfway, 5)).toBe(MASK_STOP_MID_TRANSITION);
+  });
+
+  it("survives the out-of-range and unmeasured values embla reports", () => {
+    expect(maskStop(-0.4, 5)).toBe(MASK_STOP_AT_REST);
+    expect(maskStop(1.4, 5)).toBe(MASK_STOP_AT_REST);
+    expect(maskStop(Number.NaN, 5)).toBe(MASK_STOP_AT_REST);
   });
 });

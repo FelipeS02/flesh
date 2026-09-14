@@ -16,6 +16,7 @@ import { AxisSelector } from "./axis-selector";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
 import { PurchaseWidget } from "./purchase-widget";
+import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 
 type PurchasePanelProps = {
   /** Domain identity needed by the cart reducer; plain RSC-safe data. */
@@ -210,7 +211,9 @@ function PanelView({
       <div data-purchase-panel className="flex w-full flex-col gap-5">
         {priced && <PriceBlock variant={priced} />}
 
-      <hr className="border-border" />
+      {/* <hr className="border-border" /> */}
+      <BarbedWireSeparator className='-mt-2 -mb-1 opacity-40'/>
+      
 
       {colourwaySelector}
 

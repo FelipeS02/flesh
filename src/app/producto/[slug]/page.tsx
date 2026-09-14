@@ -27,6 +27,7 @@ import {
 import { productMetadata } from '@/modules/product-detail/seo/product-metadata';
 import { productState } from '@/modules/storefront/product-state';
 import { StateBadge } from '@/modules/storefront/state-badge';
+import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 
 /** PDP artboard scrim: 70% black, one step lighter than the landing's. */
 const PDP_SCRIM = '#00000070';
@@ -148,7 +149,7 @@ export default async function ProductPage({
           one screenful minus that band and the fixed widget, and a 40px gap
           on either side of it is 40px the arithmetic did not account for.
           Desktop keeps the gap it always had. */}
-      <main className='mx-auto mb-10 flex w-full max-w-360 flex-1 flex-col md:mt-10 md:flex-row md:items-start md:gap-14 md:px-18'>
+      <main className='mx-auto mb-10 flex w-full flex-1 flex-col md:mt-10 md:flex-row md:items-start md:gap-14 md:px-18'>
         {/* The artboard's 640 / 600 split, expressed as flex BASES rather than
             widths: they add up to 1296 only at a 1440 viewport, and every
             narrower desktop has to take the difference out of both columns
@@ -160,7 +161,7 @@ export default async function ProductPage({
             and an element that tall has nothing left to stick within.
 
             Mobile stacks the two columns, so there is nothing to stay beside. */}
-        <div className='md:sticky md:top-10 md:min-w-0 md:basis-160 md:self-start'>
+        <div className='md:sticky md:top-10 md:min-w-0 md:flex-1 md:self-start md:basis-160'>
           <ProductGallery
             images={product.images}
             title={product.title}
@@ -194,6 +195,8 @@ export default async function ProductPage({
           <h1 className='font-display text-2xl leading-[1.05] text-primary md:text-[45px]'>
             {product.title}
           </h1>
+
+          <BarbedWireSeparator className='mt-1'/>
 
           {/* The one dynamic slot on an otherwise prerendered page. Reading
               the query string during a static build is a CSR bailout, so the

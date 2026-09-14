@@ -1,4 +1,3 @@
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import {
@@ -8,6 +7,7 @@ import {
   formatMoney,
   type ProductView,
 } from "@/modules/catalog";
+import { CardMedia } from "./card-media";
 import { DiscountBadge } from "./discount-badge";
 import { transferPrice } from "./pricing";
 import { cardBadge } from "./product-state";
@@ -21,6 +21,14 @@ type ProductCardProps = {
    * is the exact failure this data went looking for in the first place.
    */
   colourways: ColourwayIndex;
+  /**
+   * Defer the photo fetch until the card nears the viewport. A card cannot
+   * know where the grid put it, so the caller laying the grid out is the
+   * only one able to answer this — see `CardMedia`.
+   */
+  observe?: boolean;
+  /** The above-the-fold cards the page's LCP is measured on. */
+  priority?: boolean;
 };
 
 /**
@@ -28,18 +36,22 @@ type ProductCardProps = {
  * a click, because choosing a variant is the PDP's job — the card shows the
  * default variant's price and which colourways the drop came in.
  */
-export function ProductCard({ product, colourways }: ProductCardProps) {
+export function ProductCard({
+  product,
+  colourways,
+  observe = false,
+  priority = false,
+}: ProductCardProps) {
   const variant =
     product.variants.find((candidate) => candidate.id === product.defaultVariantId) ??
     product.variants[0];
-  const image = product.images[0];
   const href = `/producto/${product.slug}`;
   const badge = cardBadge(product, variant);
   const soldOut = !product.inStock;
 
   return (
     <article className="flex w-full max-w-sm flex-col gap-3 md:w-75.25 md:max-w-none md:gap-5">
-      {image && (
+      {product.images.length > 0 && (
         // The badge is a SIBLING of the link, not a child: the link is
         // `aria-hidden`, and a badge buried inside it would be the one thing
         // on the card a screen reader could not reach.
@@ -49,21 +61,23 @@ export function ProductCard({ product, colourways }: ProductCardProps) {
               as a second, identically-named link to the same product. Its
               `alt` is empty for the same reason: the title below already names
               it. */}
+          {/* `group` is what the hover alternate inside `CardMedia` keys off.
+              It belongs on the link and not on the article: hovering the
+              price or the swatch row is not hovering the photo. */}
           <Link
             href={href}
             tabIndex={-1}
             aria-hidden="true"
-            className="relative block aspect-43/50 md:aspect-auto md:h-85"
+            className="group relative block aspect-43/50 md:aspect-auto md:h-85"
           >
             {/* Mobile keeps the artboard's 172x200 card-to-image proportion as
                 a ratio rather than a fixed height, because the card is now as
                 wide as the viewport allows instead of a fixed 172px. */}
-            <Image
-              src={image.src}
-              alt=""
-              fill
-              sizes="(min-width: 768px) 301px, 100vw"
-              className={cn("object-contain", soldOut && "opacity-40")}
+            <CardMedia
+              images={product.images}
+              observe={observe}
+              priority={priority}
+              dimmed={soldOut}
             />
           </Link>
 

@@ -20,7 +20,7 @@ const BarbedWireSeparator = ({ className }: BarbedWireSeparatorProps) => {
       role='separator'
       aria-orientation='horizontal'
       className={cn(
-        'h-4 bg-foreground/80 w-full',
+        'h-4 bg-foreground/60 w-full',
         '[mask-image:url(/barbed-wire.svg)] [mask-repeat:repeat-x][mask-position:center] [mask-size:auto_100%]',
         className,
       )}

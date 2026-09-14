@@ -22,3 +22,64 @@ export function installObserverStubs(): void {
   window.IntersectionObserver ??= InertObserver as unknown as typeof IntersectionObserver;
   window.ResizeObserver ??= InertObserver as unknown as typeof ResizeObserver;
 }
+
+/**
+ * An `IntersectionObserver` a test drives by hand, for the one thing the
+ * inert stub above cannot express: a component whose whole behaviour is
+ * "before intersection" versus "after".
+ *
+ * Opt-in per suite rather than global, and it does NOT invent geometry —
+ * the test states when intersection happened, which is a decision a test can
+ * legitimately make about its own scenario. Call the returned `restore` in
+ * `afterEach`, or the next suite inherits an observer that answers to
+ * somebody else.
+ */
+export function installControllableIntersectionObserver(): {
+  enter: () => void;
+  observed: () => number;
+  restore: () => void;
+} {
+  const original = window.IntersectionObserver;
+  const live = new Set<{ callback: IntersectionObserverCallback; instance: object }>();
+  let observed = 0;
+
+  class ControllableObserver {
+    constructor(private readonly callback: IntersectionObserverCallback) {}
+
+    observe(): void {
+      observed += 1;
+      live.add({ callback: this.callback, instance: this });
+    }
+
+    unobserve(): void {}
+
+    disconnect(): void {
+      for (const entry of live) {
+        if (entry.instance === this) live.delete(entry);
+      }
+    }
+
+    takeRecords(): [] {
+      return [];
+    }
+  }
+
+  window.IntersectionObserver =
+    ControllableObserver as unknown as typeof IntersectionObserver;
+
+  return {
+    enter: () => {
+      for (const { callback, instance } of [...live]) {
+        callback(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          instance as IntersectionObserver,
+        );
+      }
+    },
+    observed: () => observed,
+    restore: () => {
+      live.clear();
+      window.IntersectionObserver = original;
+    },
+  };
+}

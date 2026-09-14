@@ -12,6 +12,11 @@ type DropSectionProps = {
    * the page — a heading over the single group there names nothing.
    */
   titled: boolean;
+  /**
+   * The first volume on the page — the only one whose opening row can be
+   * above the fold. Everything else defers its photos to the viewport.
+   */
+  leading?: boolean;
 };
 
 /**
@@ -22,7 +27,12 @@ type DropSectionProps = {
  * — a deliberate departure from the artboard, which draws two 172px cards side
  * by side there.
  */
-export function DropSection({ group, titled, colourways }: DropSectionProps) {
+export function DropSection({
+  group,
+  titled,
+  colourways,
+  leading = false,
+}: DropSectionProps) {
   const heading = titled ? group.title : null;
   const columns = balancedColumns(group.products.length);
 
@@ -65,13 +75,23 @@ export function DropSection({ group, titled, colourways }: DropSectionProps) {
         className="flex w-full flex-col items-center gap-10 md:grid md:max-w-360 md:items-start md:justify-items-center md:grid-cols-[repeat(var(--drop-columns),minmax(0,1fr))] md:gap-14"
         style={{ "--drop-columns": columns } as CSSProperties}
       >
-        {group.products.map((product) => (
-          <ProductCard
-            key={product.id}
-            product={product}
-            colourways={colourways}
-          />
-        ))}
+        {group.products.map((product, index) => {
+          // Only the opening ROW of the leading volume. `columns` is the grid
+          // from md up; on mobile the stack is one per row, so this marks a
+          // few extra cards eager there — cheap next to getting the LCP photo
+          // wrong, and mobile is where that measurement is taken.
+          const aboveFold = leading && index < columns;
+
+          return (
+            <ProductCard
+              key={product.id}
+              product={product}
+              colourways={colourways}
+              priority={aboveFold}
+              observe={!aboveFold}
+            />
+          );
+        })}
       </div>
     </section>
   );

@@ -43,6 +43,13 @@ export type {
 
 export { formatMoney, formatMoneyDecimal } from "./lib/money";
 
+// Media URL construction is pure string work over a `src` the consumer was
+// already handed, so it belongs on this side of the boundary — the card's
+// image swaps run in the browser, and the PDP gallery is a client component
+// end to end.
+export { MEDIA_WIDTHS, mediaOriginal, mediaSource, mediaVariant } from "./lib/media";
+export type { MediaSource } from "./lib/media";
+
 // The transfer-discount policy's PURE half. `getPricingPolicy` stays behind
 // `./index.ts` because it is `server-only` and is where the rate will come
 // from once it is a real store setting; the arithmetic and the stand-in rate

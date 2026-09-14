@@ -24,12 +24,16 @@ export function DropCatalog({ products, colourways }: DropCatalogProps) {
 
   return (
     <div id="catalogo" className="flex flex-col items-center gap-12 md:gap-20">
-      {volumes.map((volume) => (
+      {volumes.map((volume, index) => (
         <DropSection
           key={volume.key}
           group={volume}
           titled={volumes.length > 1}
           colourways={colourways}
+          // Only the first volume can have cards above the fold, and only it
+          // is allowed to ask for them eagerly. Every later volume is below
+          // by construction, so its photos wait for the viewport.
+          leading={index === 0}
         />
       ))}
     </div>

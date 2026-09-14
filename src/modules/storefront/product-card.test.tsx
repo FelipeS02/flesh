@@ -171,7 +171,12 @@ describe("ProductCard", () => {
     );
 
     expect(screen.getByText("Agotado")).not.toBeNull();
-    expect(container.querySelector("img")?.className).toContain("opacity-40");
+    // The knock-back sits on the media frame, not on the photo itself: the
+    // photo's own opacity is the load fade, and `cn` is twMerge, so the two
+    // on one element means the dim wins and the card never fades in at all.
+    expect(container.querySelector("[data-card-media]")?.className).toContain(
+      "opacity-40",
+    );
   });
 
   it("badges a markdown with its percentage and strikes the original", () => {

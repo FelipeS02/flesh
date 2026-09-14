@@ -129,3 +129,43 @@ function visualStatesFromPosition(
     };
   });
 }
+
+/**
+ * Where the stage's edge fade starts when nothing is moving: at the very
+ * edge, which is to say nowhere. A mask is plain CSS and cannot know whether
+ * embla is mid-transition, so a hardcoded `mask-y-from-95%` softened the
+ * resting photo too — the one frame the page exists to show sharp.
+ */
+export const MASK_STOP_AT_REST = 100;
+
+/** The deepest fade, reached exactly halfway between two snaps. */
+export const MASK_STOP_MID_TRANSITION = 88;
+
+/**
+ * Where the stage's vertical edge fade should start, as a percentage, for a
+ * given embla scroll position.
+ *
+ * Continuous by design rather than a moving/resting toggle. Switching the
+ * mask on at `scroll` and off at `settle` steps the fade in and out in one
+ * frame at both ends of every transition, which reads as a flicker —
+ * precisely the hard edge this is here to remove. Derived from the distance
+ * to the nearest snap the value grows from and returns to zero on its own,
+ * and lands on exactly `MASK_STOP_AT_REST` at a snap by construction.
+ */
+export function maskStop(progress: number, slideCount: number): number {
+  // With one slide there is no transition to soften, and the position maths
+  // below would divide the progress by zero gaps.
+  if (slideCount < 2) return MASK_STOP_AT_REST;
+
+  // Same guards as the blur: embla rubber-bands past 0..1 at the ends and
+  // reports `NaN` before it has measured anything.
+  const clamped =
+    Number.isFinite(progress) ? Math.min(Math.max(progress, 0), 1) : 0;
+  const position = clamped * (slideCount - 1);
+
+  // Distance to the nearest snap is 0..0.5, so doubling it spans the fade
+  // across a whole transition: 0 parked, 1 at the midpoint.
+  const travelled = Math.abs(position - Math.round(position)) * 2;
+
+  return MASK_STOP_AT_REST - travelled * (MASK_STOP_AT_REST - MASK_STOP_MID_TRANSITION);
+}
