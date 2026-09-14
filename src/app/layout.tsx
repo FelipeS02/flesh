@@ -1,18 +1,18 @@
-import type { Metadata } from "next";
-import { Geist_Mono } from "next/font/google";
-import localFont from "next/font/local";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { BackgroundPlate } from "@/components/shared/background-plate";
-import { BRAND, BRAND_LOCALE } from "@/lib/brand";
-import { siteUrl } from "@/lib/site-url";
-import { toCartCatalog } from "@/modules/cart/domain/catalog-projection";
-import { CartProvider } from "@/modules/cart/state/cart-context";
-import { getPricingPolicy, getPurchasableProducts } from "@/modules/catalog";
-import "./globals.css";
+import type { Metadata } from 'next';
+import { Geist_Mono } from 'next/font/google';
+import localFont from 'next/font/local';
+import { NuqsAdapter } from 'nuqs/adapters/next/app';
+import { BackgroundPlate } from '@/components/shared/background-plate';
+import { BRAND, BRAND_LOCALE } from '@/lib/brand';
+import { siteUrl } from '@/lib/site-url';
+import { toCartCatalog } from '@/modules/cart/domain/catalog-projection';
+import { CartProvider } from '@/modules/cart/state/cart-context';
+import { getPricingPolicy, getPurchasableProducts } from '@/modules/catalog';
+import './globals.css';
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
 // Copperplate Gothic Std 30 AB (Adobe), the body voice: the all-caps glyphic
@@ -27,9 +27,9 @@ const geistMono = Geist_Mono({
 // `a0-ff` covers á é í ó ú ñ ¿ ¡, so unlike Kraut this face renders the whole
 // Spanish copy on its own and needs no fallback family to patch accents.
 const copperplate = localFont({
-  src: "./fonts/copperplate-gothic-30ab.ttf",
-  variable: "--font-copperplate",
-  display: "swap",
+  src: './fonts/copperplate-gothic-30ab.ttf',
+  variable: '--font-copperplate',
+  display: 'swap',
 });
 
 // Kraut-type-a-fuck (Mr.Fisk, 2003), the display face.
@@ -45,10 +45,9 @@ const copperplate = localFont({
 // through to the next family in `--font-display` for those characters instead
 // of stretching Kraut over glyphs it does not have.
 const kraut = localFont({
-  src: "./fonts/kraut.ttf",
-  variable: "--font-kraut",
-  display: "swap",
-  declarations: [{ prop: "unicode-range", value: "U+0020-007E, U+E000-E001" }],
+  src: './fonts/kraut.ttf',
+  variable: '--font-kraut',
+  display: 'swap',
 });
 
 /**
@@ -58,7 +57,7 @@ const kraut = localFont({
  * before deciding to click, and "ya disponible" is the only thing on the page
  * that is time-sensitive. It changes when the drop does.
  */
-const TAGLINE = "VOLUMEN 1: ADRENALINE ya disponible";
+const TAGLINE = 'VOLUMEN 1: ADRENALINE ya disponible';
 
 export const metadata: Metadata = {
   // The origin every relative canonical and OpenGraph image below resolves
@@ -79,11 +78,11 @@ export const metadata: Metadata = {
     description: TAGLINE,
     siteName: BRAND,
     locale: BRAND_LOCALE,
-    type: "website",
+    type: 'website',
   },
 };
 
-export default async function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<'/'>) {
   // The catalog is resolved HERE and projected into plain data, because the
   // cart cannot reach it from the other side. `@/modules/catalog` re-exports
   // `server-only` values, so a client component importing it is a build error —
@@ -112,7 +111,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
 
   return (
     <html
-      lang="es"
+      lang='es'
       className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full max-w-svw antialiased overflow-x-hidden`}
     >
       {/* `useQueryState` throws without an adapter mounted above it, and the
@@ -120,7 +119,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           own `useSearchParams` reader behind an internal `<Suspense>`, so
           mounting it at the root does NOT opt every page into dynamic
           rendering. */}
-      <body className="min-h-full flex flex-col ">
+      <body className='min-h-full flex flex-col '>
         {/* Here and not in a page: a layout survives client-side navigation,
             a page does not. Rendered per page, the plate's <video> was
             remounted on every route change and restarted from the first
