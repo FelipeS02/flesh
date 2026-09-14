@@ -31,3 +31,13 @@ export type CheckoutOutcome =
 export interface CheckoutPort {
   startCheckout(cart: CartView): Promise<CheckoutOutcome>;
 }
+
+/**
+ * Deliberately carries nothing beyond what the skip-path UI needs to render
+ * (spec "No unmasked leak") — never a raw name, surname, or email.
+ */
+export type BuyerProfileSummary = { hasProfile: boolean; maskedLabel: string | null };
+
+export interface BuyerProfilePort {
+  readSummary(): Promise<BuyerProfileSummary>;
+}

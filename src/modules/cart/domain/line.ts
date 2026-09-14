@@ -31,7 +31,13 @@ export type CartLine = {
  * changing every `CheckoutPort` implementation's signature.
  */
 export type CartView = {
-  buyer: CheckoutBuyer;
+  /**
+   * Optional (design D4): a `saved` skip-path submission omits it entirely,
+   * and `resolveBuyer` on the server falls back to the stored cookie. The
+   * submitted path's own validation is unchanged — when present, `buyer`
+   * must still satisfy `BuyerSchema` in full.
+   */
+  buyer?: CheckoutBuyer;
   lines: CartLine[];
 };
 

@@ -11,7 +11,8 @@ import {
   type ReactNode,
 } from "react";
 import { createTiendanubeCheckout } from "../api/checkout.client";
-import type { CheckoutPort } from "../api/port";
+import { createBuyerProfilePort } from "../api/buyer-profile.client";
+import type { BuyerProfilePort, CheckoutPort } from "../api/port";
 import { createCartStorage, type CartStoragePort } from "../api/storage";
 import { indexCartCatalog, type CartCatalog } from "../domain/catalog-projection";
 import type { CartLine, CartNotice } from "../domain/line";
@@ -52,6 +53,7 @@ export type CartEnvironment = {
   catalog: CartCatalog;
   transferRateBp: number;
   checkout: CheckoutPort;
+  buyerProfile: BuyerProfilePort;
 };
 
 const CartEnvironmentContext = createContext<CartEnvironment | null>(null);
@@ -68,6 +70,8 @@ type CartProviderProps = {
    * makes the checkout machine's `pending` phase observable at all (D6).
    */
   checkout?: CheckoutPort;
+  /** Same seam as `checkout`, for the skip-path read (design D2). */
+  buyerProfile?: BuyerProfilePort;
   /**
    * Same seam, one layer down. Defaults to `window.localStorage` â€” built
    * LAZILY inside the mount effect, never at import time, for exactly the
@@ -82,6 +86,7 @@ export function CartProvider({
   catalog,
   transferRateBp,
   checkout,
+  buyerProfile,
   storage,
   children,
 }: CartProviderProps) {
@@ -144,8 +149,9 @@ export function CartProvider({
       // the catalog in one place â€” the catalog itself is unreachable from
       // client code (design D1), so a component could not build one anyway.
       checkout: checkout ?? createTiendanubeCheckout(),
+      buyerProfile: buyerProfile ?? createBuyerProfilePort(),
     }),
-    [catalog, transferRateBp, checkout],
+    [catalog, transferRateBp, checkout, buyerProfile],
   );
 
   return (

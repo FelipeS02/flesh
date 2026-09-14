@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { createCheckoutRateGuard } from "./checkout.guard";
-import { startTiendanubeCheckout } from "./checkout.service";
+import { resolveBuyer, startTiendanubeCheckout } from "./checkout.service";
 import type { DraftOrderCheckoutResult } from "./checkout.tiendanube";
+
+const VALID_BUYER = { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" };
+const OTHER_BUYER = { firstName: "Grace", lastName: "Hopper", email: "grace@example.com" };
 
 const CATALOG = [{ productId: 101, variants: [
   { productId: 101, variantId: 201, price: { amount: 1000, currency: "ARS" }, stockManagement: true, stock: 2 },
@@ -12,7 +15,9 @@ const INPUT = { buyer: { firstName: " Ada ", lastName: " Lovelace ", email: "ada
 function dependencies() {
   const createDraftOrder = vi.fn(async (): Promise<DraftOrderCheckoutResult> => ({ status: "redirect", url: "https://checkout.example.com/checkout/99/token" }));
   const getCheckoutProducts = vi.fn(async () => CATALOG);
-  return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard() }, createDraftOrder, getCheckoutProducts };
+  const readBuyer = vi.fn(async (): Promise<unknown> => null);
+  const writeBuyer = vi.fn(async () => {});
+  return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard(), readBuyer, writeBuyer }, createDraftOrder, getCheckoutProducts, readBuyer, writeBuyer };
 }
 
 describe("startTiendanubeCheckout", () => {
@@ -62,7 +67,7 @@ describe("startTiendanubeCheckout", () => {
   });
 
   it("converts an upstream failure into a generic unavailable outcome", async () => {
-    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard() });
+    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard(), readBuyer: async () => null, writeBuyer: async () => {} });
     expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
   });
 
@@ -85,5 +90,110 @@ describe("startTiendanubeCheckout", () => {
     createDraftOrder.mockResolvedValue({ status: "rejected", variantIds: [999] });
 
     await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
+  });
+});
+
+describe("cookie write timing (spec amendment A2)", () => {
+  it("writes the cookie for a valid submitted buyer even when the provider call then fails", async () => {
+    const { dependencies: deps, writeBuyer, createDraftOrder } = dependencies();
+    createDraftOrder.mockImplementation(async () => { throw new Error("provider down"); });
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(writeBuyer).toHaveBeenCalledWith({ firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" });
+  });
+
+  it("writes the cookie for a valid submitted buyer when the provider redirects", async () => {
+    const { dependencies: deps, writeBuyer } = dependencies();
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(writeBuyer).toHaveBeenCalledWith({ firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" });
+  });
+
+  it("never writes when BuyerSchema fails on the submitted buyer, even with a valid stored cookie", async () => {
+    const { dependencies: deps, writeBuyer, readBuyer } = dependencies();
+    readBuyer.mockImplementation(async () => OTHER_BUYER);
+
+    await startTiendanubeCheckout({ ...INPUT, buyer: { firstName: "" } }, deps);
+
+    expect(writeBuyer).not.toHaveBeenCalled();
+  });
+
+  it("never writes when the rate guard refuses", async () => {
+    const { dependencies: deps, writeBuyer } = dependencies();
+    deps.guard = createCheckoutRateGuard({ limit: 0 });
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(writeBuyer).not.toHaveBeenCalled();
+  });
+
+  it("never writes when resolution falls back to the stored cookie (source: cookie)", async () => {
+    const { dependencies: deps, writeBuyer, readBuyer } = dependencies();
+    readBuyer.mockImplementation(async () => OTHER_BUYER);
+
+    await startTiendanubeCheckout({ ...INPUT, buyer: undefined }, deps);
+
+    expect(writeBuyer).not.toHaveBeenCalled();
+  });
+
+  it("never writes when neither submitted nor stored resolves (source: none)", async () => {
+    const { dependencies: deps, writeBuyer, createDraftOrder } = dependencies();
+
+    const outcome = await startTiendanubeCheckout({ ...INPUT, buyer: undefined }, deps);
+
+    expect(writeBuyer).not.toHaveBeenCalled();
+    expect(createDraftOrder).not.toHaveBeenCalled();
+    expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
+  });
+
+  it("resolves the buyer from the stored cookie and reaches the provider when none was submitted", async () => {
+    const { dependencies: deps, createDraftOrder, readBuyer } = dependencies();
+    readBuyer.mockImplementation(async () => OTHER_BUYER);
+
+    await startTiendanubeCheckout({ ...INPUT, buyer: undefined }, deps);
+
+    expect(createDraftOrder).toHaveBeenCalledWith(expect.objectContaining({ buyer: OTHER_BUYER }));
+  });
+});
+
+describe("resolveBuyer", () => {
+  it("prefers a valid submitted buyer and rewrites the cookie, ignoring any stored value", () => {
+    expect(resolveBuyer(VALID_BUYER, OTHER_BUYER)).toEqual({ source: "submitted", buyer: VALID_BUYER });
+  });
+
+  it("prefers a valid submitted buyer even when no cookie is stored", () => {
+    expect(resolveBuyer(VALID_BUYER, undefined)).toEqual({ source: "submitted", buyer: VALID_BUYER });
+  });
+
+  it("falls back to a valid stored cookie when nothing was submitted", () => {
+    expect(resolveBuyer(undefined, OTHER_BUYER)).toEqual({ source: "cookie", buyer: OTHER_BUYER });
+  });
+
+  it("falls back to a valid stored cookie when the submitted value is invalid", () => {
+    expect(resolveBuyer({ firstName: "" }, OTHER_BUYER)).toEqual({ source: "cookie", buyer: OTHER_BUYER });
+  });
+
+  it("resolves to unavailable when both submitted and stored are absent", () => {
+    expect(resolveBuyer(undefined, undefined)).toEqual({ source: "none" });
+  });
+
+  it("resolves to unavailable when both submitted and stored are invalid", () => {
+    expect(resolveBuyer({ firstName: "" }, { firstName: "" })).toEqual({ source: "none" });
+  });
+
+  it("fails closed on a tampered cookie value — a hand-edited object never reaches the draft order call", () => {
+    expect(resolveBuyer(undefined, { firstName: "Ada", lastName: "Lovelace" })).toEqual({ source: "none" });
+  });
+
+  it("fails closed on a partial cookie value missing required fields", () => {
+    expect(resolveBuyer(undefined, { firstName: "Ada", lastName: "Lovelace", email: "not-an-email" })).toEqual({ source: "none" });
+  });
+
+  it("fails closed on a non-object cookie value", () => {
+    expect(resolveBuyer(undefined, "just a string")).toEqual({ source: "none" });
+    expect(resolveBuyer(undefined, null)).toEqual({ source: "none" });
+    expect(resolveBuyer(undefined, 42)).toEqual({ source: "none" });
   });
 });

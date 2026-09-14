@@ -2,7 +2,7 @@
 import { useLayoutEffect, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { fireEvent, render, renderHook, screen } from "@testing-library/react";
-import type { CheckoutPort } from "../api/port";
+import type { BuyerProfilePort, CheckoutPort } from "../api/port";
 import { CART_STORAGE_KEY, createCartStorage, type CartStoragePort } from "../api/storage";
 import type { CartCatalog } from "../domain/catalog-projection";
 import type { StoredCart } from "../domain/reconcile";
@@ -404,6 +404,46 @@ describe("the provider's environment", () => {
     expect(await result.current.checkout.startCheckout({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, lines: [] })).toEqual({
       status: "redirect",
       url: "https://example.test/checkout",
+    });
+  });
+
+  it("builds a buyer profile port over the real action when none is injected", () => {
+    const { result } = renderHook(() => useCartEnvironment(), {
+      wrapper: ({ children }) => (
+        <CartProvider
+          catalog={CATALOG}
+          transferRateBp={TRANSFER_RATE_BP}
+          storage={recordingStorage(null).port}
+        >
+          {children}
+        </CartProvider>
+      ),
+    });
+
+    expect(result.current.buyerProfile).toBeDefined();
+    expect(typeof result.current.buyerProfile.readSummary).toBe("function");
+  });
+
+  it("uses an injected buyer profile port instead, which is what makes the skip path testable", async () => {
+    const injected: BuyerProfilePort = {
+      readSummary: async () => ({ hasProfile: true, maskedLabel: "Comprar como F••• S•••" }),
+    };
+    const { result } = renderHook(() => useCartEnvironment(), {
+      wrapper: ({ children }) => (
+        <CartProvider
+          catalog={CATALOG}
+          transferRateBp={TRANSFER_RATE_BP}
+          storage={recordingStorage(null).port}
+          buyerProfile={injected}
+        >
+          {children}
+        </CartProvider>
+      ),
+    });
+
+    await expect(result.current.buyerProfile.readSummary()).resolves.toEqual({
+      hasProfile: true,
+      maskedLabel: "Comprar como F••• S•••",
     });
   });
 });
