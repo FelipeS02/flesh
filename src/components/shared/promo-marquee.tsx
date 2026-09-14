@@ -65,7 +65,7 @@ export function PromoMarquee() {
       // header's effect, so it is absent for the one paint before hydration
       // and in any test that renders this on its own. Without it `calc()`
       // is invalid and the band collapses to auto height.
-      className='flex h-[calc(var(--_marquee-height)*(1-var(--header-scroll-progress,0)))] items-center overflow-hidden opacity-[calc(1-var(--header-scroll-progress,0))] [--_marquee-height:1.875rem]'
+      className='flex h-[calc(var(--_marquee-height)*(1-var(--header-scroll-progress,0)))] items-center overflow-hidden opacity-[calc(1-var(--header-scroll-progress,0))] [--_marquee-height:1.875rem] mask-x-from-90%'
     >
       <div
         data-marquee-track
