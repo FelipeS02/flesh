@@ -29,7 +29,7 @@ import { productState } from '@/modules/storefront/product-state';
 import { StateBadge } from '@/modules/storefront/state-badge';
 
 /** PDP artboard scrim: 70% black, one step lighter than the landing's. */
-const PDP_SCRIM = '#000000B3';
+const PDP_SCRIM = '#00000070';
 
 /**
  * Prerenders every product at build time instead of resolving one per request.
