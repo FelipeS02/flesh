@@ -21,8 +21,7 @@ import { useCartEnvironment, useCartState } from '../state/cart-context';
 import { useCheckout, type CheckoutUiState } from '../state/use-checkout';
 import type { CartCatalog } from '../domain/catalog-projection';
 import type { CheckoutBuyer } from '../domain/line';
-import CartBackground from '../assets/cart-background.png';
-import Image from 'next/image';
+import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 
 type CartDrawerProps = { open: boolean; onOpenChange: (open: boolean) => void };
 const IDLE: CheckoutUiState = { phase: 'idle' };
@@ -126,9 +125,9 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
         showCloseButton={false}
         initialFocus={closeButtonRef}
         className='max-md:w-svw! max-w-md gap-0 bg-background p-6 shadow-2xl'
+        styledBackground
       >
-        <Image className='-z-1 opacity-35' fill src={CartBackground} alt='background' aria-hidden />
-        <SheetHeader className='flex-row items-center justify-between border-b border-border p-0 pb-4'>
+        <SheetHeader className='flex-row items-center justify-between p-0'>
           <div>
             <SheetTitle className='font-display text-2xl text-foreground'>
               Carrito
@@ -145,6 +144,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
             <X aria-hidden='true' className='size-5' />
           </SheetClose>
         </SheetHeader>
+        <BarbedWireSeparator />
         {state.status === 'hydrating' ? (
           <p className='flex flex-1 items-center justify-center font-sans text-sm text-muted-foreground'>
             Cargando carrito…
@@ -184,7 +184,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                       <div className='flex items-center justify-between gap-2 pb-2'>
                         <div>
                           <p className='font-sans text-xs uppercase tracking-wide text-muted-foreground'>
-                            CONTINUAR COMO
+                            COMPRAR COMO
                           </p>
                           {/* The visible text itself IS the accessible name
                               (spec "Accessible name matches visible text") —
@@ -195,6 +195,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                         <Button
                           type='button'
                           variant='link'
+                          className='-mr-3 text-muted-foreground'
                           onClick={() => setModalOpen(true)}
                         >
                           CAMBIAR

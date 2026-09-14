@@ -20,7 +20,7 @@ export function CartSummary() {
   const breakdown = totals(state.lines, transferRateBp);
 
   return (
-    <section aria-label="Resumen del carrito" className="border-t border-border pt-2">
+    <section aria-label="Resumen del carrito" className="border-t pt-2">
       <dl className="space-y-2 font-sans text-sm tabular-nums">
         {/* Both rows below render `breakdown.total` — the SAME transfer
             figure — on purpose. Design D1: the domain keeps its one
