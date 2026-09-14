@@ -179,9 +179,9 @@ function CardPhoto({
       onLoad={() => setLoaded(true)}
       data-loaded={loaded ? "true" : "false"}
       className={cn(
-        "object-contain transition-all duration-300 ease-out motion-reduce:transition-none",
+        "object-contain transition-[filter,opacity] duration-300 ease-out motion-reduce:transition-none",
         revealOnHover
-          ? "opacity-0 group-hover:opacity-100 group-hover:scale-115"
+          ? "opacity-0 blur-xs group-hover:opacity-100 group-hover:blur-none"
           : loaded
             ? "opacity-100"
             : "opacity-0",

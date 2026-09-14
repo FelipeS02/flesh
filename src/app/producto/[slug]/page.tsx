@@ -29,9 +29,6 @@ import { productState } from '@/modules/storefront/product-state';
 import { StateBadge } from '@/modules/storefront/state-badge';
 import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 
-/** PDP artboard scrim: 70% black, one step lighter than the landing's. */
-const PDP_SCRIM = '#00000070';
-
 /**
  * Prerenders every product at build time instead of resolving one per request.
  *
@@ -135,7 +132,7 @@ export default async function ProductPage({
           __html: serializeJsonLd(productJsonLd(product, siteUrl())),
         }}
       />
-      <PageScrim scrim={PDP_SCRIM} />
+      <PageScrim />
       <Header />
 
       {/* Renders nothing. It measures the sticky band and the fixed widget
@@ -161,7 +158,7 @@ export default async function ProductPage({
             and an element that tall has nothing left to stick within.
 
             Mobile stacks the two columns, so there is nothing to stay beside. */}
-        <div className='md:sticky md:top-10 md:min-w-0 md:flex-1 md:self-start md:basis-160'>
+        <div className='md:sticky md:top-45 md:min-w-0 md:flex-1 md:self-start md:basis-160'>
           <ProductGallery
             images={product.images}
             title={product.title}
@@ -190,13 +187,17 @@ export default async function ProductPage({
               is already intersecting before its top edge reaches the middle
               and still intersecting after. A zero-height marker crosses
               cleanly, once, in each direction. */}
-          <div data-pdp-panel-top aria-hidden='true' className='absolute inset-x-0 top-0 h-0' />
+          <div
+            data-pdp-panel-top
+            aria-hidden='true'
+            className='absolute inset-x-0 top-0 h-0'
+          />
 
           <h1 className='font-display text-2xl leading-[1.05] text-primary md:text-[45px]'>
             {product.title}
           </h1>
 
-          <BarbedWireSeparator className='mt-1'/>
+          <BarbedWireSeparator className='mt-1' />
 
           {/* The one dynamic slot on an otherwise prerendered page. Reading
               the query string during a static build is a CSR bailout, so the

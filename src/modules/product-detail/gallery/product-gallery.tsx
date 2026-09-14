@@ -320,7 +320,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
               dimmed && 'opacity-40',
             )}
           >
-            <CarouselContent className='mt-0 ml-0 h-full  md:h-180.5'>
+            <CarouselContent className='mt-0 ml-0 h-full md:h-180.5'>
               {ordered.map((image, index) => (
                 <CarouselItem key={image.id} className='pt-0 pl-0'>
                   <div className='relative size-full'>{renderImage(image, index)}</div>
@@ -337,7 +337,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
             aria-roledescription='carousel'
             onScroll={observeMobileScroll}
             className={cn(
-              'flex h-full min-h-0 w-full snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden',
+              'flex h-full min-h-0 w-full snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden mask-b-from-98%',
               dimmed && 'opacity-40',
             )}
           >

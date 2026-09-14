@@ -70,7 +70,7 @@ export function Header() {
       <div
         ref={bandRef}
         data-header-band
-        className='isolate before:bg-linear-to-b before:backdrop-blur-md before:bg-background before:mask-b-from-0 before:-z-1 before:absolute before:inset-0 before:-mx-4 before:opacity-(--header-scroll-progress) sticky top-0 z-50'
+        className='isolate before:bg-linear-to-b before:backdrop-blur-md before:bg-background before:mask-b-from-0 before:-z-1 before:absolute before:inset-0 before:-mx-4 before:opacity-(--header-scroll-progress) sticky top-0 z-50 md:px-18'
         style={
           {
             '--header-scroll-progress': 0,
@@ -93,7 +93,7 @@ export function Header() {
             type='button'
             aria-label='Abrir carrito'
             onClick={() => setCartOpen(true)}
-            className='relative col-start-3 md:mr-4 justify-self-end text-foreground'
+            className='relative col-start-3 justify-self-end text-foreground'
           >
             <ShoppingBag aria-hidden='true' className='size-6 md:size-8' />
             {count !== null && (
