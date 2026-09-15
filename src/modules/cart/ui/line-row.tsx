@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import Image from 'next/image';
 import { formatMoney, purchaseLimit } from '@/modules/catalog/client';
+import { toAnalyticsItem } from '@/modules/analytics';
 import { DiscountBadge } from '@/modules/storefront/discount-badge';
 import { promoPriceView } from '@/modules/storefront/pricing';
 import { indexCartCatalog } from '../domain/catalog-projection';
@@ -42,6 +43,13 @@ export function LineRow({ line }: LineRowProps) {
   const combination = variant.combination.join(', ');
   const price = promoPriceView(variant.price, variant.compareAt);
   const limit = purchaseLimit(variant);
+  const analyticsItem = toAnalyticsItem({
+    variantId: variant.id,
+    itemName: product.title,
+    combination: variant.combination,
+    price: variant.price,
+    quantity: 1,
+  });
 
   // Laid out to the `Cart Items / Promocion` artboard (option B), whose
   // arrangement is load-bearing rather than decorative: the two things a
@@ -72,7 +80,7 @@ export function LineRow({ line }: LineRowProps) {
           <p className='min-w-0 font-sans text-base text-foreground truncate leading-4'>
             {product.title}
           </p>
-          <RemoveLineButton line={line} />
+          <RemoveLineButton line={line} analyticsItem={analyticsItem} />
         </div>
 
         {combination && (
@@ -86,7 +94,7 @@ export function LineRow({ line }: LineRowProps) {
             itself is never marked, so a discounted line still reads as one
             line among the others rather than as an advertisement. */}
         <div className='mt-2 flex items-end justify-between gap-3'>
-          <Stepper line={line} limit={limit} />
+          <Stepper line={line} limit={limit} analyticsItem={analyticsItem} />
           <div className='flex flex-col items-end'>
             {(price.previous || price.percent !== null) && (
               <span className='flex items-center gap-2'>

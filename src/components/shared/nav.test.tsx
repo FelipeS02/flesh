@@ -8,12 +8,23 @@ vi.mock("next/navigation", () => ({
   usePathname: () => route.pathname,
 }));
 
+// Every query below resolves its accessible name through NAV_ITEMS rather than
+// repeating the copy: these labels are shopper-facing Spanish that gets
+// reworded — one added accent already turned three of these red — and what the
+// assertions are about is the nav's behaviour, not its wording.
+const label = {
+  catalogo: NAV_ITEMS[0].label,
+  instagram: NAV_ITEMS[1].label,
+  devolucion: NAV_ITEMS[2].label,
+  playlist: NAV_ITEMS[3].label,
+} as const;
+
 describe("Nav", () => {
   it("exposes exactly four nav items, in the designed order", () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       "Catalogo",
       "Instagram",
-      "Devolucion",
+      "Devolución",
       "Playlist",
     ]);
   });
@@ -47,8 +58,8 @@ describe("Nav", () => {
   it("marks external links (Instagram, Playlist) with target=_blank and rel=noopener noreferrer", () => {
     render(<Nav />);
 
-    const instagram = screen.getByRole("link", { name: "Instagram" });
-    const playlist = screen.getByRole("link", { name: "Playlist" });
+    const instagram = screen.getByRole("link", { name: label.instagram });
+    const playlist = screen.getByRole("link", { name: label.playlist });
 
     expect(instagram.getAttribute("target")).toBe("_blank");
     expect(instagram.getAttribute("rel")).toBe("noopener noreferrer");
@@ -59,8 +70,8 @@ describe("Nav", () => {
   it("does NOT mark internal links (Catalogo, Devolucion) with target or rel", () => {
     render(<Nav />);
 
-    const catalogo = screen.getByRole("link", { name: "Catalogo" });
-    const devolucion = screen.getByRole("link", { name: "Devolucion" });
+    const catalogo = screen.getByRole("link", { name: label.catalogo });
+    const devolucion = screen.getByRole("link", { name: label.devolucion });
 
     expect(catalogo.getAttribute("target")).toBeNull();
     expect(catalogo.getAttribute("rel")).toBeNull();
@@ -72,8 +83,8 @@ describe("Nav", () => {
     route.pathname = "/";
     render(<Nav />);
 
-    const catalogo = screen.getByRole("link", { name: "Catalogo" });
-    const devolucion = screen.getByRole("link", { name: "Devolucion" });
+    const catalogo = screen.getByRole("link", { name: label.catalogo });
+    const devolucion = screen.getByRole("link", { name: label.devolucion });
 
     expect(catalogo.className).toContain("text-primary");
     expect(catalogo.getAttribute("aria-current")).toBe("page");
@@ -85,10 +96,10 @@ describe("Nav", () => {
     route.pathname = "/devoluciones";
     render(<Nav />);
 
-    const catalogo = screen.getByRole("link", { name: "Catalogo" });
-    const devolucion = screen.getByRole("link", { name: "Devolucion" });
-    const instagram = screen.getByRole("link", { name: "Instagram" });
-    const playlist = screen.getByRole("link", { name: "Playlist" });
+    const catalogo = screen.getByRole("link", { name: label.catalogo });
+    const devolucion = screen.getByRole("link", { name: label.devolucion });
+    const instagram = screen.getByRole("link", { name: label.instagram });
+    const playlist = screen.getByRole("link", { name: label.playlist });
 
     expect(catalogo.className).toContain("text-foreground");
     expect(devolucion.className).toContain("text-primary");

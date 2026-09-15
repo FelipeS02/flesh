@@ -19,7 +19,13 @@ export type CartLineId = VariantView["id"];
  * (`createLocalCheckout`, PR2b) can honestly produce `unavailable` alone.
  */
 export type CheckoutOutcome =
-  | { status: "redirect"; url: string }
+  /**
+   * `draftOrderId` is null for any checkout that is not a Tiendanube draft
+   * order — the local implementation has no such id and must not invent one.
+   * Where it is present it identifies BOTH the draft and the order that draft
+   * becomes, which is what lets the cart be emptied once that order exists.
+   */
+  | { status: "redirect"; url: string; draftOrderId: number | null }
   | { status: "rejected"; lines: CartLineId[] }
   | { status: "unavailable"; reason: string };
 
@@ -40,4 +46,17 @@ export type BuyerProfileSummary = { hasProfile: boolean; maskedLabel: string | n
 
 export interface BuyerProfilePort {
   readSummary(): Promise<BuyerProfileSummary>;
+}
+
+/**
+ * Answers the one question the storefront cannot answer for itself: the purchase
+ * happens on the provider's domain, so a shopper who bought and a shopper who
+ * abandoned the checkout return looking identical.
+ *
+ * Deliberately a bare boolean and no argument. The pending order is identified
+ * server-side, so a caller cannot ask about someone else's, and nothing about
+ * the order itself crosses back.
+ */
+export interface OrderStatusPort {
+  hasCompletedCheckout(): Promise<boolean>;
 }

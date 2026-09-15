@@ -1,10 +1,17 @@
 import type { Metadata } from 'next';
+import Script from 'next/script';
 import { Geist_Mono } from 'next/font/google';
 import localFont from 'next/font/local';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { BackgroundPlate } from '@/components/shared/background-plate';
 import { BRAND, BRAND_LOCALE } from '@/lib/brand';
 import { siteUrl } from '@/lib/site-url';
+import {
+  googleTagBootstrap,
+  googleTagSource,
+  readAnalyticsConfig,
+} from '@/modules/analytics/config';
+import { PageViewTracker } from '@/modules/analytics/page-view-tracker';
 import { toCartCatalog } from '@/modules/cart/domain/catalog-projection';
 import { CartProvider } from '@/modules/cart/state/cart-context';
 import { getPricingPolicy, getPurchasableProducts } from '@/modules/catalog';
@@ -83,6 +90,7 @@ export const metadata: Metadata = {
 };
 
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
+  const analytics = readAnalyticsConfig();
   // The catalog is resolved HERE and projected into plain data, because the
   // cart cannot reach it from the other side. `@/modules/catalog` re-exports
   // `server-only` values, so a client component importing it is a build error —
@@ -135,6 +143,18 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
             {children}
           </CartProvider>
         </NuqsAdapter>
+        {analytics && (
+          <>
+            <PageViewTracker />
+            <Script
+              src={googleTagSource(analytics.measurementId)}
+              strategy='afterInteractive'
+            />
+            <Script id='ga4-bootstrap' strategy='afterInteractive'>
+              {googleTagBootstrap(analytics.measurementId)}
+            </Script>
+          </>
+        )}
       </body>
     </html>
   );

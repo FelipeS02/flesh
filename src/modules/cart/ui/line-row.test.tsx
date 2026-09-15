@@ -1,9 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { CartStoragePort } from "../api/storage";
 import type { CartCatalog } from "../domain/catalog-projection";
 import { CartProvider, useCartDispatch, useCartState } from "../state/cart-context";
 import { LineRow } from "./line-row";
+
+const analyticsSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/analytics")>();
+  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+});
+
+afterEach(() => analyticsSpy.mockClear());
 
 const ORIGINAL_PRICE = { amount: 2_700_000, currency: "ARS" } as const;
 const DRIFTED_PRICE = { amount: 3_000_000, currency: "ARS" } as const;
@@ -22,6 +30,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 201,
+        sku: "TEE-M",
         combination: ["M", "Negro"],
         price: ORIGINAL_PRICE,
         compareAt: null,
@@ -71,6 +80,7 @@ const PROMO_CATALOG: CartCatalog = [
     variants: [
       {
         id: 202,
+        sku: "PROMO-M",
         combination: ["M"],
         // compareAt (original, higher) 150.000; price (current, lower) 92.000
         // — the worked example from the design and spec.
@@ -195,5 +205,8 @@ describe("LineRow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sumar" }));
 
     expect(screen.getByText("2")).not.toBeNull();
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "add_to_cart" }),
+    );
   });
 });

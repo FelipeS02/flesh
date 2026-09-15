@@ -41,7 +41,7 @@ export type {
   VariantMatrix,
 } from "./domain/selectors";
 
-export { formatMoney, formatMoneyDecimal } from "./lib/money";
+export { currencyExponent, formatMoney, formatMoneyDecimal } from "./lib/money";
 
 // Media URL construction is pure string work over a `src` the consumer was
 // already handed, so it belongs on this side of the boundary — the card's

@@ -2,11 +2,17 @@
 
 import { MinusIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  createEcommerceEvent,
+  sendAnalyticsEvent,
+  type AnalyticsItem,
+} from "@/modules/analytics";
 import type { CartLine } from "../domain/line";
 import { useCartDispatch } from "../state/cart-context";
 
 type StepperProps = {
   line: CartLine;
+  analyticsItem: AnalyticsItem;
   /** From `purchaseLimit` (catalog/client.ts) — `null` means no ceiling. */
   limit: number | null;
 };
@@ -30,8 +36,24 @@ type StepperProps = {
  * button at 1 would duplicate a rule that already lives in exactly one
  * place, and duplicating it is how the two would eventually disagree.
  */
-export function Stepper({ line, limit }: StepperProps) {
+export function Stepper({ line, limit, analyticsItem }: StepperProps) {
   const dispatch = useCartDispatch();
+
+  function updateQuantity(
+    action: "increment" | "decrement",
+    eventName: "add_to_cart" | "remove_from_cart",
+  ) {
+    if (action === "increment") {
+      dispatch({ type: "increment", variantId: line.variantId, limit });
+    } else {
+      dispatch({ type: "decrement", variantId: line.variantId });
+    }
+    sendAnalyticsEvent(
+      createEcommerceEvent(eventName, [
+        { ...analyticsItem, quantity: 1 },
+      ]),
+    );
+  }
 
   return (
     <div
@@ -43,7 +65,7 @@ export function Stepper({ line, limit }: StepperProps) {
         variant="outline"
         size="icon"
         aria-label="Restar"
-        onClick={() => dispatch({ type: "decrement", variantId: line.variantId })}
+        onClick={() => updateQuantity("decrement", "remove_from_cart")}
         className="size-8.5"
       >
         <MinusIcon />
@@ -58,7 +80,7 @@ export function Stepper({ line, limit }: StepperProps) {
         variant="outline"
         size="icon"
         aria-label="Sumar"
-        onClick={() => dispatch({ type: "increment", variantId: line.variantId, limit })}
+        onClick={() => updateQuantity("increment", "add_to_cart")}
         // Affordance only — same reasoning as decrement's NON-clamp above, in
         // reverse: the reducer already refuses to grow past `limit` (proven in
         // `reducer.test.ts`'s "purchase limit" suite), so this disables the

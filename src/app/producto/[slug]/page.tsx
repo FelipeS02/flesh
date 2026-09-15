@@ -5,6 +5,7 @@ import { PageScrim } from '@/components/shared/background-plate';
 import { Footer } from '@/components/shared/footer';
 import { Header } from '@/components/shared/header';
 import { siteUrl } from '@/lib/site-url';
+import { ProductViewTracker } from '@/modules/analytics';
 import {
   colourwayLinks,
   getColourwayIndex,
@@ -132,6 +133,7 @@ export default async function ProductPage({
           __html: serializeJsonLd(productJsonLd(product, siteUrl())),
         }}
       />
+      <ProductViewTracker product={product} />
       {/* <PageScrim /> */}
       <Header />
 
@@ -216,6 +218,7 @@ export default async function ProductPage({
             fallback={
               <PurchasePanelFallback
                 product={{ axes: product.axes, variants: product.variants }}
+                productTitle={product.title}
                 productId={product.id}
                 defaultVariantId={product.defaultVariantId}
                 colourwaySelector={
@@ -231,6 +234,7 @@ export default async function ProductPage({
               // use for `descriptionHtml`, which is already being sent once for
               // the block below.
               product={{ axes: product.axes, variants: product.variants }}
+              productTitle={product.title}
               productId={product.id}
               defaultVariantId={product.defaultVariantId}
               colourwaySelector={

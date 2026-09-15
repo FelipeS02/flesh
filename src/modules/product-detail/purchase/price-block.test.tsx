@@ -6,6 +6,7 @@ import { PriceBlock } from "./price-block";
 function variant(overrides: Partial<VariantView> = {}): VariantView {
   return {
     id: 1,
+    sku: null,
     combination: ["M"],
     price: { amount: 1_890_000, currency: "ARS" },
     compareAt: null,

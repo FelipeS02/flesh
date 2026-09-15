@@ -13,17 +13,18 @@ const CATALOG = [{ productId: 101, variants: [
 ] }];
 const INPUT = { buyer: { firstName: " Ada ", lastName: " Lovelace ", email: "ada@example.com" }, lines: [{ productId: 101, variantId: 201, quantity: 2, price: { amount: 1, currency: "USD" } }] };
 function dependencies() {
-  const createDraftOrder = vi.fn(async (): Promise<DraftOrderCheckoutResult> => ({ status: "redirect", url: "https://checkout.example.com/checkout/99/token" }));
+  const createDraftOrder = vi.fn(async (): Promise<DraftOrderCheckoutResult> => ({ status: "redirect", url: "https://checkout.example.com/checkout/99/token", draftOrderId: 2070706008 }));
   const getCheckoutProducts = vi.fn(async () => CATALOG);
   const readBuyer = vi.fn(async (): Promise<unknown> => null);
   const writeBuyer = vi.fn(async () => {});
-  return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard(), readBuyer, writeBuyer }, createDraftOrder, getCheckoutProducts, readBuyer, writeBuyer };
+  const writePendingOrder = vi.fn(async () => {});
+  return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard(), readBuyer, writeBuyer, writePendingOrder }, createDraftOrder, getCheckoutProducts, readBuyer, writeBuyer, writePendingOrder };
 }
 
 describe("startTiendanubeCheckout", () => {
   it("reconstructs trusted identity and ignores client price", async () => {
     const { dependencies: deps, createDraftOrder } = dependencies();
-    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toEqual({ status: "redirect", url: "https://checkout.example.com/checkout/99/token" });
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toEqual({ status: "redirect", url: "https://checkout.example.com/checkout/99/token", draftOrderId: 2070706008 });
     expect(createDraftOrder).toHaveBeenCalledWith({ buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" }, products: [{ variantId: 201, quantity: 2 }] });
   });
 
@@ -67,7 +68,7 @@ describe("startTiendanubeCheckout", () => {
   });
 
   it("converts an upstream failure into a generic unavailable outcome", async () => {
-    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard(), readBuyer: async () => null, writeBuyer: async () => {} });
+    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard(), readBuyer: async () => null, writeBuyer: async () => {}, writePendingOrder: async () => {} });
     expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
   });
 
@@ -101,6 +102,29 @@ describe("cookie write timing (spec amendment A2)", () => {
     await startTiendanubeCheckout(INPUT, deps);
 
     expect(writeBuyer).toHaveBeenCalledWith({ firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" });
+  });
+
+  // The whole post-checkout cart reconciliation hangs off this id being
+  // recorded: without it the shopper returns to a cart holding what they just
+  // bought, and nothing else in the suite notices the call going missing.
+  it("records the draft order id so the cart can later learn it was bought", async () => {
+    const { dependencies: deps, writePendingOrder } = dependencies();
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(writePendingOrder).toHaveBeenCalledWith(2070706008);
+    expect(writePendingOrder).toHaveBeenCalledOnce();
+  });
+
+  // Nothing was handed off, so there is no pending order to ask about. Recording
+  // one would leave a stale id that resolves to "not purchased" for a day.
+  it("records nothing when the provider refuses the cart", async () => {
+    const { dependencies: deps, createDraftOrder, writePendingOrder } = dependencies();
+    createDraftOrder.mockResolvedValueOnce({ status: "rejected", variantIds: [201] });
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(writePendingOrder).not.toHaveBeenCalled();
   });
 
   it("writes the cookie for a valid submitted buyer when the provider redirects", async () => {

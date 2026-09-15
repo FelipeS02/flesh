@@ -1,13 +1,39 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { buildColourwayIndex } from "@/modules/catalog/client";
 import { makeProduct } from "../../../test/fixtures/product-view";
 import { DropCatalog } from "./drop-catalog";
 
+const analyticsSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/analytics/transport", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/modules/analytics/transport")
+  >();
+  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+});
+
+afterEach(() => analyticsSpy.mockClear());
+
 /** This suite is about volume grouping and layout, not colour. */
 const NO_COLOURWAYS = buildColourwayIndex([]);
 
 describe("DropCatalog", () => {
+  it("reports the visible catalog once", () => {
+    const products = [makeProduct({ id: 101 }), makeProduct({ id: 102 })];
+
+    const view = render(
+      <DropCatalog products={products} colourways={NO_COLOURWAYS} />,
+    );
+    view.rerender(
+      <DropCatalog products={products} colourways={NO_COLOURWAYS} />,
+    );
+
+    expect(analyticsSpy).toHaveBeenCalledTimes(1);
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "view_item_list" }),
+    );
+  });
+
   it("renders one card per visible product", () => {
     render(
       <DropCatalog

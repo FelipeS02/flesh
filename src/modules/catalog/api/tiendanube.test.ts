@@ -6,6 +6,7 @@ const config = {
   storeId: "123",
   accessToken: "top-secret-token",
   userAgent: "FLESH Storefront (ops@example.com)",
+  checkoutHost: "checkout.example.com",
 };
 
 const product = {
@@ -91,6 +92,30 @@ describe("readTiendanubeConfig", () => {
     } catch (error) {
       expect(String(error)).not.toContain("should-never-appear");
     }
+  });
+
+  it("requires a bare exact checkout hostname", () => {
+    const base = {
+      TIENDANUBE_STORE_ID: "123",
+      TIENDANUBE_ACCESS_TOKEN: "secret",
+      TIENDANUBE_USER_AGENT: "FLESH (ops@example.com)",
+    };
+
+    expect(() => readTiendanubeConfig(base)).toThrow(
+      /TIENDANUBE_CHECKOUT_HOST/,
+    );
+    expect(() =>
+      readTiendanubeConfig({
+        ...base,
+        TIENDANUBE_CHECKOUT_HOST: "https://checkout.example.com/path",
+      }),
+    ).toThrow(/TIENDANUBE_CHECKOUT_HOST/);
+    expect(
+      readTiendanubeConfig({
+        ...base,
+        TIENDANUBE_CHECKOUT_HOST: "checkout.example.com",
+      }).checkoutHost,
+    ).toBe("checkout.example.com");
   });
 });
 

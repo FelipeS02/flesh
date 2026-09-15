@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ProductAnalyticsLink } from "@/modules/analytics";
 import { cn } from "@/lib/utils";
 import {
   type ColourwayIndex,
@@ -64,8 +65,9 @@ export function ProductCard({
           {/* `group` is what the hover alternate inside `CardMedia` keys off.
               It belongs on the link and not on the article: hovering the
               price or the swatch row is not hovering the photo. */}
-          <Link
+          <ProductAnalyticsLink
             href={href}
+            product={product}
             tabIndex={-1}
             aria-hidden="true"
             className="group relative block aspect-43/50 md:aspect-auto md:h-85"
@@ -79,7 +81,7 @@ export function ProductCard({
               priority={priority}
               dimmed={soldOut}
             />
-          </Link>
+          </ProductAnalyticsLink>
 
           {badge && (
             <div data-card-badge className="absolute top-3 left-3">
@@ -104,7 +106,9 @@ export function ProductCard({
             a hole above the price. Cards with titles of different lengths
             will now misalign their price rows. */}
         <h3 className="font-display text-lg leading-[1.15] text-primary md:text-2xl">
-          <Link href={href}>{product.title}</Link>
+          <ProductAnalyticsLink href={href} product={product}>
+            {product.title}
+          </ProductAnalyticsLink>
         </h3>
 
         {variant && (

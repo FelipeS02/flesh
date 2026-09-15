@@ -24,6 +24,7 @@ import type { CartLineId } from "../api/port";
  */
 export type CartCatalogVariant = {
   id: CartLineId;
+  sku: string | null;
   combination: string[];
   price: Money;
   compareAt: Money | null;
@@ -60,6 +61,7 @@ export function toCartCatalog(products: ProductView[]): CartCatalog {
     image: product.images[0]?.src ?? null,
     variants: product.variants.map((variant) => ({
       id: variant.id,
+      sku: variant.sku,
       combination: variant.combination,
       price: variant.price,
       compareAt: variant.compareAt,

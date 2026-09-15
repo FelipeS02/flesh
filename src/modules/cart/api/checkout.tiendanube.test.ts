@@ -5,6 +5,7 @@ const CONFIG = {
   storeId: "123456",
   accessToken: "secret-token",
   userAgent: "FLESH (dev@example.com)",
+  checkoutHost: "checkout.example.com",
 };
 
 const REQUEST = {
@@ -25,7 +26,10 @@ describe("createTiendanubeDraftOrderCheckout", () => {
 
     const checkout = createTiendanubeDraftOrderCheckout(CONFIG, { fetchImpl, timeoutMs: 50 });
 
-    await expect(checkout(REQUEST)).resolves.toEqual({ status: "redirect", url: "https://checkout.example.com/checkout/99/token" });
+    // The id is carried out, not dropped: a draft order and the order it
+    // becomes share it, so it is the only way to later ask whether this cart
+    // was actually bought.
+    await expect(checkout(REQUEST)).resolves.toEqual({ status: "redirect", url: "https://checkout.example.com/checkout/99/token", draftOrderId: 99 });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [url, init] = fetchImpl.mock.calls[0]!;
     expect(String(url)).toBe("https://api.tiendanube.com/v1/123456/draft_orders");
@@ -49,8 +53,10 @@ describe("createTiendanubeDraftOrderCheckout", () => {
   });
 
   it.each([
-    [{ checkout_url: "http://checkout.example.com/unsafe" }, "non-HTTPS"],
-    [{ checkout_url: "not a URL" }, "malformed"],
+    [{ id: 1, checkout_url: "http://checkout.example.com/unsafe" }, "non-HTTPS"],
+    [{ id: 1, checkout_url: "https://checkout.example.com.evil.test/unsafe" }, "wrong host"],
+    [{ id: 1, checkout_url: "not a URL" }, "malformed"],
+    [{ checkout_url: "https://checkout.example.com/checkout/99/token" }, "missing draft order id"],
     [{ id: 99 }, "missing"],
   ])("returns a sanitized failure for a %s checkout URL", async (body, label) => {
     void label;
