@@ -17,6 +17,8 @@ import type { CheckoutBuyer } from '../domain/line';
 import type { CartCatalog } from '../domain/catalog-projection';
 import type { CheckoutUiState } from '../state/use-checkout';
 import { describeCheckoutOutcome, isCheckoutFailure } from './checkout-outcome';
+import { CheckoutHandoffLink } from './checkout-handoff-link';
+import { useCheckoutHandoff } from '../state/use-checkout-handoff';
 
 const EMPTY_BUYER: CheckoutBuyer = { firstName: '', lastName: '', email: '' };
 
@@ -83,6 +85,15 @@ export function BuyerDialog({ open, onOpenChange, onSubmit, checkoutState, catal
   const failed = isCheckoutFailure(checkoutState);
   const message = describeCheckoutOutcome(checkoutState, catalog);
   const pending = checkoutState.phase === 'pending';
+  const redirect =
+    checkoutState.phase === 'settled' && checkoutState.outcome.status === 'redirect'
+      ? checkoutState.outcome
+      : null;
+  // The handoff follows its own anchor. Swapping the form out for a link the
+  // moment the Draft Order lands would leave the shopper staring at a button
+  // they are about to be carried past, so the form stays until the hook says
+  // the navigation never happened.
+  const { stalled } = useCheckoutHandoff(redirect?.url ?? null);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,8 +122,15 @@ export function BuyerDialog({ open, onOpenChange, onSubmit, checkoutState, catal
             <X aria-hidden='true' className='size-5' />
           </DialogClose>
         </DialogHeader>
+        {redirect && stalled ? (
+          <CheckoutHandoffLink url={redirect.url} />
+        ) : (
         <form onSubmit={handleSubmit} className='grid gap-2'>
-          <fieldset className='grid gap-5' disabled={pending}>
+          {/* Spent while the handoff is in flight as well as during the
+              request: a successful redirect is already navigating away, and a
+              second submit would open a second Draft Order. A failure settles
+              with no destination, so the form comes back for a retry. */}
+          <fieldset className='grid gap-5' disabled={pending || redirect !== null}>
             {BUYER_FIELDS.map((field) => (
               <div key={field.name} className='grid gap-2.5'>
                 <Label
@@ -136,7 +154,7 @@ export function BuyerDialog({ open, onOpenChange, onSubmit, checkoutState, catal
           </fieldset>
           <Button
             type='submit'
-            disabled={pending}
+            disabled={pending || redirect !== null}
             className='mt-2 h-12 w-full bg-primary font-display text-lg text-primary-foreground hover:bg-primary disabled:bg-muted disabled:text-muted-foreground'
           >
             {failed ? 'Reintentar' : 'Continuar al pago'}
@@ -150,6 +168,7 @@ export function BuyerDialog({ open, onOpenChange, onSubmit, checkoutState, catal
             </p>
           )}
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );

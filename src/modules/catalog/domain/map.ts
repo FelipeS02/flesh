@@ -82,6 +82,7 @@ function mapVariant(variant: TiendanubeVariant): VariantView {
 
   return {
     id: variant.id,
+    sku: variant.sku?.trim() || null,
     combination: variant.values.map((value) => pick(value)),
     price: parseMoney(hasPromotion ? variant.promotional_price! : variant.price),
     compareAt: hasPromotion ? parseMoney(variant.price) : null,

@@ -11,6 +11,11 @@ import {
   SheetTitle,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
+import {
+  createEcommerceEvent,
+  sendAnalyticsEvent,
+  toAnalyticsItem,
+} from '@/modules/analytics';
 import { EmptyState } from './empty-state';
 import { LineRow } from './line-row';
 import { CartNotices } from './notices';
@@ -19,9 +24,11 @@ import { BuyerDialog } from './buyer-dialog';
 import { describeCheckoutOutcome } from './checkout-outcome';
 import { useCartEnvironment, useCartState } from '../state/cart-context';
 import { useCheckout, type CheckoutUiState } from '../state/use-checkout';
-import type { CartCatalog } from '../domain/catalog-projection';
+import { useCheckoutHandoff } from '../state/use-checkout-handoff';
+import { indexCartCatalog, type CartCatalog } from '../domain/catalog-projection';
 import type { CheckoutBuyer } from '../domain/line';
 import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
+import { CheckoutHandoffLink } from './checkout-handoff-link';
 
 type CartDrawerProps = { open: boolean; onOpenChange: (open: boolean) => void };
 const IDLE: CheckoutUiState = { phase: 'idle' };
@@ -56,6 +63,38 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   const [wasOpen, setWasOpen] = useState(open);
   const [modalOpen, setModalOpen] = useState(false);
   const [origin, setOrigin] = useState<CheckoutOrigin>(null);
+  const trackedOpen = useRef(false);
+
+  useEffect(() => {
+    if (!open) {
+      trackedOpen.current = false;
+      return;
+    }
+    if (trackedOpen.current || state.status !== 'ready' || state.lines.length === 0) {
+      return;
+    }
+
+    const index = indexCartCatalog(catalog);
+    const items = state.lines.flatMap((line) => {
+      const entry = index.get(line.variantId);
+      return entry
+        ? [
+            toAnalyticsItem({
+              variantId: entry.variant.id,
+              itemName: entry.product.title,
+              combination: entry.variant.combination,
+              price: entry.variant.price,
+              quantity: line.quantity,
+            }),
+          ]
+        : [];
+    });
+
+    trackedOpen.current = true;
+    if (items.length > 0) {
+      sendAnalyticsEvent(createEcommerceEvent('view_cart', items));
+    }
+  }, [catalog, open, state]);
 
   // "Adjusting state when a prop changes", called during render rather than
   // from an effect (react.dev/learn/you-might-not-need-an-effect) — closing
@@ -118,6 +157,10 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   // shopper submitted.
   const drawerCheckoutState: CheckoutUiState = origin === 'drawer' ? checkoutMachine.state : IDLE;
   const modalCheckoutState: CheckoutUiState = origin === 'modal' ? checkoutMachine.state : IDLE;
+  // The handoff follows its own anchor, so this surface is left exactly as it
+  // was until the hook reports that the navigation never happened.
+  const handoffUrl = redirectUrl(drawerCheckoutState);
+  const { stalled } = useCheckoutHandoff(handoffUrl);
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -203,9 +246,18 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                       </div>
                     )}
                     <Button
+                      hidden={stalled}
                       type={profile === 'saved' ? 'submit' : 'button'}
                       onClick={profile === 'absent' ? () => setModalOpen(true) : undefined}
-                      disabled={checkoutMachine.state.phase === 'pending' || profile === 'loading'}
+                      // Spent for good once a handoff succeeds: the browser is
+                      // already leaving, and an impatient second press would open
+                      // a second Draft Order for a cart on its way out. A failed
+                      // attempt navigates nowhere, so that one is handed back.
+                      disabled={
+                        checkoutMachine.state.phase === 'pending' ||
+                        profile === 'loading' ||
+                        handoffUrl !== null
+                      }
                       className='h-12 w-full bg-primary font-display text-lg text-primary-foreground hover:bg-primary disabled:bg-muted disabled:text-muted-foreground md:h-14 md:text-xl'
                     >
                       {drawerCheckoutState.phase === 'pending'
@@ -216,7 +268,11 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
                         unchanged from before the modal existed. A
                         modal-started failure never reaches here — see
                         `modalCheckoutState` and `BuyerDialog` instead. */}
-                    <CheckoutOutcome catalog={catalog} state={drawerCheckoutState} />
+                    <CheckoutOutcome
+                      catalog={catalog}
+                      state={drawerCheckoutState}
+                      stalled={stalled}
+                    />
                   </form>
                 </div>
               )}
@@ -240,11 +296,23 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
   );
 }
 
+/** The destination a settled checkout hands off to, or null for every other state. */
+export function redirectUrl(state: CheckoutUiState): string | null {
+  return state.phase === 'settled' && state.outcome.status === 'redirect'
+    ? state.outcome.url
+    : null;
+}
+
 type CheckoutOutcomeProps = {
   catalog: CartCatalog;
   state: CheckoutUiState;
+  stalled: boolean;
 };
-function CheckoutOutcome({ catalog, state }: CheckoutOutcomeProps) {
+function CheckoutOutcome({ catalog, state, stalled }: CheckoutOutcomeProps) {
+  const url = redirectUrl(state);
+  if (url) {
+    return stalled ? <CheckoutHandoffLink url={url} /> : null;
+  }
   const message = describeCheckoutOutcome(state, catalog);
   if (!message) return null;
   return (

@@ -1,8 +1,18 @@
-import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { buildColourwayIndex } from "@/modules/catalog/client";
 import { makeProduct, makeVariant } from "../../../test/fixtures/product-view";
 import { ProductCard } from "./product-card";
+
+const analyticsSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/analytics/transport", async (importOriginal) => {
+  const actual = await importOriginal<
+    typeof import("@/modules/analytics/transport")
+  >();
+  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+});
+
+afterEach(() => analyticsSpy.mockClear());
 
 /** A catalogue where nothing comes in more than one colour. */
 const NO_COLOURWAYS = buildColourwayIndex([]);
@@ -44,6 +54,25 @@ describe("ProductCard", () => {
     });
 
     expect(link.getAttribute("href")).toBe("/producto/musculosa-demon");
+  });
+
+  it("reports selection from each real product link, not from rendering the card", () => {
+    const { container } = render(
+      <ProductCard
+        product={makeProduct({ slug: "musculosa-demon" })}
+        colourways={NO_COLOURWAYS}
+      />,
+    );
+
+    expect(analyticsSpy).not.toHaveBeenCalled();
+    const links = container.querySelectorAll("a[data-analytics-select-item]");
+    expect(links).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("link", { name: "Musculosa Demon Wash Black" }));
+    expect(analyticsSpy).toHaveBeenCalledOnce();
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "select_item" }),
+    );
   });
 
   it("shows the list price and the transfer price under its label", () => {

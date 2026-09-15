@@ -32,20 +32,21 @@ export default function AccessGatePage() {
         aria-hidden="true"
         className="pointer-events-none absolute inset-0 z-0 flex items-center justify-center"
       >
-        <div className="relative aspect-square w-full max-w-[720px] opacity-10">
+        <div className="relative aspect-square h-[120%] w-auto opacity-10">
           <Image
-            src="/password_ilustration.webp"
+            src="/password-illustration.webp"
             alt=""
             fill
+            loading='eager'
             className="object-contain"
             priority
           />
         </div>
       </div>
 
-      <div className="relative z-10 flex w-[342px] flex-col items-center md:w-[416px]">
+      <div className="relative z-10 flex w-85.5 flex-col items-center md:w-104">
         <div className="flex flex-col items-center gap-5">
-          <FleshLogotype className="w-[300px] md:w-[340px]" />
+          <FleshLogotype className="w-75 md:w-85" />
           <RichSubtitle
             text={message}
             className="text-center font-sans text-sm uppercase tracking-[0.15em] text-foreground"

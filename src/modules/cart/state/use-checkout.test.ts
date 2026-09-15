@@ -1,4 +1,4 @@
-﻿import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { act, renderHook } from "@testing-library/react";
 import type { CheckoutOutcome, CheckoutPort } from "../api/port";
 import type { CartView } from "../domain/line";
@@ -142,19 +142,22 @@ describe("checkout recovery and navigation", () => {
     expect(result.current.state).toEqual({ phase: "settled", outcome: { status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." } });
   });
 
-  it("navigates only after a safe redirect URL", async () => {
-    const navigate = vi.fn();
-    const safe: CheckoutPort = { startCheckout: async () => ({ status: "redirect", url: "https://checkout.example.test/order/1" }) };
-    const { result } = renderHook(() => useCheckout(safe, navigate));
+  it("settles a safe redirect without invoking JavaScript navigation", async () => {
+    const safe: CheckoutPort = { startCheckout: async () => ({ status: "redirect", url: "https://checkout.example.test/order/1", draftOrderId: 2070706008 }) };
+    const { result } = renderHook(() => useCheckout(safe));
     act(() => result.current.start(CART));
     await act(async () => undefined);
-    expect(navigate).toHaveBeenCalledWith("https://checkout.example.test/order/1");
+    expect(result.current.state).toEqual({
+      phase: "settled",
+      outcome: {
+        status: "redirect", url: "https://checkout.example.test/order/1", draftOrderId: 2070706008,
+      },
+    });
 
-    const unsafe: CheckoutPort = { startCheckout: async () => ({ status: "redirect", url: "http://checkout.example.test/order/1" }) };
-    const second = renderHook(() => useCheckout(unsafe, navigate));
+    const unsafe: CheckoutPort = { startCheckout: async () => ({ status: "redirect", url: "http://checkout.example.test/order/1", draftOrderId: 2070706008 }) };
+    const second = renderHook(() => useCheckout(unsafe));
     act(() => second.result.current.start(CART));
     await act(async () => undefined);
-    expect(navigate).toHaveBeenCalledTimes(1);
     expect(second.result.current.state).toMatchObject({ phase: "settled", outcome: { status: "unavailable" } });
   });
 });

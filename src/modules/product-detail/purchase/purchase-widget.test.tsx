@@ -13,6 +13,7 @@ function variant(
 ): VariantView {
   return {
     id,
+    sku: null,
     combination,
     price: LIST,
     compareAt: null,

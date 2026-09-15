@@ -1,7 +1,7 @@
-﻿import { beforeEach, describe, expect, it } from 'vitest';
-import { useLayoutEffect, type ReactNode } from 'react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { StrictMode, useLayoutEffect, type ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { fireEvent, render, renderHook, screen } from '@testing-library/react';
+import { act, fireEvent, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { BuyerProfilePort, CheckoutPort } from '../api/port';
 import {
   CART_STORAGE_KEY,
@@ -10,6 +10,7 @@ import {
 } from '../api/storage';
 import type { CartCatalog } from '../domain/catalog-projection';
 import type { StoredCart } from '../domain/reconcile';
+import { markHandoff } from '../api/handoff-marker';
 import {
   CartProvider,
   useCartDispatch,
@@ -36,6 +37,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 201,
+        sku: null,
         combination: ['M'],
         price: CATALOG_PRICE_201,
         compareAt: null,
@@ -45,6 +47,7 @@ const CATALOG: CartCatalog = [
       },
       {
         id: 202,
+        sku: null,
         combination: ['L'],
         price: CATALOG_PRICE_202,
         compareAt: null,
@@ -54,6 +57,7 @@ const CATALOG: CartCatalog = [
       },
       {
         id: 203,
+        sku: null,
         combination: ['XL'],
         price: CATALOG_PRICE_201,
         compareAt: null,
@@ -457,8 +461,7 @@ describe("the provider's environment", () => {
   it('uses an injected port instead, which is what makes pending testable', async () => {
     const injected: CheckoutPort = {
       startCheckout: async () => ({
-        status: 'redirect',
-        url: 'https://example.test/checkout',
+        status: 'redirect', url: 'https://example.test/checkout', draftOrderId: 2070706008,
       }),
     };
     const { result } = renderHook(() => useCartEnvironment(), {
@@ -484,8 +487,7 @@ describe("the provider's environment", () => {
         lines: [],
       }),
     ).toEqual({
-      status: 'redirect',
-      url: 'https://example.test/checkout',
+      status: 'redirect', url: 'https://example.test/checkout', draftOrderId: 2070706008,
     });
   });
 
@@ -548,5 +550,194 @@ describe('used outside the provider', () => {
     expect(() => renderHook(() => useCartEnvironment())).toThrow(
       /CartProvider/,
     );
+  });
+});
+
+describe('the returning-shopper check', () => {
+  const STORED: StoredCart = {
+    lines: [
+      { productId: 101, variantId: 201, quantity: 2, unitPriceMinor: 2_700_000, currency: 'ARS' },
+    ],
+    notices: [],
+  };
+
+  function mountWithOrderStatus(hasCompletedCheckout: () => Promise<boolean>) {
+    // Without the marker the provider never asks at all — see the dedicated
+    // test below. Every case here is about a visitor who WAS handed off.
+    markHandoff();
+    const storage = recordingStorage(STORED);
+    render(
+      <CartProvider
+        catalog={CATALOG}
+        transferRateBp={TRANSFER_RATE_BP}
+        storage={storage.port}
+        orderStatus={{ hasCompletedCheckout }}
+      >
+        <Probe />
+      </CartProvider>,
+    );
+    return storage;
+  }
+
+  // The purchase happens on the provider's domain, so the shopper comes back to
+  // a page that never saw it and a cart that still holds what they just bought.
+  it('empties a cart the shopper already paid for', async () => {
+    mountWithOrderStatus(async () => true);
+
+    await waitFor(() => expect(lineTexts()).toEqual([]));
+  });
+
+  // The mirror case, and the one that must never break: abandoning a checkout
+  // is the common ending, and those lines are the shopper's work.
+  it('leaves the cart alone when the checkout was never completed', async () => {
+    mountWithOrderStatus(async () => false);
+
+    await waitFor(() => expect(lineTexts()).toHaveLength(1));
+    expect(lineTexts()).toHaveLength(1);
+  });
+
+  it('keeps the cart when the check itself fails', async () => {
+    mountWithOrderStatus(async () => {
+      throw new Error('network');
+    });
+
+    await waitFor(() => expect(lineTexts()).toHaveLength(1));
+    expect(lineTexts()).toHaveLength(1);
+  });
+
+  // The stored cart has to survive being restored before it can be cleared: if
+  // a clear landed first, the rehydrate would simply put the lines back.
+  it('clears only after the stored cart has been restored', async () => {
+    const storage = mountWithOrderStatus(async () => true);
+
+    await waitFor(() => expect(lineTexts()).toEqual([]));
+    expect(storage.writes.at(-1)).toEqual({ lines: [], notices: [] });
+  });
+});
+
+describe('the returning-shopper check under a remount', () => {
+  const STORED: StoredCart = {
+    lines: [
+      { productId: 101, variantId: 201, quantity: 2, unitPriceMinor: 2_700_000, currency: 'ARS' },
+    ],
+    notices: [],
+  };
+
+  /**
+   * The server answer is ONE-SHOT by construction: it is backed by a cookie the
+   * server deletes as it answers yes, so a second ask returns false. Strict Mode
+   * mounts every effect twice in development, which means a throwaway first run
+   * is the one that spends the answer. This fake reproduces exactly that, and it
+   * is the shape of the real bug: the cookie vanished and the cart stayed full.
+   */
+  function oneShotPort() {
+    let spent = false;
+    return {
+      hasCompletedCheckout: async () => {
+        if (spent) return false;
+        spent = true;
+        return true;
+      },
+    };
+  }
+
+  it('still empties the cart when the effect is mounted twice', async () => {
+    markHandoff();
+    render(
+      <StrictMode>
+        <CartProvider
+          catalog={CATALOG}
+          transferRateBp={TRANSFER_RATE_BP}
+          storage={recordingStorage(STORED).port}
+          orderStatus={oneShotPort()}
+        >
+          <Probe />
+        </CartProvider>
+      </StrictMode>,
+    );
+
+    await waitFor(() => expect(lineTexts()).toEqual([]));
+  });
+});
+
+describe('the handoff marker gate', () => {
+  const STORED: StoredCart = {
+    lines: [
+      { productId: 101, variantId: 201, quantity: 2, unitPriceMinor: 2_700_000, currency: 'ARS' },
+    ],
+    notices: [],
+  };
+
+  function mount(orderStatus: { hasCompletedCheckout: () => Promise<boolean> }) {
+    render(
+      <CartProvider
+        catalog={CATALOG}
+        transferRateBp={TRANSFER_RATE_BP}
+        storage={recordingStorage(STORED).port}
+        orderStatus={orderStatus}
+      >
+        <Probe />
+      </CartProvider>,
+    );
+  }
+
+  // The visitor who never went to checkout is almost every visitor. They pay
+  // nothing for this feature: no wait, and no request either.
+  it('never asks the server when no handoff is pending', async () => {
+    const hasCompletedCheckout = vi.fn(async () => true);
+
+    mount({ hasCompletedCheckout });
+
+    await waitFor(() => expect(lineTexts()).toHaveLength(1));
+    expect(hasCompletedCheckout).not.toHaveBeenCalled();
+  });
+
+  // The flicker this whole gate exists to prevent: lines painted, then pulled
+  // away once the answer lands.
+  it('shows nothing rather than lines it may be about to remove', async () => {
+    markHandoff();
+    let answer: (completed: boolean) => void = () => {};
+    mount({ hasCompletedCheckout: () => new Promise((resolve) => { answer = resolve; }) });
+
+    expect(screen.queryByTestId('lines')).toBeNull();
+
+    answer(true);
+    await waitFor(() => expect(lineTexts()).toEqual([]));
+  });
+
+  it('gives the cart back when the shopper only abandoned the checkout', async () => {
+    markHandoff();
+
+    mount({ hasCompletedCheckout: async () => false });
+
+    await waitFor(() => expect(lineTexts()).toHaveLength(1));
+  });
+
+  // Held forever is worse than held wrong: past the ceiling the stored cart is
+  // shown, and the latch keeps a late answer from yanking it away afterwards.
+  it('stops waiting and shows the cart once the ceiling passes', async () => {
+    markHandoff();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mount({ hasCompletedCheckout: () => new Promise(() => {}) });
+      expect(screen.queryByTestId('lines')).toBeNull();
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+
+      expect(lineTexts()).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('consumes the marker, so the next visit does not wait again', async () => {
+    markHandoff();
+
+    mount({ hasCompletedCheckout: async () => false });
+
+    await waitFor(() => expect(lineTexts()).toHaveLength(1));
+    expect(window.localStorage.getItem('flesh.cart.handoff.v1')).toBeNull();
   });
 });

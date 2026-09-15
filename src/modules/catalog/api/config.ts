@@ -4,12 +4,18 @@ const ConfigSchema = z.object({
   TIENDANUBE_STORE_ID: z.string().regex(/^\d+$/),
   TIENDANUBE_ACCESS_TOKEN: z.string().trim().min(1),
   TIENDANUBE_USER_AGENT: z.string().trim().min(1),
+  TIENDANUBE_CHECKOUT_HOST: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,}$/),
 });
 
 export type TiendanubeConfig = {
   storeId: string;
   accessToken: string;
   userAgent: string;
+  checkoutHost: string;
 };
 
 export function readTiendanubeConfig(
@@ -27,5 +33,6 @@ export function readTiendanubeConfig(
     storeId: parsed.data.TIENDANUBE_STORE_ID,
     accessToken: parsed.data.TIENDANUBE_ACCESS_TOKEN,
     userAgent: parsed.data.TIENDANUBE_USER_AGENT,
+    checkoutHost: parsed.data.TIENDANUBE_CHECKOUT_HOST,
   };
 }

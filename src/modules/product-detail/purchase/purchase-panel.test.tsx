@@ -6,6 +6,8 @@ import type { CartCatalog } from "@/modules/cart/domain/catalog-projection";
 import { CartProvider, useCartState } from "@/modules/cart";
 import { PurchasePanel, PurchasePanelFallback } from "./purchase-panel";
 
+const analyticsSpy = vi.hoisted(() => vi.fn());
+
 // `vi.hoisted` because `vi.mock` factories run before this file's own
 // top-level statements (import hoisting) — see `header.test.tsx` for the
 // same pattern.
@@ -16,8 +18,14 @@ vi.mock("@/modules/cart", async (importOriginal) => {
   return { ...actual, showAddedToCart: showAddedToCartSpy };
 });
 
+vi.mock("@/modules/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/analytics")>();
+  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+});
+
 afterEach(() => {
   showAddedToCartSpy.mockClear();
+  analyticsSpy.mockClear();
 });
 
 const ARS = "ARS";
@@ -30,6 +38,7 @@ function variant(
 ): VariantView {
   return {
     id,
+    sku: `SKU-${id}`,
     combination,
     price: LIST,
     compareAt: null,
@@ -70,6 +79,7 @@ const CART_CATALOG: CartCatalog = [
     image: null,
     variants: TEE.variants.map((variant) => ({
       id: variant.id,
+      sku: variant.sku,
       combination: variant.combination,
       price: variant.price,
       compareAt: variant.compareAt,
@@ -106,6 +116,7 @@ function renderPanel(
     <CartProvider catalog={CART_CATALOG} transferRateBp={1000}>
       <PurchasePanel
         product={product}
+        productTitle="Remera Classic"
         productId={101}
         defaultVariantId={defaultVariantId}
         colourwaySelector={<div data-testid="colourway-selector" />}
@@ -271,6 +282,9 @@ describe("PurchasePanel", () => {
     expect(onUrlUpdate).not.toHaveBeenCalled();
     expect(cta.getAttribute("disabled")).toBeNull();
     expect(screen.getByTestId("cart-lines").textContent).toBe("201 x1");
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "add_to_cart" }),
+    );
   });
 
   it("shows the added-to-cart toast, with repeat=false on the first add and repeat=true on re-add", async () => {
@@ -371,6 +385,7 @@ describe("PurchasePanelFallback", () => {
   it("prices the default variant, so the price is in the prerendered HTML", () => {
     render(<PurchasePanelFallback
         product={TEE}
+        productTitle="Remera Classic"
         productId={101}
         defaultVariantId={201}
         colourwaySelector={<div data-testid="colourway-selector" />}
@@ -384,6 +399,7 @@ describe("PurchasePanelFallback", () => {
   it("opens on the default variant's selection, not on an empty one", () => {
     render(<PurchasePanelFallback
         product={TEE}
+        productTitle="Remera Classic"
         productId={101}
         defaultVariantId={204}
         colourwaySelector={<div data-testid="colourway-selector" />}
@@ -400,6 +416,7 @@ describe("PurchasePanelFallback", () => {
   it("renders every axis, so the layout does not shift when the panel hydrates", () => {
     render(<PurchasePanelFallback
         product={TEE}
+        productTitle="Remera Classic"
         productId={101}
         defaultVariantId={201}
         colourwaySelector={<div data-testid="colourway-selector" />}
@@ -414,6 +431,7 @@ describe("PurchasePanelFallback", () => {
   it("says what the default variant's CTA says", () => {
     render(<PurchasePanelFallback
         product={TEE}
+        productTitle="Remera Classic"
         productId={101}
         defaultVariantId={202}
         colourwaySelector={<div data-testid="colourway-selector" />}
@@ -427,6 +445,7 @@ describe("PurchasePanelFallback", () => {
   it("keeps the colourway slot in the same configuration order", () => {
     render(<PurchasePanelFallback
         product={TEE}
+        productTitle="Remera Classic"
         productId={101}
         defaultVariantId={201}
         colourwaySelector={<div data-testid="colourway-selector" />}

@@ -9,6 +9,7 @@ import type { ProductView, SafeHtml, VariantView } from "@/modules/catalog";
 export function makeVariant(overrides: Partial<VariantView> = {}): VariantView {
   return {
     id: 201,
+    sku: "TEST-SKU",
     combination: [],
     price: { amount: 2_700_000, currency: "ARS" },
     compareAt: null,

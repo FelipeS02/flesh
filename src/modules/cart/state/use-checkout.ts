@@ -11,10 +11,9 @@ export type CheckoutUiState =
   | { phase: "pending" }
   | { phase: "settled"; outcome: CheckoutOutcome };
 export type CheckoutMachine = { state: CheckoutUiState; start: (cart: CartView) => void };
-type Navigate = (url: string) => void;
 
 /** Prevents duplicate requests and always settles failures into an actionable UI state. */
-export function useCheckout(port: CheckoutPort, navigate: Navigate = (url) => window.location.assign(url)): CheckoutMachine {
+export function useCheckout(port: CheckoutPort): CheckoutMachine {
   const [state, setState] = useState<CheckoutUiState>({ phase: "idle" });
   const inFlight = useRef(false);
   const start = useCallback((cart: CartView) => {
@@ -26,7 +25,7 @@ export function useCheckout(port: CheckoutPort, navigate: Navigate = (url) => wi
         const outcome = await port.startCheckout(cart);
         if (outcome.status === "redirect") {
           if (!isSafeCheckoutUrl(outcome.url)) setState({ phase: "settled", outcome: { status: "unavailable", reason: CHECKOUT_FAILURE_REASON } });
-          else navigate(outcome.url);
+          else setState({ phase: "settled", outcome });
         } else setState({ phase: "settled", outcome });
       } catch {
         setState({ phase: "settled", outcome: { status: "unavailable", reason: CHECKOUT_FAILURE_REASON } });
@@ -34,6 +33,6 @@ export function useCheckout(port: CheckoutPort, navigate: Navigate = (url) => wi
         inFlight.current = false;
       }
     })();
-  }, [navigate, port]);
+  }, [port]);
   return { state, start };
 }

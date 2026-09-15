@@ -28,6 +28,7 @@ export type OptionAxis = {
 
 export type VariantView = {
   id: number;
+  sku: string | null;
   // Parallel to `ProductView.axes` — `combination[i]` is this variant's
   // selected value for `axes[i]`, positional, never name-keyed.
   combination: string[];

@@ -1,11 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { CartStoragePort } from "../api/storage";
 import type { CartCatalog } from "../domain/catalog-projection";
 import { CartProvider, useCartDispatch, useCartState } from "../state/cart-context";
 import { Stepper } from "./stepper";
 
+const analyticsSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/analytics")>();
+  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+});
+
+afterEach(() => analyticsSpy.mockClear());
+
 const PRICE = { amount: 1_000_000, currency: "ARS" } as const;
+const ANALYTICS_ITEM = {
+  item_id: "TEE-M",
+  item_name: "Remera Classic",
+  price: 10000,
+  quantity: 1,
+  currency: "ARS",
+} as const;
 
 function emptyStorage(): CartStoragePort {
   return { read: () => null, write: () => {}, clear: () => {} };
@@ -20,6 +35,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 201,
+        sku: "TEE-M",
         combination: ["M"],
         price: PRICE,
         compareAt: null,
@@ -48,7 +64,9 @@ function Harness({ limit = null }: { limit?: number | null } = {}) {
       >
         seed
       </button>
-      {line && <Stepper line={line} limit={limit} />}
+      {line && (
+        <Stepper line={line} limit={limit} analyticsItem={ANALYTICS_ITEM} />
+      )}
       <p data-testid="quantity">{line?.quantity ?? "none"}</p>
       <p data-testid="line-count">{lineCount}</p>
     </div>
@@ -75,6 +93,9 @@ describe("Stepper", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sumar" }));
 
     expect(screen.getByTestId("quantity").textContent).toBe("2");
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "add_to_cart" }),
+    );
   });
 
   // "Decrement at quantity 1 removes the line (do not clamp at 1)" — the
@@ -89,6 +110,9 @@ describe("Stepper", () => {
 
     expect(screen.getByTestId("line-count").textContent).toBe("0");
     expect(screen.getByTestId("quantity").textContent).toBe("none");
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: "remove_from_cart" }),
+    );
   });
 
   // QUITAR moved out of this component when the drawer was laid out to the

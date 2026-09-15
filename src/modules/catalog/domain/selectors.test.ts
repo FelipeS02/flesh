@@ -12,6 +12,7 @@ function buildVariant(
 ): VariantView {
   return {
     id,
+    sku: null,
     combination,
     price: PRICE,
     compareAt: null,

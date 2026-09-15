@@ -20,6 +20,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 201,
+        sku: null,
         combination: ["M", "Negro"],
         price: PRICE,
         compareAt: null,
@@ -37,6 +38,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 202,
+        sku: null,
         combination: ["M"],
         // compareAt (original, higher) 150.000; price (current, lower) 92.000
         // — the worked example from the design and spec.

@@ -30,6 +30,7 @@ describe("toCartCatalog", () => {
       variants: [
         makeVariant({
           id: 201,
+          sku: "TEE-M",
           combination: ["M"],
           price: { amount: 2_700_000, currency: "ARS" },
           compareAt: { amount: 3_000_000, currency: "ARS" },
@@ -50,6 +51,7 @@ describe("toCartCatalog", () => {
       variants: [
         {
           id: 201,
+          sku: "TEE-M",
           combination: ["M"],
           price: { amount: 2_700_000, currency: "ARS" },
           compareAt: { amount: 3_000_000, currency: "ARS" },
@@ -63,6 +65,7 @@ describe("toCartCatalog", () => {
     expect(projected).not.toHaveProperty("axes");
     expect(projected).not.toHaveProperty("tags");
     expect(projected.variants[0]).toHaveProperty("compareAt");
+    expect(projected.variants[0]).toHaveProperty("sku", "TEE-M");
   });
 
   it("projects a null image for a product with no images", () => {
