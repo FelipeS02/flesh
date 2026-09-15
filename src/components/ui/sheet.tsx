@@ -66,6 +66,7 @@ function SheetContent({
           <Image
             className='-z-1 opacity-35'
             fill
+            sizes='(max-width: 767px) 100vw, 448px'
             src={SheetBackground}
             alt='background'
             aria-hidden

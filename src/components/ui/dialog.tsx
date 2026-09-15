@@ -74,6 +74,7 @@ function DialogContent({
           <Image
             className='-z-1 opacity-35'
             fill
+            sizes='(max-width: 383px) 100vw, 384px'
             src={DialogBackground}
             alt='background'
             aria-hidden

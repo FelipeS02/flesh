@@ -10,7 +10,7 @@ type NavItem = {
 };
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { label: "Catalogo", href: "/#catalogo" },
+  { label: "Catalogo", href: "/" },
   { label: "Instagram", href: "https://www.instagram.com/flesh.athletics/" },
   { label: "Devolución", href: "/devoluciones" },
   {

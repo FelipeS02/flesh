@@ -157,8 +157,12 @@ export default async function ProductPage({
             is what makes it work: a stretched flex item is as tall as the row,
             and an element that tall has nothing left to stick within.
 
+            `StageMetrics` publishes the measured header height on the root,
+            so changes to the band do not create a second spacing constant here.
+            The fallback preserves the previous offset before hydration.
+
             Mobile stacks the two columns, so there is nothing to stay beside. */}
-        <div className='md:sticky md:top-45 md:min-w-0 md:flex-1 md:self-start md:basis-160'>
+        <div className='md:sticky md:top-[calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))] md:min-w-0 md:flex-1 md:self-start md:basis-160'>
           <ProductGallery
             images={product.images}
             title={product.title}

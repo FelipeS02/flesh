@@ -87,7 +87,7 @@ export function Header() {
             aria-label='FLESH inicio'
             className='col-start-2 justify-self-center'
           >
-            <FleshLogotype className='w-28 md:w-40 origin-top scale-(--_logotype-scale)' />
+            <FleshLogotype className='w-20 md:w-40 origin-top scale-(--_logotype-scale)' />
           </Link>
           <button
             ref={setTriggerEl}

@@ -1,17 +1,18 @@
-import Link from "next/link";
-import { cn } from "@/lib/utils";
+import Link from 'next/link';
+import { cn } from '@/lib/utils';
 import {
   type ColourwayIndex,
   type ColourwayLink,
   colourwayLinks,
   formatMoney,
   type ProductView,
-} from "@/modules/catalog";
-import { CardMedia } from "./card-media";
-import { DiscountBadge } from "./discount-badge";
-import { transferPrice } from "./pricing";
-import { cardBadge } from "./product-state";
-import { StateBadge } from "./state-badge";
+} from '@/modules/catalog';
+import { CardMedia } from './card-media';
+import { DiscountBadge } from './discount-badge';
+import { transferPrice } from './pricing';
+import { cardBadge } from './product-state';
+import { StateBadge } from './state-badge';
+import { ComponentProps } from 'react';
 
 type ProductCardProps = {
   product: ProductView;
@@ -43,19 +44,20 @@ export function ProductCard({
   priority = false,
 }: ProductCardProps) {
   const variant =
-    product.variants.find((candidate) => candidate.id === product.defaultVariantId) ??
-    product.variants[0];
+    product.variants.find(
+      (candidate) => candidate.id === product.defaultVariantId,
+    ) ?? product.variants[0];
   const href = `/producto/${product.slug}`;
   const badge = cardBadge(product, variant);
   const soldOut = !product.inStock;
 
   return (
-    <article className="flex w-full max-w-sm flex-col gap-3 md:w-75.25 md:max-w-none md:gap-5">
+    <article className='flex w-full max-w-sm flex-col md:w-75.25 md:max-w-none '>
       {product.images.length > 0 && (
         // The badge is a SIBLING of the link, not a child: the link is
         // `aria-hidden`, and a badge buried inside it would be the one thing
         // on the card a screen reader could not reach.
-        <div className="relative">
+        <div className='relative'>
           {/* The image links to the same place the title does, so it is hidden
               from assistive tech and from the tab order rather than announced
               as a second, identically-named link to the same product. Its
@@ -67,8 +69,8 @@ export function ProductCard({
           <Link
             href={href}
             tabIndex={-1}
-            aria-hidden="true"
-            className="group relative block aspect-43/50 md:aspect-auto md:h-85"
+            aria-hidden='true'
+            className='group relative block aspect-43/50 md:aspect-auto md:h-85 mask-b-from-90% mask-b-to-95%'
           >
             {/* Mobile keeps the artboard's 172x200 card-to-image proportion as
                 a ratio rather than a fixed height, because the card is now as
@@ -82,8 +84,8 @@ export function ProductCard({
           </Link>
 
           {badge && (
-            <div data-card-badge className="absolute top-3 left-3">
-              {badge.kind === "state" ? (
+            <div data-card-badge className='absolute top-3 left-3'>
+              {badge.kind === 'state' ? (
                 <StateBadge state={badge.state} />
               ) : (
                 <DiscountBadge percent={badge.percent} />
@@ -93,7 +95,7 @@ export function ProductCard({
         </div>
       )}
 
-      <div className="flex flex-col gap-4">
+      <div className='flex flex-col'>
         {/* The card's own heading level, not the page's: the volume section
             above owns h2, so a card cannot claim it without breaking the
             outline for anyone navigating by headings.
@@ -103,13 +105,13 @@ export function ProductCard({
             with the short titles the catalogue actually carries that reads as
             a hole above the price. Cards with titles of different lengths
             will now misalign their price rows. */}
-        <h3 className="font-display text-lg leading-[1.15] text-primary md:text-2xl">
+        <h3 className='font-display text-lg leading-[1.15] mb-1 text-primary md:text-2xl'>
           <Link href={href}>{product.title}</Link>
         </h3>
 
         {variant && (
-          <div className="flex flex-col gap-px md:gap-0.5">
-            <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground md:text-[22px]">
+          <div className='flex flex-col mt-2'>
+            <span className='font-display text-base text-muted-foreground md:text-2xl '>
               {formatMoney(variant.price)}
               {/* `<s>` and not a strikethrough class, for the same reason the
                   PDP uses one: the original price is factually no longer
@@ -118,7 +120,7 @@ export function ProductCard({
                   and saying it twice on a 301px card is saying it once too
                   many. */}
               {variant.compareAt && (
-                <s className="text-xs md:text-base">
+                <s className='text-xs md:text-base ml-2'>
                   {formatMoney(variant.compareAt)}
                 </s>
               )}
@@ -128,13 +130,13 @@ export function ProductCard({
                 wide the card is depends on the column count, not on the
                 viewport. A 17-character label letterspaced at 0.18em next to
                 a 22px price needs more room than a narrow card has. */}
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-              <span className="font-display text-[22px] text-foreground md:text-3xl">
+            <div className='flex flex-wrap items-center gap-x-2 gap-y-0.5'>
+              <span className='font-display text-[22px] leading-tight text-foreground md:text-3xl'>
                 {formatMoney(transferPrice(variant.price))}
               </span>
               {/* Copperplate Gothic is an all-caps face, so the artboard's
                   uppercase is the FONT — not a text-transform to add here. */}
-              <span className="font-sans text-[10px] tracking-control text-muted-foreground md:text-xs">
+              <span className='font-sans text-[10px] tracking-control text-muted-foreground md:text-xs'>
                 Con transferencia
               </span>
             </div>
@@ -144,13 +146,14 @@ export function ProductCard({
         <SwatchRow
           links={colourwayLinks(colourways, product)}
           currentSlug={product.slug}
+          className='mt-2'
         />
       </div>
     </article>
   );
 }
 
-type SwatchRowProps = {
+type SwatchRowProps = ComponentProps<'ul'> & {
   links: ColourwayLink[];
   currentSlug: string;
 };
@@ -169,25 +172,35 @@ type SwatchRowProps = {
  * sold-out one says so, for screen readers and for anyone who cannot tell two
  * dark swatches apart.
  */
-function SwatchRow({ links, currentSlug }: SwatchRowProps) {
+function SwatchRow({
+  links,
+  currentSlug,
+  className,
+  ...props
+}: SwatchRowProps) {
   if (links.length === 0) {
     return null;
   }
 
   return (
-    <ul data-swatch-row className="flex items-center gap-2" aria-label="Colores">
+    <ul
+      data-swatch-row
+      className={cn('flex items-center gap-2', className)}
+      aria-label='Colores'
+      {...props}
+    >
       {links.map((link) => (
         <li
           key={link.slug}
           className={cn(
-            "flex size-4.5 items-center justify-center rounded-full",
-            link.slug === currentSlug && "ring-1 ring-inset ring-foreground",
+            'flex size-4.5 items-center justify-center rounded-full',
+            link.slug === currentSlug && 'ring-1 ring-inset ring-foreground',
           )}
         >
           {link.slug === currentSlug ? (
             <Dot link={link} />
           ) : (
-            <Link href={`/producto/${link.slug}`} className="flex">
+            <Link href={`/producto/${link.slug}`} className='flex'>
               <Dot link={link} />
             </Link>
           )}
@@ -200,33 +213,33 @@ function SwatchRow({ links, currentSlug }: SwatchRowProps) {
 function Dot({ link }: { link: ColourwayLink }) {
   return (
     <>
-      <span className="relative block size-3 rounded-full border border-border">
+      <span className='relative block size-3 rounded-full border border-border'>
         <span
           className={cn(
-            "block size-full rounded-full",
-            !link.inStock && "opacity-40",
+            'block size-full rounded-full',
+            !link.inStock && 'opacity-40',
           )}
           style={{ backgroundColor: link.hex }}
         />
         {!link.inStock && (
           <svg
-            viewBox="0 0 12 12"
-            aria-hidden="true"
-            className="absolute inset-0 size-full text-muted-foreground"
+            viewBox='0 0 12 12'
+            aria-hidden='true'
+            className='absolute inset-0 size-full text-muted-foreground'
           >
             <line
-              x1="1.5"
-              y1="10.5"
-              x2="10.5"
-              y2="1.5"
-              stroke="currentColor"
-              strokeWidth="1"
-              strokeLinecap="round"
+              x1='1.5'
+              y1='10.5'
+              x2='10.5'
+              y2='1.5'
+              stroke='currentColor'
+              strokeWidth='1'
+              strokeLinecap='round'
             />
           </svg>
         )}
       </span>
-      <span className="sr-only">
+      <span className='sr-only'>
         {link.inStock ? link.name : `${link.name} — agotado`}
       </span>
     </>

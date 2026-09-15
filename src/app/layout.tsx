@@ -3,6 +3,7 @@ import { Geist_Mono } from 'next/font/google';
 import localFont from 'next/font/local';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { BackgroundPlate } from '@/components/shared/background-plate';
+import SheetBackground from '@/components/ui/assets/sheet-background.webp';
 import { BRAND, BRAND_LOCALE } from '@/lib/brand';
 import { siteUrl } from '@/lib/site-url';
 import { toCartCatalog } from '@/modules/cart/domain/catalog-projection';
@@ -114,6 +115,18 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
       lang='es'
       className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full max-w-svw antialiased overflow-x-hidden`}
     >
+      <head>
+        {/* The cart is available on every route, so its first open should not
+            expose the plain panel while this decorative plate is still
+            downloading. The catalogue keeps its separate viewport-bounded
+            policy; this preload pays only for the shared sheet asset. */}
+        <link
+          rel='preload'
+          as='image'
+          href={SheetBackground.src}
+          type='image/webp'
+        />
+      </head>
       {/* `useQueryState` throws without an adapter mounted above it, and the
           PDP's variant selection is the first consumer. The adapter puts its
           own `useSearchParams` reader behind an internal `<Suspense>`, so
