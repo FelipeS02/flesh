@@ -15,6 +15,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 201,
+        sku: null,
         combination: ['M'],
         price: PRICE,
         compareAt: null,

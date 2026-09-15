@@ -21,6 +21,7 @@ function catalogWith(variants: Array<{ id: number; inStock: boolean }>): CartCat
       image: null,
       variants: variants.map(({ id, inStock }) => ({
         id,
+        sku: null,
         combination: ["M", "Negro"],
         price: PRICE,
         compareAt: null,

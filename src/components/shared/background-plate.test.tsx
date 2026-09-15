@@ -76,7 +76,7 @@ describe("PageScrim", () => {
     const scrim = container.firstElementChild;
 
     expect(scrim?.className).toContain("fixed");
-    expect(scrim?.className).toContain("-z-10");
+    expect(scrim?.className).toContain("-z-9");
     expect(scrim?.getAttribute("aria-hidden")).toBe("true");
   });
 });

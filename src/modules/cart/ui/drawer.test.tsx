@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   act,
   fireEvent,
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import type { CartStoragePort } from '../api/storage';
 import { CHECKOUT_FAILURE_REASON } from '../api/checkout-messages';
@@ -19,6 +20,15 @@ import type { CartView } from '../domain/line';
 import type { CartCatalog } from '../domain/catalog-projection';
 import { CartProvider, useCartDispatch } from '../state/cart-context';
 import { CartDrawer } from './drawer';
+import { HANDOFF_STALL_MS } from '../state/use-checkout-handoff';
+
+const analyticsSpy = vi.hoisted(() => vi.fn());
+vi.mock('@/modules/analytics', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/modules/analytics')>();
+  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+});
+
+afterEach(() => analyticsSpy.mockClear());
 
 const PRICE = { amount: 2_700_000, currency: 'ARS' } as const;
 const CATALOG: CartCatalog = [
@@ -30,6 +40,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 201,
+        sku: 'TEE-M',
         combination: ['M'],
         price: PRICE,
         compareAt: null,
@@ -141,6 +152,15 @@ async function submitViaModal(trigger: HTMLElement) {
 }
 
 describe('CartDrawer', () => {
+  it('reports view_cart once when a ready cart opens', async () => {
+    await openWithLine();
+
+    expect(analyticsSpy).toHaveBeenCalledTimes(1);
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'view_cart' }),
+    );
+  });
+
   it('opens and returns focus to the trigger when closed', async () => {
     render(
       <CartProvider
@@ -307,6 +327,137 @@ describe('CartDrawer', () => {
 });
 
 describe('CartDrawer buyer modal (spec: buyer details move into a modal)', () => {
+  // The shopper spends exactly one click: pressing Finalizar compra hands them
+  // off. A second button offering to do what already happened is the step this
+  // drawer deliberately no longer charges them for.
+  it('hands a successful saved-profile checkout off on the click already made', async () => {
+    const checkout = await openWithLine(savedProfile(), {
+      startCheckout: async () => ({
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
+      }),
+    });
+    analyticsSpy.mockClear();
+
+    fireEvent.click(checkout);
+    await waitFor(() =>
+      expect(
+        analyticsSpy.mock.calls.filter(
+          ([event]) => event.name === 'checkout_redirect',
+        ),
+      ).toHaveLength(1),
+    );
+
+    expect(
+      screen.queryByRole('link', { name: 'Continuar al checkout' }),
+    ).toBeNull();
+  });
+
+  // Same single-click contract as the drawer: submitting the modal IS the
+  // handoff. Swapping its form for a link the shopper is about to be carried
+  // past would only flash a control they never need.
+  it('hands off from the buyer modal without asking for another click', async () => {
+    const checkout = await openWithLine(absentProfile(), {
+      startCheckout: async () => ({
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
+      }),
+    });
+    analyticsSpy.mockClear();
+
+    await submitViaModal(checkout);
+
+    await waitFor(() =>
+      expect(
+        analyticsSpy.mock.calls.filter(
+          ([event]) => event.name === 'checkout_redirect',
+        ),
+      ).toHaveLength(1),
+    );
+    const modal = await screen.findByRole('dialog', BUYER_MODAL);
+    expect(
+      within(modal).queryByRole('link', { name: 'Continuar al checkout' }),
+    ).toBeNull();
+  });
+
+  // The automatic handoff is the happy path, not a guarantee: a browser can
+  // refuse to follow a scripted click. Stranding someone at the last step of a
+  // purchase is the most expensive failure this drawer has, so past the stall
+  // window the link is offered by hand — and Finalizar compra steps aside so
+  // there is only ever one thing to press.
+  it('offers the link by hand, alone, once the automatic handoff has clearly failed', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const checkout = await openWithLine(savedProfile(), {
+        startCheckout: async () => ({
+          status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
+        }),
+      });
+
+      fireEvent.click(checkout);
+      // The stall timer only exists once the Draft Order has answered, so the
+      // handoff has to have happened before the clock is moved past it.
+      await waitFor(() =>
+        expect(
+          analyticsSpy.mock.calls.filter(
+            ([event]) => event.name === 'checkout_redirect',
+          ),
+        ).toHaveLength(1),
+      );
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(HANDOFF_STALL_MS);
+      });
+
+      const handoff = screen.getByRole('link', {
+        name: 'Continuar al checkout',
+      });
+      expect(handoff.getAttribute('href')).toBe(
+        'https://checkout.example.com/checkout/9/token',
+      );
+      expect(
+        screen.queryByRole('button', { name: 'Finalizar compra' }),
+      ).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // A successful checkout is a one-way door: the browser is already leaving.
+  // Handing the control back would let an impatient second press open a second
+  // Draft Order for a cart that is on its way out.
+  it('keeps Finalizar compra spent once the handoff succeeds', async () => {
+    const checkout = await openWithLine(savedProfile(), {
+      startCheckout: async () => ({
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
+      }),
+    });
+
+    fireEvent.click(checkout);
+    await waitFor(() =>
+      expect(
+        analyticsSpy.mock.calls.filter(
+          ([event]) => event.name === 'checkout_redirect',
+        ),
+      ).toHaveLength(1),
+    );
+
+    expect(checkout.disabled).toBe(true);
+  });
+
+  // The mirror case: nothing is navigating anywhere, so refusing a retry would
+  // strand a shopper whose only problem was a failed request.
+  it('hands Finalizar compra back when the checkout failed instead', async () => {
+    const checkout = await openWithLine(savedProfile(), {
+      startCheckout: async () => ({
+        status: 'unavailable',
+        reason: CHECKOUT_FAILURE_REASON,
+      }),
+    });
+
+    fireEvent.click(checkout);
+    await screen.findByRole('alert');
+
+    expect(checkout.disabled).toBe(false);
+  });
+
   it('no saved profile: Finalizar compra opens the modal instead of submitting', async () => {
     const checkout = await openWithLine(absentProfile());
 
@@ -338,8 +489,7 @@ describe('CartDrawer buyer modal (spec: buyer details move into a modal)', () =>
   it('the modal holds a real <form> whose submit fires the checkout machine exactly once with the typed buyer', async () => {
     const start = vi.fn(
       async (): Promise<CheckoutOutcome> => ({
-        status: 'redirect',
-        url: 'https://checkout.example.com/checkout/9/token',
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
       }),
     );
     const checkout = await openWithLine(absentProfile(), {
@@ -374,8 +524,7 @@ describe('CartDrawer buyer modal (spec: buyer details move into a modal)', () =>
   it('submits via Continuar al pago, a real submit-type control', async () => {
     const start = vi.fn(
       async (): Promise<CheckoutOutcome> => ({
-        status: 'redirect',
-        url: 'https://checkout.example.com/checkout/9/token',
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
       }),
     );
     const checkout = await openWithLine(absentProfile(), {
@@ -412,8 +561,7 @@ describe('CartDrawer buyer modal (spec: buyer details move into a modal)', () =>
   it('saved profile: Finalizar compra submits directly, with no modal and no buyer in the submitted cart', async () => {
     const start = vi.fn<(cart: CartView) => Promise<CheckoutOutcome>>(
       async () => ({
-        status: 'redirect',
-        url: 'https://checkout.example.com/checkout/9/token',
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
       }),
     );
     const checkout = await openWithLine(savedProfile(), {
@@ -574,8 +722,7 @@ describe('CartDrawer buyer modal nested-dialog stacking (main risk)', () => {
   it('closing the modal without submitting leaves the drawer and its cart contents untouched', async () => {
     const start = vi.fn(
       async (): Promise<CheckoutOutcome> => ({
-        status: 'redirect',
-        url: 'https://checkout.example.com/checkout/9/token',
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
       }),
     );
     const checkout = await openWithLine(absentProfile(), {
@@ -658,8 +805,7 @@ describe('CartDrawer skip-path profile phases (design D2)', () => {
   it('shows the masked label and its CAMBIAR affordance in the saved phase, and omits buyer from the submitted cart', async () => {
     const start = vi.fn<(cart: CartView) => Promise<CheckoutOutcome>>(
       async () => ({
-        status: 'redirect',
-        url: 'https://checkout.example.com/checkout/9/token',
+        status: 'redirect', url: 'https://checkout.example.com/checkout/9/token', draftOrderId: 2070706008,
       }),
     );
     const checkout = await openWithLine(savedProfile(), {

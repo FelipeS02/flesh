@@ -239,6 +239,24 @@ describe("mapToProductView — carries the raw stock facts a purchase limit is c
   });
 });
 
+describe("mapToProductView — analytics SKU identity", () => {
+  it("carries a present SKU onto the domain variant", () => {
+    const wire = buildWireProduct({
+      variants: [buildWireVariant({ sku: "TEE-M" })],
+    });
+
+    expect(mapToProductView(wire).variants[0]?.sku).toBe("TEE-M");
+  });
+
+  it("preserves a missing SKU as null instead of inventing an identifier", () => {
+    const wire = buildWireProduct({
+      variants: [buildWireVariant({ id: 42, sku: null })],
+    });
+
+    expect(mapToProductView(wire).variants[0]?.sku).toBeNull();
+  });
+});
+
 describe("mapToProductView � independent garment fields", () => {
   it("retains Fit when its chart has no matching axis", () => {
     const product = buildWireProduct({ variants: [buildWireVariant({ values: [] })] });

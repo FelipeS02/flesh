@@ -6,6 +6,7 @@ import { createCheckoutRateGuard, type CheckoutRateGuard } from "./checkout.guar
 import { CHECKOUT_FAILURE_REASON } from "./checkout-messages";
 import { createTiendanubeDraftOrderCheckout, type DraftOrderCheckoutRequest, type DraftOrderCheckoutResult } from "./checkout.tiendanube";
 import { readBuyerCookie, writeBuyerCookie } from "./buyer-profile.cookie";
+import { writePendingOrderCookie } from "./pending-order.cookie";
 
 const MAX_REQUEST_BYTES = 8_192;
 const MAX_LINES = 12;
@@ -39,6 +40,7 @@ type Dependencies = {
   guard: CheckoutRateGuard;
   readBuyer: () => Promise<unknown>;
   writeBuyer: (buyer: z.infer<typeof BuyerSchema>) => Promise<void>;
+  writePendingOrder: (draftOrderId: number) => Promise<void>;
 };
 const defaultGuard = createCheckoutRateGuard();
 function defaultDependencies(): Dependencies {
@@ -48,6 +50,7 @@ function defaultDependencies(): Dependencies {
     guard: defaultGuard,
     readBuyer: readBuyerCookie,
     writeBuyer: writeBuyerCookie,
+    writePendingOrder: writePendingOrderCookie,
   };
 }
 
@@ -79,7 +82,13 @@ export async function startTiendanubeCheckout(input: unknown, dependencies?: Dep
     // new to persist.
     if (resolution.source === "submitted") await resolved.writeBuyer(resolution.buyer);
     const result = await resolved.createDraftOrder({ buyer: resolution.buyer, products });
-    if (result.status === "redirect") return { status: "redirect", url: result.url };
+    if (result.status === "redirect") {
+      // Recorded only for a real handoff, and unlike the buyer cookie this one
+      // records an ATTEMPT rather than an identity: it is the id the cart asks
+      // about on the shopper's return to find out whether it was bought.
+      await resolved.writePendingOrder(result.draftOrderId);
+      return { status: "redirect", url: result.url, draftOrderId: result.draftOrderId };
+    }
     // The provider is the stock authority, so its refusal outranks the cached
     // read above — but only for variants this cart actually asked for, so an
     // unrecognised id can never surface as a phantom line in the drawer.

@@ -1,11 +1,26 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import type { CartStoragePort } from "../api/storage";
 import type { CartCatalog } from "../domain/catalog-projection";
 import { CartProvider, useCartDispatch, useCartState } from "../state/cart-context";
 import { RemoveLineButton } from "./remove-line-button";
 
+const analyticsSpy = vi.hoisted(() => vi.fn());
+vi.mock("@/modules/analytics", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/modules/analytics")>();
+  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+});
+
+afterEach(() => analyticsSpy.mockClear());
+
 const PRICE = { amount: 1_000_000, currency: "ARS" } as const;
+const ANALYTICS_ITEM = {
+  item_id: "TEE-M",
+  item_name: "Remera Classic",
+  price: 10000,
+  quantity: 1,
+  currency: "ARS",
+} as const;
 
 function emptyStorage(): CartStoragePort {
   return { read: () => null, write: () => {}, clear: () => {} };
@@ -20,6 +35,7 @@ const CATALOG: CartCatalog = [
     variants: [
       {
         id: 201,
+        sku: "TEE-M",
         combination: ["M"],
         price: PRICE,
         compareAt: null,
@@ -48,7 +64,7 @@ function Harness() {
       >
         seed
       </button>
-      {line && <RemoveLineButton line={line} />}
+      {line && <RemoveLineButton line={line} analyticsItem={ANALYTICS_ITEM} />}
       <p data-testid="quantity">{line?.quantity ?? "none"}</p>
       <p data-testid="line-count">{lineCount}</p>
     </div>
@@ -88,5 +104,13 @@ describe("RemoveLineButton", () => {
     fireEvent.click(screen.getByRole("button", { name: "Eliminar producto del carrito" }));
 
     expect(screen.getByTestId("line-count").textContent).toBe("0");
+    expect(analyticsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: "remove_from_cart",
+        params: expect.objectContaining({
+          items: [expect.objectContaining({ quantity: 2 })],
+        }),
+      }),
+    );
   });
 });

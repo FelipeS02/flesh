@@ -12,6 +12,11 @@ import {
   type VariantView,
 } from "@/modules/catalog/client";
 import { showAddedToCart, useCartDispatch, useCartState } from "@/modules/cart";
+import {
+  createEcommerceEvent,
+  sendAnalyticsEvent,
+  variantItem,
+} from "@/modules/analytics";
 import { AxisSelector } from "./axis-selector";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
@@ -21,6 +26,7 @@ import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 type PurchasePanelProps = {
   /** Domain identity needed by the cart reducer; plain RSC-safe data. */
   productId: number;
+  productTitle: string;
   /** Server-rendered colourway navigation inserted into the desktop sequence. */
   colourwaySelector: ReactNode;
   /** The colour row, repeated on the mobile widget. */
@@ -49,6 +55,7 @@ type PurchasePanelProps = {
 export function PurchasePanel({
   product,
   productId,
+  productTitle,
   defaultVariantId,
   colourwaySelector,
   colourways,
@@ -72,6 +79,7 @@ export function PurchasePanel({
     <PanelView
       product={product}
       productId={productId}
+      productTitle={productTitle}
       defaultVariantId={defaultVariantId}
       colourwaySelector={colourwaySelector}
       colourways={colourways}
@@ -103,6 +111,11 @@ export function PurchasePanel({
           limit: purchaseLimit(variant),
         });
         showAddedToCart({ variantId: variant.id, repeat });
+        sendAnalyticsEvent(
+          createEcommerceEvent("add_to_cart", [
+            variantItem(productTitle, variant),
+          ]),
+        );
       }}
     />
   );
@@ -126,6 +139,7 @@ export function PurchasePanel({
 export function PurchasePanelFallback({
   product,
   productId,
+  productTitle,
   defaultVariantId,
   colourwaySelector,
   colourways,
@@ -135,6 +149,7 @@ export function PurchasePanelFallback({
     <PanelView
       product={product}
       productId={productId}
+      productTitle={productTitle}
       defaultVariantId={defaultVariantId}
       colourwaySelector={colourwaySelector}
       colourways={colourways}

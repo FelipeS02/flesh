@@ -1,12 +1,18 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
+import {
+  createEcommerceEvent,
+  sendAnalyticsEvent,
+  type AnalyticsItem,
+} from '@/modules/analytics';
 import type { CartLine } from '../domain/line';
 import { useCartDispatch } from '../state/cart-context';
 import { X } from 'lucide-react';
 
 type RemoveLineButtonProps = {
   line: CartLine;
+  analyticsItem: AnalyticsItem;
 };
 
 /**
@@ -24,14 +30,23 @@ type RemoveLineButtonProps = {
  * drawer that discards something, and the row gives it no other signal — no
  * icon, no confirmation — so the colour is carrying that weight alone.
  */
-export function RemoveLineButton({ line }: RemoveLineButtonProps) {
+export function RemoveLineButton({ line, analyticsItem }: RemoveLineButtonProps) {
   const dispatch = useCartDispatch();
+
+  function removeLine() {
+    dispatch({ type: 'remove', variantId: line.variantId });
+    sendAnalyticsEvent(
+      createEcommerceEvent('remove_from_cart', [
+        { ...analyticsItem, quantity: line.quantity },
+      ]),
+    );
+  }
 
   return (
     <Button
       variant='ghost'
       size='xs'
-      onClick={() => dispatch({ type: 'remove', variantId: line.variantId })}
+      onClick={removeLine}
       aria-label='Eliminar producto del carrito'
       className='h-4 shrink-0 px-0 font-sans hover:bg-transparent text-muted-foreground'
     >
