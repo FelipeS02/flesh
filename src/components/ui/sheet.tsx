@@ -64,7 +64,7 @@ function SheetContent({
       >
         {styledBackground && (
           <Image
-            className='-z-1 opacity-35'
+            className='-z-1 opacity-20'
             fill
             sizes='(max-width: 767px) 100vw, 448px'
             src={SheetBackground}

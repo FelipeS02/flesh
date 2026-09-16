@@ -131,3 +131,57 @@ describe("createTiendanubeDraftOrderCheckout", () => {
 
 
 
+
+// Every failure above collapses into one identical message on purpose. These
+// assert the discriminant that travels BESIDE it, because without it the eight
+// distinct ways this call can fail are indistinguishable in a server log.
+describe("createTiendanubeDraftOrderCheckout failure detail", () => {
+  async function detailOf(fetchImpl: () => Promise<Response>) {
+    const checkout = createTiendanubeDraftOrderCheckout(CONFIG, { fetchImpl });
+    const error = await checkout(REQUEST).catch((caught: unknown) => caught);
+    return (error as { detail: unknown }).detail;
+  }
+
+  it("names a transport failure", async () => {
+    await expect(detailOf(async () => { throw new Error("socket with secret-token"); })).resolves.toEqual({ reason: "network" });
+  });
+
+  it("carries the rejected status code", async () => {
+    await expect(detailOf(async () => new Response("upstream details", { status: 503 }))).resolves.toEqual({ reason: "http_status", status: 503 });
+  });
+
+  it("separates a body that is not JSON from one that is the wrong shape", async () => {
+    await expect(detailOf(async () => new Response("not json", { status: 201 }))).resolves.toEqual({ reason: "malformed_body", status: 201 });
+    await expect(detailOf(async () => new Response(JSON.stringify({ id: 99 }), { status: 201 }))).resolves.toEqual({ reason: "unusable_body", status: 201 });
+  });
+
+  // The host mismatch is the failure a domain change causes, and it is the one
+  // that reads as "checkout is broken" with nothing pointing at DNS. Both hosts
+  // are non-secret, so naming them turns a silent outage into a one-line fix.
+  it("names both hosts when the checkout URL is off the configured host", async () => {
+    await expect(detailOf(async () => new Response(JSON.stringify({ id: 99, checkout_url: "https://checkout.flesh.ar/checkout/99/token" }), { status: 201 }))).resolves.toEqual({
+      reason: "unsafe_checkout_url",
+      status: 201,
+      expectedHost: "checkout.example.com",
+      receivedHost: "checkout.flesh.ar",
+    });
+  });
+
+  it("omits an unparseable checkout URL's host rather than inventing one", async () => {
+    await expect(detailOf(async () => new Response(JSON.stringify({ id: 99, checkout_url: "not a URL" }), { status: 201 }))).resolves.toEqual({
+      reason: "unsafe_checkout_url",
+      status: 201,
+      expectedHost: "checkout.example.com",
+    });
+  });
+
+  it("distinguishes a refusal that named no usable variant", async () => {
+    await expect(detailOf(async () => new Response(JSON.stringify({ variant_ids: [] }), { status: 422 }))).resolves.toEqual({ reason: "unnamed_rejection", status: 422 });
+  });
+
+  it("keeps the detail out of the message the shopper's error is built from", async () => {
+    const error = await createTiendanubeDraftOrderCheckout(CONFIG, { fetchImpl: async () => new Response("upstream details", { status: 503 }) })(REQUEST).catch((caught: unknown) => caught);
+
+    expect(String(error)).toBe("TiendanubeCheckoutError: Tiendanube checkout request failed.");
+  });
+});

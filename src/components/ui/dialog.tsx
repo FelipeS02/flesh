@@ -72,7 +72,7 @@ function DialogContent({
       >
         {styledBackground && (
           <Image
-            className='-z-1 opacity-35'
+            className='-z-1 opacity-20'
             fill
             sizes='(max-width: 383px) 100vw, 384px'
             src={DialogBackground}

@@ -221,3 +221,80 @@ describe("resolveBuyer", () => {
     expect(resolveBuyer(undefined, 42)).toEqual({ source: "none" });
   });
 });
+
+// The shopper must keep seeing one generic outcome; the operator must not. The
+// silence these cover is what made a real checkout outage undiagnosable: eight
+// causes, one identical response, and nothing written down anywhere.
+describe("server-side diagnostics", () => {
+  function captureLog() {
+    return vi.spyOn(console, "error").mockImplementation(() => {});
+  }
+
+  it("records why it gave up without changing what the shopper is told", async () => {
+    const consoleError = captureLog();
+    const { dependencies: deps, createDraftOrder } = dependencies();
+    createDraftOrder.mockImplementation(async () => { throw new Error("secret upstream detail"); });
+
+    const outcome = await startTiendanubeCheckout(INPUT, deps);
+
+    expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
+    expect(consoleError).toHaveBeenCalledOnce();
+    expect(JSON.stringify(consoleError.mock.calls[0])).not.toContain("secret upstream detail");
+    consoleError.mockRestore();
+  });
+
+  it.each([
+    [{ ...INPUT, padding: "x".repeat(9_000) }, "oversized_request"],
+    [{ ...INPUT, lines: [] }, "invalid_input"],
+  ])("names an input-shaped refusal that never reaches the provider", async (input, reason) => {
+    const consoleError = captureLog();
+    const { dependencies: deps } = dependencies();
+
+    await startTiendanubeCheckout(input, deps);
+
+    expect(consoleError).toHaveBeenCalledWith("[checkout] unavailable", { reason });
+    consoleError.mockRestore();
+  });
+
+  it("names a refusal caused by the rate guard", async () => {
+    const consoleError = captureLog();
+    const { dependencies: deps } = dependencies();
+    deps.guard = createCheckoutRateGuard({ limit: 0 });
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(consoleError).toHaveBeenCalledWith("[checkout] unavailable", { reason: "rate_limited" });
+    consoleError.mockRestore();
+  });
+
+  it("names a submission with no usable buyer identity", async () => {
+    const consoleError = captureLog();
+    const { dependencies: deps } = dependencies();
+
+    await startTiendanubeCheckout({ ...INPUT, buyer: undefined }, deps);
+
+    expect(consoleError).toHaveBeenCalledWith("[checkout] unavailable", { reason: "no_buyer_identity" });
+    consoleError.mockRestore();
+  });
+
+  it("stays quiet when the provider refuses named variants, which is an answer and not a fault", async () => {
+    const consoleError = captureLog();
+    const { dependencies: deps, createDraftOrder } = dependencies();
+    createDraftOrder.mockResolvedValue({ status: "rejected", variantIds: [201] });
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it("stays quiet on a successful handoff", async () => {
+    const consoleError = captureLog();
+    const { dependencies: deps } = dependencies();
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(consoleError).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+});

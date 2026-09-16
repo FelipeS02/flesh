@@ -35,10 +35,27 @@ const RejectedVariantsSchema = z.object({
   variant_errors: z.record(z.string(), z.unknown()).optional(),
 });
 
+/**
+ * Why a hand-built detail instead of `cause`: the original exception is exactly
+ * where the access token has been seen travelling, so attaching it would move
+ * the secret into every log line. Each field here is chosen and non-secret.
+ */
+export type CheckoutFailureDetail = {
+  reason: string;
+  status?: number;
+  expectedHost?: string;
+  receivedHost?: string;
+  errorName?: string;
+};
+
 export class TiendanubeCheckoutError extends Error {
-  constructor() {
+  readonly detail: CheckoutFailureDetail;
+  constructor(detail: CheckoutFailureDetail) {
     super('Tiendanube checkout request failed.');
     this.name = 'TiendanubeCheckoutError';
+    // Carried as a property, never folded into `message`: the message is what
+    // the shopper-facing error is built from and it must stay sanitized.
+    this.detail = detail;
   }
 }
 
@@ -82,7 +99,7 @@ export function createTiendanubeDraftOrderCheckout(
         },
       );
     } catch {
-      throw new TiendanubeCheckoutError();
+      throw new TiendanubeCheckoutError({ reason: 'network' });
     } finally {
       clearTimeout(timer);
     }
@@ -91,24 +108,44 @@ export function createTiendanubeDraftOrderCheckout(
         .json()
         .then(refusedVariantIds)
         .catch(() => []);
-      if (variantIds.length === 0) throw new TiendanubeCheckoutError();
+      if (variantIds.length === 0)
+        throw new TiendanubeCheckoutError({ reason: 'unnamed_rejection', status: REJECTED_STATUS });
       return { status: 'rejected', variantIds };
     }
-    if (response.status !== 201) throw new TiendanubeCheckoutError();
+    if (response.status !== 201)
+      throw new TiendanubeCheckoutError({ reason: 'http_status', status: response.status });
     let body: unknown;
     try {
       body = await response.json();
     } catch {
-      throw new TiendanubeCheckoutError();
+      throw new TiendanubeCheckoutError({ reason: 'malformed_body', status: response.status });
     }
     const parsed = DraftOrderResponseSchema.safeParse(body);
-    if (
-      !parsed.success ||
-      !isSafeCheckoutUrl(parsed.data.checkout_url, config.checkoutHost)
-    )
-      throw new TiendanubeCheckoutError();
+    if (!parsed.success)
+      throw new TiendanubeCheckoutError({ reason: 'unusable_body', status: response.status });
+    // Split from the shape check above rather than folded into one condition: a
+    // host mismatch is what a domain or DNS change causes, and it reads to
+    // everyone as "checkout is broken" with nothing pointing at the real cause.
+    // Both hosts are non-secret, so naming them turns a silent outage into a
+    // one-line fix.
+    if (!isSafeCheckoutUrl(parsed.data.checkout_url, config.checkoutHost))
+      throw new TiendanubeCheckoutError({
+        reason: 'unsafe_checkout_url',
+        status: response.status,
+        expectedHost: config.checkoutHost,
+        ...hostOf(parsed.data.checkout_url),
+      });
     return { status: 'redirect', url: parsed.data.checkout_url, draftOrderId: parsed.data.id };
   };
+}
+
+/** Omits the field when the URL will not parse, rather than reporting a host that was never there. */
+function hostOf(value: string): { receivedHost?: string } {
+  try {
+    return { receivedHost: new URL(value).host };
+  } catch {
+    return {};
+  }
 }
 
 /** Reads refused ids from either documented 422 field, tolerating string keys and overlap. */

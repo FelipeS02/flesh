@@ -3,6 +3,7 @@ import { z } from "zod";
 import { getCheckoutProducts, readTiendanubeConfig, type CheckoutProduct } from "@/modules/catalog";
 import type { CheckoutOutcome } from "./port";
 import { createCheckoutRateGuard, type CheckoutRateGuard } from "./checkout.guard";
+import { logCheckoutFailure } from "./checkout.diagnostics";
 import { CHECKOUT_FAILURE_REASON } from "./checkout-messages";
 import { createTiendanubeDraftOrderCheckout, type DraftOrderCheckoutRequest, type DraftOrderCheckoutResult } from "./checkout.tiendanube";
 import { readBuyerCookie, writeBuyerCookie } from "./buyer-profile.cookie";
@@ -56,16 +57,16 @@ function defaultDependencies(): Dependencies {
 
 /** Validates untrusted input, then reconstructs prices and stock before one mutation. */
 export async function startTiendanubeCheckout(input: unknown, dependencies?: Dependencies): Promise<CheckoutOutcome> {
-  if (!fitsRequestBudget(input)) return unavailable();
+  if (!fitsRequestBudget(input)) return unavailable({ reason: "oversized_request" });
   const parsed = CheckoutInputSchema.safeParse(input);
-  if (!parsed.success) return unavailable();
+  if (!parsed.success) return unavailable({ reason: "invalid_input" });
   try {
     const resolved = dependencies ?? defaultDependencies();
-    if (!resolved.guard.consume()) return unavailable();
+    if (!resolved.guard.consume()) return unavailable({ reason: "rate_limited" });
     // Resolved before any catalog/provider I/O: a submission with no usable
     // identity (source "none") has nothing to check stock for.
     const resolution = resolveBuyer(parsed.data.buyer, await resolved.readBuyer());
-    if (resolution.source === "none") return unavailable();
+    if (resolution.source === "none") return unavailable({ reason: "no_buyer_identity" });
     const index = checkoutVariantIndex(await resolved.getCheckoutProducts());
     const rejected: number[] = [];
     const products: DraftOrderCheckoutRequest["products"] = [];
@@ -94,9 +95,21 @@ export async function startTiendanubeCheckout(input: unknown, dependencies?: Dep
     // unrecognised id can never surface as a phantom line in the drawer.
     const requested = new Set(products.map((product) => product.variantId));
     const refused = result.variantIds.filter((variantId) => requested.has(variantId));
-    return refused.length > 0 ? { status: "rejected", lines: refused } : unavailable();
-  } catch { return unavailable(); }
+    // A refusal naming variants is an ANSWER, not a fault, and the caller
+    // already turns it into a specific message — logging it would bury the
+    // faults this diagnostic exists to surface under ordinary out-of-stock noise.
+    return refused.length > 0 ? { status: "rejected", lines: refused } : unavailable({ reason: "unnamed_rejection" });
+  } catch (error) { return unavailable(error); }
 }
 function checkoutVariantIndex(products: CheckoutProduct[]) { return new Map(products.flatMap((product) => product.variants.map((variant) => [variant.variantId, variant] as const))); }
 function fitsRequestBudget(input: unknown): boolean { try { return new TextEncoder().encode(JSON.stringify(input)).byteLength <= MAX_REQUEST_BYTES; } catch { return false; } }
-function unavailable(): CheckoutOutcome { return { status: "unavailable", reason: CHECKOUT_FAILURE_REASON }; }
+/**
+ * The shopper's outcome is deliberately identical for every cause; the server
+ * log is where they stop being identical. Both halves live here so the two can
+ * never drift apart again — the silence towards the operator was a side effect
+ * of the silence towards the shopper, not a decision anyone made.
+ */
+function unavailable(cause?: unknown): CheckoutOutcome {
+  if (cause !== undefined) logCheckoutFailure(cause);
+  return { status: "unavailable", reason: CHECKOUT_FAILURE_REASON };
+}
