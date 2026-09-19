@@ -236,15 +236,15 @@ event is ever sent twice.
   `node_modules/next/dist/docs`) and persist Meta's `_fbc` format
   (`fb.1.<timestamp>.<fbclid>`) in a first-party cookie, following the
   injectable `CookieStore` pattern already used by `pending-order.cookie.ts`.
-- [ ] **T8** — User data: normalise and SHA-256 hash email, first name and last
+- [x] **T8** — User data: normalise and SHA-256 hash email, first name and last
   name per Meta's documented rules, and assemble the `user_data` payload with
   `fbc`, `fbp`, client IP and user agent. No raw personal data leaves this
   module unhashed.
-- [ ] **T9** — CAPI client: POST to the Graph API events endpoint, env-gated on
+- [x] **T9** — CAPI client: POST to the Graph API events endpoint, env-gated on
   a server-held access token, with the timeout and injectable `fetchImpl`
   pattern `checkout.tiendanube.ts` already uses. The token never appears in a
   log line or an error `cause`.
-- [ ] **T10** — Emit `InitiateCheckout` from `startTiendanubeCheckout`, and
+- [x] **T10** — Emit `InitiateCheckout` from `startTiendanubeCheckout`, and
   remove the browser mapping. A CAPI failure must never change the shopper's
   checkout outcome.
 
@@ -271,7 +271,25 @@ Branch `feat/meta-capi-checkout`, chained on `feat/meta-pixel-capi`.
 - [x] T7 — 11 new tests (7 pure, 4 through the proxy). Suite 846 passed (107
   files), typecheck clean, lint 6 pre-existing warnings, build compiles and
   the Proxy still registers.
-- [ ] T8 in progress.
+- [x] T8 — 5 new tests, SHA-256 vectors pinned.
+- [x] T9 — 9 new tests. Token in the Authorization header, 3s timeout,
+  every failure swallowed.
+- [x] T10 — 10 new tests. Suite 868 passed (110 files), typecheck clean,
+  lint 6 pre-existing warnings, build compiles.
+
+Phase 2 complete. Commits b33188a, dcf1713, c397f2f, 3c909bc.
+
+One typecheck defect found and fixed during T10: readCapiConfig defaulted to
+process.env, which TypeScript will not narrow to the config shape. Now built
+from literal member expressions like the GA4 config, which is also what keeps
+a NEXT_PUBLIC read substitutable.
+
+New environment variables, all optional and all dark by default:
+
+- NEXT_PUBLIC_META_PIXEL_ID - enables the browser pixel (phase 1).
+- META_CAPI_ACCESS_TOKEN - server only, enables the Conversions API.
+- META_GRAPH_API_VERSION - optional override; the default expires on Metas
+  deprecation schedule.
 
 Incident: proxy.ts was overwritten before being read. src/proxy.ts already
 existed and enforces the access gate; the earlier search looked only for
@@ -281,4 +299,14 @@ an extracted gate() function.
 
 ## Next step
 
-T8 — RED test for hashed user data.
+Both phases are code-complete. Remaining work is configuration and
+verification, not code:
+
+1. Open the two chained pull requests.
+2. Set the pixel id, confirm events with the Meta Pixel Helper.
+3. Settle the advertising-consent question before enabling anything live.
+4. Confirm the default Graph API version is still supported before setting
+   the access token.
+5. In Events Manager, check whether Tiendanubes Purchase carries _fbc. If it
+   does, phase 2 loses most of its value and should be reconsidered rather
+   than defended.
