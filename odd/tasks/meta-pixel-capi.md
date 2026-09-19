@@ -1,4 +1,4 @@
-# Meta Pixel (storefront)
+# Meta Pixel + Conversions API (storefront)
 
 ## Objective
 
@@ -180,5 +180,105 @@ All six tasks are complete. What remains is not code:
 
 ## Next step
 
-Open the pull request, then verify with the Meta Pixel Helper against a real
-session once the id is set.
+Phase 1 is code-complete and awaiting its pull request. Phase 2 begins below.
+
+---
+
+# Phase 2 — Conversions API for the checkout handoff
+
+Added 2026-09-19. Phase 1 deferred a FLESH-owned Conversions API on the
+grounds that it would recover events without recovering identity. The
+maintainer identified the case that defeats that reasoning.
+
+## Why the deferral was reversed
+
+Each party holds half of what Meta needs, and only one place holds both:
+
+- The **storefront** receives `fbclid` in the landing URL from a Meta ad, but
+  has no buyer identity until the checkout form is submitted.
+- **Tiendanube** holds the buyer's email in the draft order, but never saw the
+  `fbclid` — that parameter arrived on a different domain.
+- **`startTiendanubeCheckout`** resolves and validates the buyer *before*
+  calling Tiendanube, so at that moment the server holds the email, the name,
+  the click id, the pixel cookie, the IP and the user agent at once.
+
+Tiendanube's server-side events therefore carry identity but, by inference, no
+ad-click attribution. Meta learns who bought and not which ad produced them,
+which is the association the optimiser actually trains on.
+
+**Unverified inference:** that Tiendanube does not forward `_fbc`. Confirm in
+Events Manager once traffic is real, by inspecting the parameters their
+Purchase arrives with. If they do forward it, this phase loses most of its
+value and should be reconsidered rather than defended.
+
+## Design decision: InitiateCheckout moves to the server
+
+Phase 1 mapped `checkout_redirect` to a browser `InitiateCheckout`. Phase 2
+removes that mapping and sends the event from the server instead.
+
+The reason is that deduplicating the two would otherwise require threading a
+shared `event_id` from the server, through the checkout outcome, into the
+browser dispatcher — polluting a deliberately vendor-agnostic seam for a
+browser event that carries strictly less than its server twin. The server
+event has the email, the click id and the request metadata; the browser event
+has none of them and adds nothing the server one lacks.
+
+Redundancy exists to cover the browser's fragility. A server event we control
+does not have that fragility, so there is nothing to cover.
+
+Consequence: no shared `event_id` is needed anywhere in this feature, and no
+event is ever sent twice.
+
+## Tasks
+
+- [x] **T7** — Click-id capture. Read `fbclid` from the request in `proxy.ts`
+  (Next 16 renamed `middleware` to `proxy`; verified in
+  `node_modules/next/dist/docs`) and persist Meta's `_fbc` format
+  (`fb.1.<timestamp>.<fbclid>`) in a first-party cookie, following the
+  injectable `CookieStore` pattern already used by `pending-order.cookie.ts`.
+- [ ] **T8** — User data: normalise and SHA-256 hash email, first name and last
+  name per Meta's documented rules, and assemble the `user_data` payload with
+  `fbc`, `fbp`, client IP and user agent. No raw personal data leaves this
+  module unhashed.
+- [ ] **T9** — CAPI client: POST to the Graph API events endpoint, env-gated on
+  a server-held access token, with the timeout and injectable `fetchImpl`
+  pattern `checkout.tiendanube.ts` already uses. The token never appears in a
+  log line or an error `cause`.
+- [ ] **T10** — Emit `InitiateCheckout` from `startTiendanubeCheckout`, and
+  remove the browser mapping. A CAPI failure must never change the shopper's
+  checkout outcome.
+
+## Acceptance criteria
+
+- With no access token configured, checkout behaves exactly as it does today
+  and no Meta request is attempted.
+- A CAPI failure, timeout or rejection never changes the checkout outcome the
+  shopper receives.
+- No unhashed email or name is ever sent, logged, or attached to an error.
+- The access token never reaches the client bundle.
+- Exactly one `InitiateCheckout` per checkout submission, from one channel.
+
+## Constraints carried forward
+
+The consent question now covers storing a click id in a first-party cookie and
+sending hashed personal data to Meta. That is one decision for the maintainer,
+not two, and it still gates enabling any of this in production.
+
+## Progress
+
+Branch `feat/meta-capi-checkout`, chained on `feat/meta-pixel-capi`.
+
+- [x] T7 — 11 new tests (7 pure, 4 through the proxy). Suite 846 passed (107
+  files), typecheck clean, lint 6 pre-existing warnings, build compiles and
+  the Proxy still registers.
+- [ ] T8 in progress.
+
+Incident: proxy.ts was overwritten before being read. src/proxy.ts already
+existed and enforces the access gate; the earlier search looked only for
+middleware.* and missed it. Restored from HEAD with no loss, and the capture
+was then added as a wrapper that leaves the gate logic byte-identical inside
+an extracted gate() function.
+
+## Next step
+
+T8 — RED test for hashed user data.
