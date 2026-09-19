@@ -118,12 +118,12 @@ was corrected by reading the provider's documentation.
 - [x] **T1** — Meta config module: `readMetaConfig()` reading
   `NEXT_PUBLIC_META_PIXEL_ID`, pattern-validated, plus the pixel bootstrap
   snippet. Mirrors `analytics/config.ts` including the literal-env-read trap.
-- [ ] **T2** — Meta adapter (absorbed the former T4, parameter mapping: the
+- [x] **T2** — Meta adapter (absorbed the former T4, parameter mapping: the
   two were one file and splitting them was an artificial cut). Map the canonical `AnalyticsEvent` union to Meta
   standard names (`view_item`→`ViewContent`, `add_to_cart`→`AddToCart`,
   `checkout_redirect`→`InitiateCheckout`). Events with no faithful Meta
   equivalent are dropped explicitly, not invented as custom events.
-- [ ] **T3** — Browser transport: `fbq('track', name, params)`, env-gated and a
+- [x] **T3** — Browser transport: `fbq('track', name, params)`, env-gated and a
   no-op when unconfigured, same shape and return contract as
   `sendAnalyticsEvent`.
 - [ ] **T5** — Fan-out dispatcher: one `dispatchAnalyticsEvent` feeding GA4 and
@@ -151,8 +151,10 @@ absorbed into T2. Branch `feat/meta-pixel-capi`.
 - [x] T1 — commit `7190926`. 8 new tests. Full suite 818 passed (103 files),
   typecheck clean, lint 6 warnings all pre-existing (PageScrim/Footer unused,
   3x exhaustive-deps in product-gallery.tsx) and matching the known baseline.
-- [ ] T2 in progress.
+- [x] T2 — commit `d22cb58`. 6 new tests, suite 824 passed (104 files).
+- [x] T3 — 5 new tests, suite 829 passed (105 files).
+- [ ] T5 in progress (dispatcher).
 
 ## Next step
 
-T2 — RED test for the Meta adapter.
+T5 — RED test for the fan-out dispatcher.
