@@ -8,6 +8,8 @@ import { CHECKOUT_FAILURE_REASON } from "./checkout-messages";
 import { createTiendanubeDraftOrderCheckout, type DraftOrderCheckoutRequest, type DraftOrderCheckoutResult } from "./checkout.tiendanube";
 import { readBuyerCookie, writeBuyerCookie } from "./buyer-profile.cookie";
 import { writePendingOrderCookie } from "./pending-order.cookie";
+import type { CheckoutLine } from "@/modules/analytics/meta/initiate-checkout";
+import { reportCheckoutStarted } from "@/modules/analytics/meta/report-checkout";
 
 const MAX_REQUEST_BYTES = 8_192;
 const MAX_LINES = 12;
@@ -42,6 +44,10 @@ type Dependencies = {
   readBuyer: () => Promise<unknown>;
   writeBuyer: (buyer: z.infer<typeof BuyerSchema>) => Promise<void>;
   writePendingOrder: (draftOrderId: number) => Promise<void>;
+  reportCheckoutStarted: (input: {
+    buyer: z.infer<typeof BuyerSchema>;
+    lines: CheckoutLine[];
+  }) => Promise<void>;
 };
 const defaultGuard = createCheckoutRateGuard();
 function defaultDependencies(): Dependencies {
@@ -52,6 +58,7 @@ function defaultDependencies(): Dependencies {
     readBuyer: readBuyerCookie,
     writeBuyer: writeBuyerCookie,
     writePendingOrder: writePendingOrderCookie,
+    reportCheckoutStarted,
   };
 }
 
@@ -70,10 +77,18 @@ export async function startTiendanubeCheckout(input: unknown, dependencies?: Dep
     const index = checkoutVariantIndex(await resolved.getCheckoutProducts());
     const rejected: number[] = [];
     const products: DraftOrderCheckoutRequest["products"] = [];
+    // Carries the RECONSTRUCTED price alongside each accepted line. Meta has
+    // to be told the same figure the draft order is built from: reporting the
+    // client's number would teach the ad algorithm to bid against a value a
+    // shopper can edit in the request.
+    const pricedLines: CheckoutLine[] = [];
     for (const line of parsed.data.lines) {
       const variant = index.get(line.variantId);
       if (!variant || variant.productId !== line.productId || (variant.stockManagement && line.quantity > Math.max(0, variant.stock ?? 0))) rejected.push(line.variantId);
-      else products.push({ variantId: variant.variantId, quantity: line.quantity });
+      else {
+        products.push({ variantId: variant.variantId, quantity: line.quantity });
+        pricedLines.push({ variantId: variant.variantId, quantity: line.quantity, price: variant.price });
+      }
     }
     if (rejected.length > 0) return { status: "rejected", lines: rejected };
     // Per spec amendment A2: the cookie records IDENTITY, not order success —
@@ -88,6 +103,10 @@ export async function startTiendanubeCheckout(input: unknown, dependencies?: Dep
       // records an ATTEMPT rather than an identity: it is the id the cart asks
       // about on the shopper's return to find out whether it was bought.
       await resolved.writePendingOrder(result.draftOrderId);
+      // Only on a real handoff, and never allowed to matter: the report runs
+      // after the response is sent, and a rejection here is caught so a
+      // measurement can never be the reason a shopper fails to reach checkout.
+      await resolved.reportCheckoutStarted({ buyer: resolution.buyer, lines: pricedLines }).catch(() => {});
       return { status: "redirect", url: result.url, draftOrderId: result.draftOrderId };
     }
     // The provider is the stock authority, so its refusal outranks the cached

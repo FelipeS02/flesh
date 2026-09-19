@@ -4,7 +4,6 @@ export const META_EVENT_NAMES = [
   "PageView",
   "ViewContent",
   "AddToCart",
-  "InitiateCheckout",
 ] as const;
 
 export type MetaEventName = (typeof META_EVENT_NAMES)[number];
@@ -36,12 +35,17 @@ export type MetaEvent = { name: MetaEventName; params: MetaEventParams };
  * owns it, on both the browser and the Conversions API, at payment-credited
  * timing. A second, uncoordinated sender here could not share their `event_id`
  * and would be counted twice.
+ *
+ * `checkout_redirect` is absent for a third reason: `InitiateCheckout` is sent
+ * from the server, out of `startTiendanubeCheckout`. That is the only place
+ * holding both the ad click id and the buyer's identity, so the server event
+ * strictly dominates a browser one — which would have carried neither, and
+ * would then have needed a shared `event_id` to avoid being counted twice.
  */
 const STANDARD_NAMES: Partial<Record<AnalyticsEvent["name"], MetaEventName>> = {
   page_view: "PageView",
   view_item: "ViewContent",
   add_to_cart: "AddToCart",
-  checkout_redirect: "InitiateCheckout",
 };
 
 function contentParams(

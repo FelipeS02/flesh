@@ -69,16 +69,19 @@ describe("toMetaEvent", () => {
     ).toEqual({ name: "PageView", params: {} });
   });
 
-  // The canonical event records the handoff, not the cart, so there is no value
-  // or contents to forward. Enriching it would change what GA4 receives, which
-  // this feature is not allowed to do.
-  it("maps the checkout handoff to InitiateCheckout with no cart parameters", () => {
+  /**
+   * InitiateCheckout is sent from the server instead, out of
+   * `startTiendanubeCheckout`, which is the only place holding both the ad
+   * click id and the buyer's identity. A browser twin would carry neither and
+   * would then need a shared event_id to avoid being counted twice.
+   */
+  it("leaves the checkout handoff to the server", () => {
     expect(
       toMetaEvent({
         name: "checkout_redirect",
         params: { checkout_provider: "tiendanube" },
       }),
-    ).toEqual({ name: "InitiateCheckout", params: {} });
+    ).toBeNull();
   });
 
   // Meta has no standard event for these. Inventing custom ones would fill the
