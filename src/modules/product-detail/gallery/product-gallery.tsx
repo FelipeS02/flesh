@@ -56,6 +56,18 @@ const GALLERY_QUALITY = 90;
 /** The rail renders at 64 CSS px, so the CDN's 240 derivative covers it at 2x. */
 const THUMBNAIL_WIDTH = 64;
 
+/**
+ * How many slides ahead of the selected one commit their fetch.
+ *
+ * Native `lazy` inside a snap container only commits when the slide is nearly
+ * on screen, so the photo used to fade in DURING the gesture. Flipping the
+ * attribute to `eager` resumes a deferred load, so this window walks with the
+ * selection and the next photo has already landed by the time it arrives. One
+ * is enough: the gallery advances a slide at a time, and a thumbnail jump
+ * moves the selection before its scroll finishes.
+ */
+const PRELOAD_AHEAD = 1;
+
 type ProductGalleryProps = {
   images: ImageView[];
   title: string;
@@ -297,7 +309,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
         sizes={`(min-width: 768px) ${STAGE_DECLARED_WIDTH}px, 100vw`}
         quality={GALLERY_QUALITY}
         className='object-contain'
-        loading={index === 0 ? 'eager' : 'lazy'}
+        loading={index <= selected + PRELOAD_AHEAD ? 'eager' : 'lazy'}
       />
     );
   };

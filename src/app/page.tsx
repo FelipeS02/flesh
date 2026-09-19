@@ -28,7 +28,6 @@ export default async function Home() {
 
   return (
     <div className="relative flex min-h-screen flex-1 flex-col justify-between gap-10 px-4 md:px-0">
-      {/* <PageScrim /> */}
       <Header />
       <main>
         <DropCatalog products={products} colourways={colourways} />

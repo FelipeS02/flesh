@@ -1,6 +1,7 @@
 "use client";
 
 import { Toast } from "@base-ui/react/toast";
+import { SkullsBackdrop } from "@/components/ui/skulls-background";
 import { AddedToast } from "./added-toast";
 import { cartToastManager } from "./manager";
 
@@ -84,8 +85,18 @@ function ToastList({ anchor }: CartToastViewportProps) {
                 on movement for anyone who asked the OS for less of it. */}
             <Toast.Root
               toast={toast}
-              className="relative w-[min(350px,100vw-40px)] border border-border bg-background p-3.5 shadow-lg duration-200 ease-out animate-in fade-in slide-in-from-top-2 motion-reduce:animate-none md:p-5"
+              className="relative isolate w-[min(350px,100vw-40px)] overflow-hidden border border-border bg-background p-3.5 shadow-lg duration-200 ease-out animate-in fade-in slide-in-from-top-2 motion-reduce:animate-none md:p-5"
             >
+              {/* `isolate` on the Root above is what makes this work, and it
+                  is not decoration. `SkullsBackdrop` sits at `-z-1`, and a
+                  bare `relative` does NOT open a stacking context — so the
+                  plate would join the POSITIONER's context (`z-50`) and
+                  paint underneath this Root's own opaque `bg-background`.
+                  It still flashed into view on entry, because `animate-in
+                  fade-in` drives opacity below 1 and an opacity < 1 opens a
+                  stacking context of its own: the plate showed while the
+                  toast animated and vanished the instant it settled. */}
+              <SkullsBackdrop />
               <AddedToast toast={toast} />
             </Toast.Root>
           </Toast.Positioner>

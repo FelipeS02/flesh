@@ -98,6 +98,10 @@ function slideImages(container: HTMLElement): HTMLImageElement[] {
   );
 }
 
+function slideLoading(container: HTMLElement): (string | null)[] {
+  return slideImages(container).map((image) => image.getAttribute("loading"));
+}
+
 function thumbnails(): HTMLElement[] {
   return screen.getAllByRole("button", { name: /imagen \d+ de \d+/i });
 }
@@ -528,5 +532,49 @@ describe("ProductGallery", () => {
 
     expect(screen.getByText("1 / 5")).not.toBeNull();
     expect(mobileStage(container).scrollLeft).toBe(0);
+  });
+
+  // The window is what keeps a photo from fading in mid-gesture: `lazy`
+  // inside a snap container commits far too late for a slide that is one
+  // swipe away. Both engines read the same selection, so both are proven.
+  it("commits the next slide ahead of the selection on mobile", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    expect(slideLoading(container)).toEqual([
+      "eager",
+      "eager",
+      "lazy",
+      "lazy",
+      "lazy",
+    ]);
+
+    observeMobileIndex(container, 2);
+
+    expect(slideLoading(container)).toEqual([
+      "eager",
+      "eager",
+      "eager",
+      "eager",
+      "lazy",
+    ]);
+  });
+
+  it("commits the next slide ahead of the selection on desktop", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    act(() => setViewport("desktop"));
+    emitEmblaSelection(2);
+
+    expect(slideLoading(container)).toEqual([
+      "eager",
+      "eager",
+      "eager",
+      "eager",
+      "lazy",
+    ]);
   });
 });

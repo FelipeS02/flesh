@@ -4,7 +4,8 @@ import { Geist_Mono } from 'next/font/google';
 import localFont from 'next/font/local';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { BackgroundPlate } from '@/components/shared/background-plate';
-import SheetBackground from '@/components/ui/assets/sheet-background.webp';
+import { SheetBackgroundPreload } from '@/components/ui/sheet-background';
+import { SkullsBackgroundPreload } from '@/components/ui/skulls-background';
 import { BRAND, BRAND_LOCALE } from '@/lib/brand';
 import { siteUrl } from '@/lib/site-url';
 import {
@@ -134,12 +135,11 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
             expose the plain panel while this decorative plate is still
             downloading. The catalogue keeps its separate viewport-bounded
             policy; this preload pays only for the shared sheet asset. */}
-        <link
-          rel='preload'
-          as='image'
-          href={SheetBackground.src}
-          type='image/webp'
-        />
+        <SheetBackgroundPreload />
+        {/* Same bargain as the sheet plate above, for the toast that
+            announces an add to cart: it can appear on any route, and its
+            first appearance should not be a bare panel. */}
+        <SkullsBackgroundPreload />
       </head>
       {/* `useQueryState` throws without an adapter mounted above it, and the
           PDP's variant selection is the first consumer. The adapter puts its

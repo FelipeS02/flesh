@@ -285,4 +285,26 @@ describe("CartToastViewport", () => {
     expect(document.querySelector("s")).toBeNull();
     expect(screen.queryByText(/%/)).toBeNull();
   });
+
+  // Mounted is not the same as painted, and this one only ever failed on a
+  // real screen. `SkullsBackdrop` sits at `-z-1`; `relative` alone does NOT
+  // open a stacking context, so under a bare `relative` root the plate joined
+  // the POSITIONER's context (`z-50`) and painted underneath this root's own
+  // opaque `bg-background`. It showed for exactly as long as `animate-in
+  // fade-in` held opacity below 1 — an opacity < 1 being the one thing that
+  // did open a context here — then vanished the instant the toast settled.
+  // `isolate` is the fix, and nothing about the DOM says so on its own.
+  it("paints the decorative plate inside the toast's own stacking context", () => {
+    renderHarness();
+
+    seed();
+    act(() => showAddedToCart({ variantId: 201, repeat: false }));
+
+    const root = document.querySelector<HTMLElement>('[role="dialog"]');
+
+    // `aria-hidden` is what tells the plate apart from the garment thumbnail,
+    // which also carries an empty alt.
+    expect(root?.querySelector('img[aria-hidden="true"]')).not.toBeNull();
+    expect(root?.className).toContain("isolate");
+  });
 });

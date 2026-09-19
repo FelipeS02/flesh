@@ -7,7 +7,10 @@ import { cn } from 'cn';
 import { Button } from '@/components/ui/button';
 import { XIcon } from 'lucide-react';
 import Image from 'next/image';
-import SheetBackground from './assets/sheet-background.webp';
+import {
+  SHEET_BACKGROUND_SIZES,
+  SheetBackground,
+} from './sheet-background';
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot='sheet' {...props} />;
@@ -66,7 +69,7 @@ function SheetContent({
           <Image
             className='-z-1 opacity-20'
             fill
-            sizes='(max-width: 767px) 100vw, 448px'
+            sizes={SHEET_BACKGROUND_SIZES}
             src={SheetBackground}
             alt='background'
             aria-hidden
