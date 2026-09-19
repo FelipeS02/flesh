@@ -126,10 +126,10 @@ was corrected by reading the provider's documentation.
 - [x] **T3** — Browser transport: `fbq('track', name, params)`, env-gated and a
   no-op when unconfigured, same shape and return contract as
   `sendAnalyticsEvent`.
-- [ ] **T5** — Fan-out dispatcher: one `dispatchAnalyticsEvent` feeding GA4 and
+- [x] **T5** — Fan-out dispatcher: one `dispatchAnalyticsEvent` feeding GA4 and
   Meta from a single call. The existing 13 call sites keep emitting domain
   events and are not rewritten per destination.
-- [ ] **T6** — Wire the pixel into the root layout behind its config, alongside
+- [x] **T6** — Wire the pixel into the root layout behind its config, alongside
   the GA4 tag, and migrate call sites to the dispatcher. Verify GA4 output is
   unchanged.
 
@@ -153,8 +153,32 @@ absorbed into T2. Branch `feat/meta-pixel-capi`.
   3x exhaustive-deps in product-gallery.tsx) and matching the known baseline.
 - [x] T2 — commit `d22cb58`. 6 new tests, suite 824 passed (104 files).
 - [x] T3 — 5 new tests, suite 829 passed (105 files).
-- [ ] T5 in progress (dispatcher).
+- [x] T5 — 6 new tests. Dispatcher isolates destinations: a throwing pixel can
+  no longer take down a GA4 event that has worked for months.
+- [x] T6 — call sites migrated and the pixel wired into the layout. Suite 835
+  passed (106 files), typecheck clean, lint 6 warnings all pre-existing,
+  `pnpm build` exit 0.
+
+Migration note: the seven suites that mocked `sendAnalyticsEvent` were
+repointed to `dispatchAnalyticsEvent` FIRST, which turned 12 tests red across
+7 files and mapped the migration surface exactly before a line of production
+code moved.
+
+The barrel no longer exports `sendAnalyticsEvent`. Reaching a single
+destination from outside the module is now a type error, which is the point:
+the fan-out is not opt-in.
+
+All six tasks are complete. What remains is not code:
+
+- Set `NEXT_PUBLIC_META_PIXEL_ID`. Until then the storefront is byte-for-byte
+  unchanged.
+- Settle the advertising-tracker consent question before enabling it.
+- In Meta’s wizard choose "Solo un píxel" for the FLESH property; activate
+  CAPI from Tiendanube’s admin instead.
+- Verify the domain in Business Manager, and confirm in Events Manager that
+  Tiendanube’s AddToCart does not collide with the storefront’s.
 
 ## Next step
 
-T5 — RED test for the fan-out dispatcher.
+Open the pull request, then verify with the Meta Pixel Helper against a real
+session once the id is set.

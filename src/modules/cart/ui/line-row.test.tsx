@@ -8,7 +8,7 @@ import { LineRow } from "./line-row";
 const analyticsSpy = vi.hoisted(() => vi.fn());
 vi.mock("@/modules/analytics", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/modules/analytics")>();
-  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+  return { ...actual, dispatchAnalyticsEvent: analyticsSpy };
 });
 
 afterEach(() => analyticsSpy.mockClear());

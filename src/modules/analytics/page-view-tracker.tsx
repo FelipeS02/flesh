@@ -2,12 +2,12 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { sendAnalyticsEvent } from "./transport";
+import { dispatchAnalyticsEvent } from "./dispatch";
 import type { AnalyticsEvent } from "./events";
 
 type Send = (event: AnalyticsEvent) => unknown;
 
-export function PageViewTracker({ send = sendAnalyticsEvent }: { send?: Send }) {
+export function PageViewTracker({ send = dispatchAnalyticsEvent }: { send?: Send }) {
   const pathname = usePathname();
 
   useEffect(() => {

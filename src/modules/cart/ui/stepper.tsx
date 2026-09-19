@@ -4,7 +4,7 @@ import { MinusIcon, PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   createEcommerceEvent,
-  sendAnalyticsEvent,
+  dispatchAnalyticsEvent,
   type AnalyticsItem,
 } from "@/modules/analytics";
 import type { CartLine } from "../domain/line";
@@ -48,7 +48,7 @@ export function Stepper({ line, limit, analyticsItem }: StepperProps) {
     } else {
       dispatch({ type: "decrement", variantId: line.variantId });
     }
-    sendAnalyticsEvent(
+    dispatchAnalyticsEvent(
       createEcommerceEvent(eventName, [
         { ...analyticsItem, quantity: 1 },
       ]),

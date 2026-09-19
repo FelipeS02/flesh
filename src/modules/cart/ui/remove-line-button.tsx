@@ -3,7 +3,7 @@
 import { Button } from '@/components/ui/button';
 import {
   createEcommerceEvent,
-  sendAnalyticsEvent,
+  dispatchAnalyticsEvent,
   type AnalyticsItem,
 } from '@/modules/analytics';
 import type { CartLine } from '../domain/line';
@@ -35,7 +35,7 @@ export function RemoveLineButton({ line, analyticsItem }: RemoveLineButtonProps)
 
   function removeLine() {
     dispatch({ type: 'remove', variantId: line.variantId });
-    sendAnalyticsEvent(
+    dispatchAnalyticsEvent(
       createEcommerceEvent('remove_from_cart', [
         { ...analyticsItem, quantity: line.quantity },
       ]),

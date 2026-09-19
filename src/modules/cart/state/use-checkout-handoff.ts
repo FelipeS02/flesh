@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { sendAnalyticsEvent } from '@/modules/analytics';
+import { dispatchAnalyticsEvent } from '@/modules/analytics';
 import { markHandoff } from '../api/handoff-marker';
 import type { AnalyticsEvent } from '@/modules/analytics';
 
@@ -37,7 +37,7 @@ export const HANDOFF_STALL_MS = 5_000;
  */
 export function useCheckoutHandoff(
   url: string | null,
-  send: Send = sendAnalyticsEvent,
+  send: Send = dispatchAnalyticsEvent,
 ): { stalled: boolean } {
   const [stalled, setStalled] = useState(false);
   const [followed, setFollowed] = useState(url);

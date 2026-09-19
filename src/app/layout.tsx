@@ -12,6 +12,11 @@ import {
   googleTagSource,
   readAnalyticsConfig,
 } from '@/modules/analytics/config';
+import {
+  metaPixelBootstrap,
+  metaPixelSource,
+  readMetaConfig,
+} from '@/modules/analytics/meta/config';
 import { PageViewTracker } from '@/modules/analytics/page-view-tracker';
 import { toCartCatalog } from '@/modules/cart/domain/catalog-projection';
 import { CartProvider } from '@/modules/cart/state/cart-context';
@@ -92,6 +97,7 @@ export const metadata: Metadata = {
 
 export default async function RootLayout({ children }: LayoutProps<'/'>) {
   const analytics = readAnalyticsConfig();
+  const meta = readMetaConfig();
   // The catalog is resolved HERE and projected into plain data, because the
   // cart cannot reach it from the other side. `@/modules/catalog` re-exports
   // `server-only` values, so a client component importing it is a build error —
@@ -156,9 +162,12 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
             {children}
           </CartProvider>
         </NuqsAdapter>
+        {/* One tracker for both destinations, so it has to outlive either one
+            being switched off: gating it on GA4 alone would leave a
+            Meta-only deployment without a single pageview. */}
+        {(analytics || meta) && <PageViewTracker />}
         {analytics && (
           <>
-            <PageViewTracker />
             <Script
               src={googleTagSource(analytics.measurementId)}
               strategy='afterInteractive'
@@ -166,6 +175,14 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
             <Script id='ga4-bootstrap' strategy='afterInteractive'>
               {googleTagBootstrap(analytics.measurementId)}
             </Script>
+          </>
+        )}
+        {meta && (
+          <>
+            <Script id='meta-pixel-bootstrap' strategy='afterInteractive'>
+              {metaPixelBootstrap(meta.pixelId)}
+            </Script>
+            <Script src={metaPixelSource()} strategy='afterInteractive' />
           </>
         )}
       </body>
