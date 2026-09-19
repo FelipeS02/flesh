@@ -18,7 +18,8 @@ function dependencies() {
   const readBuyer = vi.fn(async (): Promise<unknown> => null);
   const writeBuyer = vi.fn(async () => {});
   const writePendingOrder = vi.fn(async () => {});
-  return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard(), readBuyer, writeBuyer, writePendingOrder }, createDraftOrder, getCheckoutProducts, readBuyer, writeBuyer, writePendingOrder };
+  const reportCheckoutStarted = vi.fn(async () => {});
+  return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard(), readBuyer, writeBuyer, writePendingOrder, reportCheckoutStarted }, createDraftOrder, getCheckoutProducts, readBuyer, writeBuyer, writePendingOrder, reportCheckoutStarted };
 }
 
 describe("startTiendanubeCheckout", () => {
@@ -68,7 +69,7 @@ describe("startTiendanubeCheckout", () => {
   });
 
   it("converts an upstream failure into a generic unavailable outcome", async () => {
-    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard(), readBuyer: async () => null, writeBuyer: async () => {}, writePendingOrder: async () => {} });
+    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard(), readBuyer: async () => null, writeBuyer: async () => {}, writePendingOrder: async () => {}, reportCheckoutStarted: async () => {} });
     expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
   });
 
@@ -125,6 +126,46 @@ describe("cookie write timing (spec amendment A2)", () => {
     await startTiendanubeCheckout(INPUT, deps);
 
     expect(writePendingOrder).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Meta is told with the trusted price, not the one the client sent — the
+   * same reconstruction the draft order gets. A cart reported at the client's
+   * figure would teach the ad algorithm to bid against numbers a shopper can
+   * edit.
+   */
+  it("reports the handoff to Meta with the reconstructed cart", async () => {
+    const { dependencies: deps, reportCheckoutStarted } = dependencies();
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(reportCheckoutStarted).toHaveBeenCalledWith({
+      buyer: { firstName: "Ada", lastName: "Lovelace", email: "ada@example.com" },
+      lines: [
+        { variantId: 201, quantity: 2, price: { amount: 1000, currency: "ARS" } },
+      ],
+    });
+  });
+
+  // No handoff happened, so there was no checkout to initiate.
+  it("reports nothing to Meta when the provider refuses the cart", async () => {
+    const { dependencies: deps, createDraftOrder, reportCheckoutStarted } = dependencies();
+    createDraftOrder.mockResolvedValueOnce({ status: "rejected", variantIds: [201] });
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(reportCheckoutStarted).not.toHaveBeenCalled();
+  });
+
+  // The measurement is the expendable half of this pair, always.
+  it("still completes the checkout when the Meta report fails", async () => {
+    const { dependencies: deps, reportCheckoutStarted } = dependencies();
+    reportCheckoutStarted.mockRejectedValueOnce(new Error("meta unreachable"));
+
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toMatchObject({
+      status: "redirect",
+      draftOrderId: 2070706008,
+    });
   });
 
   it("writes the cookie for a valid submitted buyer when the provider redirects", async () => {
