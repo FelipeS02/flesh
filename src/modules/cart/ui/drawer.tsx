@@ -13,7 +13,7 @@ import {
 import { Button } from '@/components/ui/button';
 import {
   createEcommerceEvent,
-  sendAnalyticsEvent,
+  dispatchAnalyticsEvent,
   toAnalyticsItem,
 } from '@/modules/analytics';
 import { EmptyState } from './empty-state';
@@ -92,7 +92,7 @@ export function CartDrawer({ open, onOpenChange }: CartDrawerProps) {
 
     trackedOpen.current = true;
     if (items.length > 0) {
-      sendAnalyticsEvent(createEcommerceEvent('view_cart', items));
+      dispatchAnalyticsEvent(createEcommerceEvent('view_cart', items));
     }
   }, [catalog, open, state]);
 

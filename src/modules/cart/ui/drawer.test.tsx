@@ -25,7 +25,7 @@ import { HANDOFF_STALL_MS } from '../state/use-checkout-handoff';
 const analyticsSpy = vi.hoisted(() => vi.fn());
 vi.mock('@/modules/analytics', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/modules/analytics')>();
-  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+  return { ...actual, dispatchAnalyticsEvent: analyticsSpy };
 });
 
 afterEach(() => analyticsSpy.mockClear());

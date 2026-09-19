@@ -14,7 +14,7 @@ import {
 import { showAddedToCart, useCartDispatch, useCartState } from "@/modules/cart";
 import {
   createEcommerceEvent,
-  sendAnalyticsEvent,
+  dispatchAnalyticsEvent,
   variantItem,
 } from "@/modules/analytics";
 import { AxisSelector } from "./axis-selector";
@@ -111,7 +111,7 @@ export function PurchasePanel({
           limit: purchaseLimit(variant),
         });
         showAddedToCart({ variantId: variant.id, repeat });
-        sendAnalyticsEvent(
+        dispatchAnalyticsEvent(
           createEcommerceEvent("add_to_cart", [
             variantItem(productTitle, variant),
           ]),
