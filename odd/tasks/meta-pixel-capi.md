@@ -115,19 +115,17 @@ was corrected by reading the provider's documentation.
 
 ## Tasks
 
-- [ ] **T1** — Meta config module: `readMetaConfig()` reading
+- [x] **T1** — Meta config module: `readMetaConfig()` reading
   `NEXT_PUBLIC_META_PIXEL_ID`, pattern-validated, plus the pixel bootstrap
   snippet. Mirrors `analytics/config.ts` including the literal-env-read trap.
-- [ ] **T2** — Meta adapter: map the canonical `AnalyticsEvent` union to Meta
+- [ ] **T2** — Meta adapter (absorbed the former T4, parameter mapping: the
+  two were one file and splitting them was an artificial cut). Map the canonical `AnalyticsEvent` union to Meta
   standard names (`view_item`→`ViewContent`, `add_to_cart`→`AddToCart`,
   `checkout_redirect`→`InitiateCheckout`). Events with no faithful Meta
   equivalent are dropped explicitly, not invented as custom events.
 - [ ] **T3** — Browser transport: `fbq('track', name, params)`, env-gated and a
   no-op when unconfigured, same shape and return contract as
   `sendAnalyticsEvent`.
-- [ ] **T4** — Parameter mapping: Meta's content parameters
-  (`content_ids`, `contents`, `content_type`, `value`, `currency`) derived from
-  the existing `AnalyticsItem[]`, without changing that type.
 - [ ] **T5** — Fan-out dispatcher: one `dispatchAnalyticsEvent` feeding GA4 and
   Meta from a single call. The existing 13 call sites keep emitting domain
   events and are not rewritten per destination.
@@ -147,10 +145,14 @@ was corrected by reading the provider's documentation.
 ## Progress
 
 Feature document created 2026-09-18; scope revised the same day from nine tasks
-to six after reading the provider documentation. Branch `feat/meta-pixel-capi`.
+to six after reading the provider documentation, then to five when T4 was
+absorbed into T2. Branch `feat/meta-pixel-capi`.
 
-- [ ] T1 in progress.
+- [x] T1 — commit `7190926`. 8 new tests. Full suite 818 passed (103 files),
+  typecheck clean, lint 6 warnings all pre-existing (PageScrim/Footer unused,
+  3x exhaustive-deps in product-gallery.tsx) and matching the known baseline.
+- [ ] T2 in progress.
 
 ## Next step
 
-T1 — RED test for `readMetaConfig` and the pixel bootstrap.
+T2 — RED test for the Meta adapter.
