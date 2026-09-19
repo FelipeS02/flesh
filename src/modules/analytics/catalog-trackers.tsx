@@ -4,7 +4,7 @@ import { useEffect, useRef, type ComponentProps } from "react";
 import Link from "next/link";
 import type { ProductView, VariantView } from "@/modules/catalog/client";
 import { createEcommerceEvent, toAnalyticsItem } from "./ecommerce";
-import { sendAnalyticsEvent } from "./transport";
+import { dispatchAnalyticsEvent } from "./dispatch";
 import type { AnalyticsEvent, AnalyticsItem } from "./events";
 
 type Send = (event: AnalyticsEvent) => unknown;
@@ -34,7 +34,7 @@ export function variantItem(
 
 export function CatalogViewTracker({
   products,
-  send = sendAnalyticsEvent,
+  send = dispatchAnalyticsEvent,
 }: {
   products: ProductView[];
   send?: Send;
@@ -52,7 +52,7 @@ export function CatalogViewTracker({
 
 export function ProductViewTracker({
   product,
-  send = sendAnalyticsEvent,
+  send = dispatchAnalyticsEvent,
 }: {
   product: ProductView;
   send?: Send;
@@ -75,7 +75,7 @@ type ProductAnalyticsLinkProps = ComponentProps<typeof Link> & {
 
 export function ProductAnalyticsLink({
   product,
-  send = sendAnalyticsEvent,
+  send = dispatchAnalyticsEvent,
   onClick,
   ...props
 }: ProductAnalyticsLinkProps) {

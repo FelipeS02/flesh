@@ -5,11 +5,11 @@ import { makeProduct } from "../../../test/fixtures/product-view";
 import { DropCatalog } from "./drop-catalog";
 
 const analyticsSpy = vi.hoisted(() => vi.fn());
-vi.mock("@/modules/analytics/transport", async (importOriginal) => {
+vi.mock("@/modules/analytics/dispatch", async (importOriginal) => {
   const actual = await importOriginal<
-    typeof import("@/modules/analytics/transport")
+    typeof import("@/modules/analytics/dispatch")
   >();
-  return { ...actual, sendAnalyticsEvent: analyticsSpy };
+  return { ...actual, dispatchAnalyticsEvent: analyticsSpy };
 });
 
 afterEach(() => analyticsSpy.mockClear());
