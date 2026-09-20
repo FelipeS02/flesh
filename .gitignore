@@ -44,3 +44,6 @@ next-env.d.ts
 .atl/
 images/
 masters/
+
+# ODD feature docs — Engram is the record, these stay local
+odd/

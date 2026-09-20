@@ -151,6 +151,29 @@ describe("CardMedia observation", () => {
     expect(observer.observed()).toBe(0);
     expect(photos()[0].getAttribute("loading")).toBe("eager");
   });
+
+  // Pins the BEHAVIOUR the `priority` prop buys, so the Next 16 rename off
+  // the deprecated prop underneath it is provably a rename and nothing else.
+  // `loading="eager"` above is only half of it: the head link is what starts
+  // the fetch before the parser ever reaches the card.
+  it("puts an above-the-fold cover in the head as a preload", () => {
+    render(<CardMedia images={IMAGES} priority />);
+
+    const preloaded = [
+      ...document.head.querySelectorAll<HTMLLinkElement>(
+        'link[rel="preload"][as="image"]',
+      ),
+    ].map((link) => link.getAttribute("imagesrcset") ?? link.href);
+
+    // The cover alone. The hover alternate is never what the page is
+    // measured on, and preloading it would spend the head start twice.
+    expect(preloaded.some((src) => src.includes("front-1-640-0.webp"))).toBe(
+      true,
+    );
+    expect(preloaded.some((src) => src.includes("front-2-640-0.webp"))).toBe(
+      false,
+    );
+  });
 });
 
 describe("CardMedia sources", () => {

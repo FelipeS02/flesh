@@ -166,7 +166,11 @@ function CardPhoto({
       alt=""
       fill
       sizes={CARD_SIZES}
-      priority={priority}
+      // Next 16 deprecated `priority` in favour of `preload`; they do the same
+      // thing and passing BOTH throws. The component's own prop keeps the name
+      // `priority` because it answers a layout question — is this card above
+      // the fold — while `preload` is the mechanism that answers it.
+      preload={priority}
       // `loading` and the observer are two lazy strategies, and stacking them
       // cancels the one that was asked for. The observer fires PRELOAD_MARGIN
       // BEFORE the card reaches the viewport, so the <img> mounts while still

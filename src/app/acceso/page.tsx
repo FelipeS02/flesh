@@ -39,7 +39,7 @@ export default function AccessGatePage() {
             fill
             loading='eager'
             className="object-contain"
-            priority
+            preload
           />
         </div>
       </div>

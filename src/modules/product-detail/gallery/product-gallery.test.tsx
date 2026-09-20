@@ -577,4 +577,17 @@ describe("ProductGallery", () => {
       "lazy",
     ]);
   });
+
+  // React's server renderer preloads every non-lazy <img> in the shell, so
+  // the eager window below was already emitting several equal-priority image
+  // preloads that the hero had to race. The lane is the part we own.
+  it("races the hero photo ahead of the speculative slides", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    expect(
+      slideImages(container).map((image) => image.getAttribute("fetchpriority")),
+    ).toEqual(["high", "low", "low", "low", "low"]);
+  });
 });
