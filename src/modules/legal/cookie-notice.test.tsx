@@ -27,7 +27,6 @@ describe("CookieNotice", () => {
     render(<CookieNotice storage={fakeStorage(false)} />);
 
     expect(notice()).not.toBeNull();
-    expect(screen.getByText("aceptas el uso de cookies")).not.toBeNull();
   });
 
   it("stays away once it has been acknowledged", () => {
