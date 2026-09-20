@@ -87,14 +87,20 @@ describe("BackgroundPlate", () => {
     expect(container.querySelector("video")?.hasAttribute("src")).toBe(false);
   });
 
+  // The video's own wrapper, not `container.firstElementChild`. The scrim is
+  // rendered first and is also `fixed` and also `aria-hidden`, so the three
+  // assertions below all passed against the wrong element until they asked
+  // for the video's parent by name.
+  const plateOf = (container: HTMLElement) =>
+    container.querySelector("video")?.parentElement;
+
   it("hides the decorative video from assistive tech and the tab order", () => {
     const { container } = render(<BackgroundPlate />);
 
-    const wrapper = container.firstElementChild;
-    const video = container.querySelector("video");
-
-    expect(wrapper?.getAttribute("aria-hidden")).toBe("true");
-    expect(video?.getAttribute("tabindex")).toBe("-1");
+    expect(plateOf(container)?.getAttribute("aria-hidden")).toBe("true");
+    expect(container.querySelector("video")?.getAttribute("tabindex")).toBe(
+      "-1",
+    );
   });
 
   it("pins the plate to the viewport rather than stretching it over the document", () => {
@@ -102,17 +108,20 @@ describe("BackgroundPlate", () => {
 
     // The page scrolls OVER the plate. Stretching it to the content height
     // instead would re-crop the same `object-cover` frame per page length.
-    expect(container.firstElementChild?.className).toContain("fixed");
+    expect(plateOf(container)?.className).toContain("fixed");
   });
 
-  // The scrim is a SIBLING rendered by the page, not a child of the plate:
-  // the plate is mounted once in the root layout so a route change cannot
-  // remount its <video>, and the scrim is the one part of it the artboards
-  // vary per page.
-  it("carries no scrim of its own — that belongs to the page", () => {
+  // The plate owns the scrim so no page has to remember to add one — and so
+  // that none adds a SECOND one. Two stacked `#00000070` layers composite to
+  // ~69% black instead of ~44%, which is what `/devoluciones` was rendering.
+  it("carries exactly one scrim, behind the page content", () => {
     const { container } = render(<BackgroundPlate />);
 
-    expect(container.querySelector("video ~ div")).toBeNull();
+    const scrims = container.querySelectorAll("[data-page-scrim]");
+
+    expect(scrims).toHaveLength(1);
+    // Over the video, under everything the page paints.
+    expect(scrims[0]?.className).toContain("-z-9");
   });
 });
 
