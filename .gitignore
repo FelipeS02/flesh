@@ -24,6 +24,10 @@
 .DS_Store
 *.pem
 
+# local tooling and design references
+/.atl/
+/images/
+
 # debug
 npm-debug.log*
 yarn-debug.log*
