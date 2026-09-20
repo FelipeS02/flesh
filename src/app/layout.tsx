@@ -6,6 +6,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { BackgroundPlate } from '@/components/shared/background-plate';
 import { SheetBackgroundPreload } from '@/components/ui/sheet-background';
 import { SkullsBackgroundPreload } from '@/components/ui/skulls-background';
+import { CookieNotice } from '@/modules/legal/cookie-notice';
 import { BRAND, BRAND_LOCALE } from '@/lib/brand';
 import { siteUrl } from '@/lib/site-url';
 import {
@@ -84,7 +85,7 @@ export const metadata: Metadata = {
     // why a `default` is required alongside it: the landing renders the
     // default, and the PDP's own title renders through the template.
     default: BRAND,
-    template: `%s — ${BRAND}`,
+    template: `♱ %s ♱ ${BRAND}`,
   },
   description: TAGLINE,
   openGraph: {
@@ -162,6 +163,12 @@ export default async function RootLayout({ children }: LayoutProps<'/'>) {
             {children}
           </CartProvider>
         </NuqsAdapter>
+        {/* Outside the adapter and outside the cart: this notice belongs to
+            no route and reads no state either owns. In the layout rather
+            than a page for the ordinary reason — it must survive a
+            client-side navigation, or dismissing it on the landing would
+            bring it straight back on the PDP. */}
+        <CookieNotice />
         {/* One tracker for both destinations, so it has to outlive either one
             being switched off: gating it on GA4 alone would leave a
             Meta-only deployment without a single pageview. */}
