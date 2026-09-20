@@ -78,9 +78,9 @@ export function toMetaEvent(event: AnalyticsEvent): MetaEvent | null {
   const name = STANDARD_NAMES[event.name];
   if (!name) return null;
 
-  // PageView takes none, and the handoff event carries no cart to forward:
-  // it records that the shopper left for the hosted checkout, not what was in
-  // the basket. Enriching it would change what GA4 receives.
+  // Only PageView reaches this branch — the other two mapped events both
+  // carry items. It takes no parameters, and inventing some for it would mean
+  // sending Meta something GA4 was never given.
   if (!("items" in event.params)) return { name, params: {} };
 
   const { items, currency, value } = event.params;
