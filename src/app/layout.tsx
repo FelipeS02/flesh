@@ -30,19 +30,29 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
+// Both faces ship as WOFF2, converted from the TTFs they were licensed as.
+//
+// `next/font/local` PRELOADS what it is given, so the format is not a
+// packaging detail: as TTF these two put 172 KB of uncompressed font in the
+// head, competing for bandwidth with the image the page is measured on. The
+// same glyphs as WOFF2 are 74 KB. Nothing else changed — WOFF2 is a lossless
+// container around the same outlines, which is why the charsets measured
+// below still hold. The TTFs are not in the repo; re-run those commands
+// against the original files if the faces are ever replaced.
+
 // Copperplate Gothic Std 30 AB (Adobe), the body voice: the all-caps glyphic
 // face the product descriptions, spec lists and size labels are set in.
 //
 // No unicode-range is declared here, and that is a measurement, not an
 // oversight:
 //
-//   fc-query --format='%{charset}\n' src/app/fonts/copperplate-gothic-30ab.ttf
+//   fc-query --format='%{charset}\n' copperplate-gothic-30ab.ttf   # the upstream binary
 //   -> 20-7e a0-ff 131 141-142 152-153 ... (Latin-1 Supplement and beyond)
 //
 // `a0-ff` covers á é í ó ú ñ ¿ ¡, so unlike Kraut this face renders the whole
 // Spanish copy on its own and needs no fallback family to patch accents.
 const copperplate = localFont({
-  src: './fonts/copperplate-gothic-30ab.ttf',
+  src: './fonts/copperplate-gothic-30ab.woff2',
   variable: '--font-copperplate',
   display: 'swap',
 });
@@ -51,7 +61,7 @@ const copperplate = localFont({
 //
 // The unicode-range below is MEASURED from the binary, never guessed:
 //
-//   fc-query --format='%{charset}\n' src/app/fonts/kraut.ttf
+//   fc-query --format='%{charset}\n' kraut.ttf   # the upstream binary
 //   -> 20-7e e000-e001
 //
 // That is printable ASCII plus two private-use glyphs, and NOTHING else. The
@@ -60,7 +70,7 @@ const copperplate = localFont({
 // through to the next family in `--font-display` for those characters instead
 // of stretching Kraut over glyphs it does not have.
 const kraut = localFont({
-  src: './fonts/kraut.ttf',
+  src: './fonts/kraut.woff2',
   variable: '--font-kraut',
   display: 'swap',
 });
