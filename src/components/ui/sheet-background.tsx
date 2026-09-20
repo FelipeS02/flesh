@@ -44,6 +44,12 @@ export function SheetBackgroundPreload() {
       as='image'
       imageSrcSet={props.srcSet}
       imageSizes={props.sizes}
+      // Speculative, and explicitly demoted for it. This link exists so the
+      // plate is warm WHENEVER the shopper opens it, which is never during
+      // the first paint — but a `rel=preload as=image` is HIGH priority by
+      // default, so without this it left the head racing the one image the
+      // page is actually measured on.
+      fetchPriority='low'
     />
   );
 }

@@ -309,6 +309,23 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
         sizes={`(min-width: 768px) ${STAGE_DECLARED_WIDTH}px, 100vw`}
         quality={GALLERY_QUALITY}
         className='object-contain'
+        // Which LANE the hero photo's preload goes in — not whether it gets
+        // one. React's server renderer already emits a
+        // `<link rel="preload" as="image">` for every non-lazy <img> in the
+        // shell, so both this slide and the lookahead below were ALREADY being
+        // preloaded, at the same default priority, alongside the drawer and
+        // toast plates the layout warms. Four equal preloads is four ways to
+        // not be first, and the one the page is measured on was losing.
+        //
+        // `high` is read twice: React sorts it into `highImagePreloads`, which
+        // is flushed earlier in the head, and the browser honours the
+        // `fetchpriority` attribute when it schedules the request.
+        //
+        // Everything else is `low` because it is SPECULATIVE. The lookahead
+        // window exists so the next photo has landed before the swipe that
+        // needs it — a real win, and never worth a millisecond taken from the
+        // photo already on screen.
+        fetchPriority={index === 0 ? 'high' : 'low'}
         loading={index <= selected + PRELOAD_AHEAD ? 'eager' : 'lazy'}
       />
     );
