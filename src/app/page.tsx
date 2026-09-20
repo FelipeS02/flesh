@@ -1,4 +1,3 @@
-import { PageScrim } from "@/components/shared/background-plate";
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import { getColourwayIndex, getProducts } from "@/modules/catalog";
