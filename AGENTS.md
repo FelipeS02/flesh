@@ -31,3 +31,17 @@ Shopper-facing copy is Spanish and stays Spanish, exactly as specified — `AGRE
 ## Comments explain WHY
 
 This codebase's comments carry the reasoning and name the failure the code prevents; they never restate the line below them. Match that register, and when a comment's reasoning stops being true, rewrite it rather than leaving it to contradict the code.
+
+## Tests live in `__tests__/`
+
+Every test sits in a `__tests__/` folder beside the code it covers, one folder
+per layer: `src/modules/cart/api/__tests__/storage.test.ts` covers
+`src/modules/cart/api/storage.ts`.
+
+Per layer, not per module, and that is the part worth keeping. `cart` alone has
+34 test files; collapsing them into one folder per module loses which layer each
+belongs to, which is the only thing that makes a list that long navigable.
+
+So a test's relative imports climb one extra level — `../storage`, never
+`./storage`. Shared fixtures stay in `test/fixtures/`, and `test/harness/` stays
+put: it is already a test directory with nothing to sit beside.
