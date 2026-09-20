@@ -1,20 +1,24 @@
-/** Landing artboard scrim: 75% black (`#000000BF`). */
-export const LANDING_SCRIM = '#000000BF';
+import { BackgroundVideo } from './background-video';
+
+/** Landing artboard scrim: 70% black */
+export const LANDING_SCRIM = '#00000070';
 
 type PageScrimProps = {
   /**
    * Darkening scrim colour, as a CSS colour string. Differs per page in the
-   * pen.dev artboards — landing uses 75% black (`#000000BF`, the default),
-   * the PDP uses 70% black (`#000000B3`). Callers on the PDP must pass the
+   * pen.dev artboards — landing uses 70% black (`#00000070`, the default),
+   * the PDP uses 70% black (`#00000070`). Callers on the PDP must pass the
    * PDP value explicitly.
    */
   scrim?: string;
 };
 
 /**
- * Full-bleed, site-wide video plate. Sync server component — `autoPlay`/
- * `muted`/`loop`/`playsInline` are declarative HTML attributes, so no
- * `'use client'` boundary is needed.
+ * Full-bleed, site-wide video plate. Still a sync server component: the
+ * positioning and the scrim are plain markup, and only the `<video>` itself
+ * crosses into `BackgroundVideo`'s client boundary — it has to, because when
+ * the video may start fetching is a decision no server can make. See that
+ * component for why the wait exists.
  *
  * Mounted ONCE, in the root layout, and that placement is the whole point.
  * A layout survives a client-side navigation; a page does not. Rendered from
@@ -34,24 +38,16 @@ type PageScrimProps = {
  * `fixed` takes its containing block from the viewport, so it no longer needs
  * a `relative` page wrapper to size against.
  *
- * No poster image exists in this project; the artboard frame's own
- * `$background` (pure black) shows through before the video paints.
+ * The poster is frame 0 of the video itself, not a hand-picked "nice" frame.
+ * Any other frame would paint, then jump the moment decoding catches up —
+ * and jump again on every loop, since the loop also restarts at frame 0.
  */
 export function BackgroundPlate() {
   return (
     <>
       <PageScrim />
       <div className='fixed inset-0 -z-10' aria-hidden='true'>
-        <video
-          className='h-full w-full object-cover motion-reduce:hidden'
-          autoPlay
-          muted
-          loop
-          playsInline
-          tabIndex={-1}
-        >
-          <source src='/background.webm' type='video/webm' />
-        </video>
+        <BackgroundVideo />
       </div>
     </>
   );

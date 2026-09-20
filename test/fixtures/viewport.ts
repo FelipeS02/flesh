@@ -1,7 +1,9 @@
 /**
  * jsdom implements no layout, and therefore no `window.matchMedia`. Anything
- * that reads a breakpoint in JS — today only the gallery's carousel axis,
- * which embla fixes at init and CSS cannot reach — needs one here.
+ * that reads a breakpoint OR a user preference in JS — the gallery's carousel
+ * axis, which embla fixes at init and CSS cannot reach, and the background
+ * plate's motion preference, which decides whether a megabyte of video is
+ * fetched at all — needs one here.
  *
  * The stub is deliberately not a no-op returning `false`: a gallery that is
  * horizontal in every test can never prove the desktop half of its own
@@ -16,9 +18,17 @@ type StubbedList = MediaQueryList & { readonly query: string };
 const lists = new Set<{ list: StubbedList; listeners: Set<MediaQueryListener> }>();
 
 let width = 390;
+let reducedMotion = false;
 
-/** Matches the `(min-width: Npx)` and `(max-width: Npx)` forms the app writes. */
+/**
+ * Matches the `(min-width: Npx)`, `(max-width: Npx)` and
+ * `(prefers-reduced-motion: reduce)` forms the app writes.
+ */
 function evaluate(query: string): boolean {
+  if (/\(prefers-reduced-motion:\s*reduce\)/.test(query)) {
+    return reducedMotion;
+  }
+
   const min = /\(min-width:\s*(\d+)px\)/.exec(query);
   if (min) {
     return width >= Number(min[1]);
@@ -31,8 +41,9 @@ function evaluate(query: string): boolean {
 
   throw new Error(
     `viewport stub: unsupported media query ${JSON.stringify(query)}. ` +
-      `Only '(min-width: Npx)' and '(max-width: Npx)' are modelled — extend ` +
-      `this helper rather than letting an unmatched query silently report false.`,
+      `Only '(min-width: Npx)', '(max-width: Npx)' and ` +
+      `'(prefers-reduced-motion: reduce)' are modelled — extend this helper ` +
+      `rather than letting an unmatched query silently report false.`,
   );
 }
 
@@ -88,8 +99,31 @@ export function setViewport(name: ViewportName): void {
   }
 }
 
-/** Drops subscriptions between tests and returns to the mobile default. */
+/**
+ * Declares that the viewer asked their OS to reduce motion, and notifies
+ * everything already subscribed.
+ *
+ * Separate from `setViewport` because it is not a size: a phone and a desktop
+ * each carry their own answer, so folding it into `VIEWPORTS` would make the
+ * two impossible to vary independently.
+ */
+export function setReducedMotion(value: boolean): void {
+  reducedMotion = value;
+
+  for (const { list, listeners } of lists) {
+    for (const listener of listeners) {
+      listener({ matches: list.matches, media: list.media } as MediaQueryListEvent);
+    }
+  }
+}
+
+/**
+ * Drops subscriptions between tests and returns to the mobile default with
+ * motion allowed — the settings the overwhelming majority of visitors carry,
+ * so a test that depends on either one has to say so out loud.
+ */
 export function resetViewport(): void {
   lists.clear();
   width = VIEWPORTS.mobile;
+  reducedMotion = false;
 }
