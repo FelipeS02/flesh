@@ -104,7 +104,9 @@ export function CardMedia({
         <>
           <CardPhoto
             image={cover}
-            gated={gated}
+            // Eagerness is a property of the CARD, not of one photo: whether
+            // WE decided to mount it is the same answer for both.
+            eager={gated || priority}
             priority={priority}
             // Only fades out under a real pointer: Tailwind wraps `hover:` in
             // `@media (hover: hover)`, so a tap can never leave the cover
@@ -115,7 +117,13 @@ export function CardMedia({
           {alternate && (
             <CardPhoto
               image={alternate}
-              gated={gated}
+              // Eager for the same reason as the cover — and NOT `priority`,
+              // so it is never put in the head. It shares the cover's box, so
+              // on an above-the-fold card it is already inside the viewport:
+              // native lazy defers nothing there, it only strips the fetch of
+              // its priority signal and leaves the browser free to measure the
+              // LCP on a photo nothing was warming.
+              eager={gated || priority}
               // The alternate opts out of the fade. Its reveal is the hover
               // transition, and running a load fade underneath would mean the
               // first hover cross-fades against a half-faded image.
@@ -130,7 +138,8 @@ export function CardMedia({
 
 type CardPhotoProps = {
   image: ImageView;
-  gated: boolean;
+  /** Something other than the browser already decided to fetch this. */
+  eager: boolean;
   priority?: boolean;
   /** Sit hidden and appear on the group's hover, instead of fading in on load. */
   revealOnHover?: boolean;
@@ -139,7 +148,7 @@ type CardPhotoProps = {
 
 function CardPhoto({
   image,
-  gated,
+  eager,
   priority = false,
   revealOnHover = false,
   className,
@@ -177,9 +186,14 @@ function CardPhoto({
       // off-screen — and native `loading="lazy"` would then re-defer it
       // against the browser's own threshold, spending the head start on a
       // second wait. Once the observer has decided, it IS the lazy strategy,
-      // so the tag goes eager. Ungated cards keep native lazy, which is the
-      // right default when nothing else is deferring them.
-      loading={gated || priority ? "eager" : "lazy"}
+      // so the tag goes eager. Photos nothing else is deferring keep native
+      // lazy, which is the right default for them.
+      loading={eager ? "eager" : "lazy"}
+      // The hover photo is speculative — the shopper may never point at this
+      // card — so it states its own lane rather than bidding at the default
+      // against the cover it is hiding behind. Same call the PDP gallery
+      // makes for its lookahead slides.
+      fetchPriority={revealOnHover ? "low" : undefined}
       onLoad={() => setLoaded(true)}
       data-loaded={loaded ? "true" : "false"}
       className={cn(

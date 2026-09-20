@@ -152,6 +152,18 @@ describe("CardMedia observation", () => {
     expect(photos()[0].getAttribute("loading")).toBe("eager");
   });
 
+  it("loads a priority card's hover alternate eager, off the high lane", () => {
+    render(<CardMedia images={IMAGES} priority />);
+
+    // The alternate sits in the SAME box as the cover, already inside the
+    // viewport, so native lazy defers nothing — it only strips the fetch of
+    // any priority signal, and leaves the browser free to attribute the LCP
+    // to a photo that was never meant to carry it. Eager states the truth;
+    // `low` keeps it from bidding against the cover it hides behind.
+    expect(photos()[1].getAttribute("loading")).toBe("eager");
+    expect(photos()[1].getAttribute("fetchpriority")).toBe("low");
+  });
+
   // Pins the BEHAVIOUR the `priority` prop buys, so the Next 16 rename off
   // the deprecated prop underneath it is provably a rename and nothing else.
   // `loading="eager"` above is only half of it: the head link is what starts
