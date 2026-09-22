@@ -72,6 +72,6 @@ describe("readBuyerProfileSummary", () => {
 
     // The checkout guard is a fully independent instance — exhausting the
     // profile read's own guard must never be able to touch it (design D7).
-    expect(checkoutGuard.consume()).toBe(true);
+    expect(checkoutGuard.consume("client-a")).toBe(true);
   });
 });
