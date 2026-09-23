@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ProductView } from "@/modules/catalog/client";
-import { makeProduct } from "../../../../../test/fixtures/product-view";
+import { makeProduct } from "../../../../../../test/fixtures/product-view";
 
 // The route reaches the catalogue through the module's server-only crossing
 // point, so the fixture goes in there rather than at the HTTP layer: this test

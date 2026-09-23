@@ -20,10 +20,9 @@ export default function AccessGatePage() {
   const message = config.enabled ? config.message : DEFAULT_MESSAGE;
 
   return (
-    // `bg-background` here is what hides the sitewide video plate: the plate
-    // sits at `-z-10` behind everything (see `background-plate.tsx`), and any
-    // normal, opaquely-painted element in front of it already covers it — no
-    // `PageScrim` needed for a fully solid ground.
+    // `bg-background` here is a solid ground for the gate: this route sits
+    // outside the `(store)` group on purpose (see that layout's comment), so
+    // no `BackgroundPlate` is mounted behind it to paint over.
     <main className="relative flex min-h-svh w-full items-center justify-center overflow-hidden bg-background px-4">
       {/* Decorative crest, not content: centred and SQUARE so the 2362×2362
           source is never cropped, sat behind the card via z-index rather
