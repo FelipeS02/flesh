@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { readClientKey } from "../client-key";
+import { readClientIp, readClientKey } from "../client-key";
+
+describe("readClientIp", () => {
+  it("prefers x-vercel-forwarded-for, which a proxy placed in front of Vercel cannot overwrite", () => {
+    const headers = new Headers({
+      "x-vercel-forwarded-for": "203.0.113.7",
+      "x-forwarded-for": "198.51.100.1",
+    });
+    expect(readClientIp(headers)).toBe("203.0.113.7");
+  });
+
+  it("returns null rather than a placeholder when no address is forwarded", () => {
+    expect(readClientIp(new Headers())).toBeNull();
+  });
+});
 
 describe("readClientKey", () => {
   it("takes the first hop of x-forwarded-for, which is the client the platform saw", () => {

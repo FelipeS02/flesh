@@ -3,21 +3,36 @@ import "server-only";
 const UNKNOWN_KEY = "unknown";
 
 /**
- * `x-forwarded-for` is client-spoofable unless the platform terminating TLS
- * overwrites it; on a platform that does (Vercel), the first hop is the
- * real client, so only that hop — never the whole header — is trusted.
- * The "unknown" fallback degrades every caller to one shared bucket, which
- * in practice only happens in local dev where neither header is set.
+ * The client address as the hosting platform observed it, or null.
+ *
+ * Every one of these headers is client-spoofable in general; they are trusted
+ * here only because production runs on Vercel, which overwrites
+ * `x-forwarded-for` and does not forward external IPs "to prevent IP
+ * spoofing" (https://vercel.com/docs/headers/request-headers). Moving off
+ * Vercel, or putting another proxy in front of it, voids that guarantee and
+ * lets a caller mint a fresh rate-limit bucket per request.
+ *
+ * `x-vercel-forwarded-for` comes first because it carries the same address
+ * but, per the same page, survives a proxy placed on top of Vercel, which
+ * would otherwise rewrite `x-forwarded-for` to its own egress IP. From the
+ * forwarded-for chain only the first hop is the client; the rest is whatever
+ * each hop appended.
  */
-export function readClientKey(headers: Headers): string {
-  const forwardedFor = headers.get("x-forwarded-for");
-  if (forwardedFor) {
-    const firstHop = forwardedFor.split(",")[0]?.trim();
+export function readClientIp(headers: Headers): string | null {
+  for (const name of ["x-vercel-forwarded-for", "x-forwarded-for"]) {
+    const firstHop = headers.get(name)?.split(",")[0]?.trim();
     if (firstHop) return firstHop;
   }
 
-  const realIp = headers.get("x-real-ip");
-  if (realIp) return realIp.trim();
+  const realIp = headers.get("x-real-ip")?.trim();
+  return realIp || null;
+}
 
-  return UNKNOWN_KEY;
+/**
+ * The rate limiters' accounting key. The "unknown" fallback degrades every
+ * caller to one shared bucket, which in practice only happens in local dev
+ * where no address header is set.
+ */
+export function readClientKey(headers: Headers): string {
+  return readClientIp(headers) ?? UNKNOWN_KEY;
 }
