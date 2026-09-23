@@ -25,7 +25,9 @@ type PageScrimProps = {
  * the video may start fetching is a decision no server can make. See that
  * component for why the wait exists.
  *
- * Mounted ONCE, in the root layout, and that placement is the whole point.
+ * Mounted ONCE, in the `(store)` group layout, and that placement is the
+ * whole point. (Not the root layout: `/acceso` paints an opaque ground over
+ * it and has no use for the download.)
  * A layout survives a client-side navigation; a page does not. Rendered from
  * `page.tsx` this `<video>` was torn down and recreated on every route
  * change, which restarts playback from the first frame and re-fetches the
