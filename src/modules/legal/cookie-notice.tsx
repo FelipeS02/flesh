@@ -46,8 +46,9 @@ type CookieNoticeProps = {
  * would be a lie drawn in the brand's own type.
  *
  * Consequence worth stating where someone will read it: this is NOT GDPR
- * consent. Analytics and the Meta Pixel boot from the root layout before a
- * shopper touches anything. For an Argentine storefront under Ley 25.326 an
+ * consent. Analytics and the Meta Pixel boot from the `(store)` layout, beside
+ * this notice, before a shopper touches anything; the two leave `/acceso`
+ * together, because tracking without the notice is not an option. For an Argentine storefront under Ley 25.326 an
  * informative notice is the right instrument; the day this sells into the EU,
  * this component is not the thing to patch — the boot order is.
  */

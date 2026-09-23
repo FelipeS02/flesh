@@ -12,8 +12,8 @@ import { DropCatalog } from "@/modules/storefront/drop-catalog";
  * The page owns the vertical rhythm, not the shell: the artboards' `Content`
  * frame is a full-height `space-between` column with 16px of horizontal
  * padding on mobile, which is why `Header` carries only its top padding and
- * `Footer` only its bottom one. The video plate lives in the root layout and
- * the scrim is pinned to the viewport, so neither depends on this
+ * `Footer` only its bottom one. The video plate lives in the `(store)` group
+ * layout and the scrim is pinned to the viewport, so neither depends on this
  * wrapper's height.
  */
 export default async function Home() {
