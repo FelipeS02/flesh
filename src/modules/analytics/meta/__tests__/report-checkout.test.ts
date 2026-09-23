@@ -115,6 +115,27 @@ describe("reportCheckoutStarted", () => {
     expect(capi.sent[0]?.user_data.client_ip_address).toBe("203.0.113.7");
   });
 
+  it("prefers the address Vercel observed over a forwarded-for a proxy could rewrite", async () => {
+    request.headers = new Headers({
+      "x-vercel-forwarded-for": "203.0.113.7",
+      "x-forwarded-for": "198.51.100.1",
+    });
+
+    await reportCheckoutStarted({ buyer: BUYER, lines: LINES });
+    await flush();
+
+    expect(capi.sent[0]?.user_data.client_ip_address).toBe("203.0.113.7");
+  });
+
+  it("sends no address at all when none is forwarded, never a placeholder", async () => {
+    await reportCheckoutStarted({ buyer: BUYER, lines: LINES });
+    await flush();
+
+    // The rate limiters key an unknown caller as "unknown"; Meta must never
+    // receive that string as an IP.
+    expect(capi.sent[0]?.user_data).not.toHaveProperty("client_ip_address");
+  });
+
   it("never lets a raw email or name reach the payload", async () => {
     await reportCheckoutStarted({ buyer: BUYER, lines: LINES });
     await flush();

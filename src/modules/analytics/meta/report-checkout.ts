@@ -1,6 +1,7 @@
 import "server-only";
 import { after } from "next/server";
 import { cookies, headers } from "next/headers";
+import { readClientIp } from "@/lib/client-key";
 import { CLICK_ID_COOKIE_NAME, PIXEL_COOKIE_NAME } from "./browser-ids";
 import { createCapiSender, readCapiConfig } from "./capi";
 import {
@@ -40,10 +41,9 @@ export async function reportCheckoutStarted(input: Input): Promise<void> {
       sourceUrl: headerList.get("referer") ?? undefined,
       fbc: cookieStore.get(CLICK_ID_COOKIE_NAME)?.value ?? null,
       fbp: cookieStore.get(PIXEL_COOKIE_NAME)?.value ?? null,
-      // First hop only: the rest of the chain is whatever each proxy chose to
-      // append, and Meta wants the client, not the infrastructure.
-      clientIpAddress:
-        headerList.get("x-forwarded-for")?.split(",")[0]?.trim() ?? null,
+      // The same reader the rate limiters use, so which header is trusted is
+      // decided in one place: Meta wants the client, not the infrastructure.
+      clientIpAddress: readClientIp(headerList),
       clientUserAgent: headerList.get("user-agent"),
     });
 
