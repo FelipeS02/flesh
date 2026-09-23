@@ -1,14 +1,19 @@
 import { BackgroundVideo } from './background-video';
 
-/** Landing artboard scrim: 70% black */
+/**
+ * Artboard scrim: black at `0x70` alpha, which is 112/255 — about 44%, NOT the
+ * 70% the hex reads as. The two digits are hexadecimal like every other pair
+ * in the colour; only the `70` invites being read as a percentage.
+ */
 export const LANDING_SCRIM = '#00000070';
 
 type PageScrimProps = {
   /**
-   * Darkening scrim colour, as a CSS colour string. Differs per page in the
-   * pen.dev artboards — landing uses 70% black (`#00000070`, the default),
-   * the PDP uses 70% black (`#00000070`). Callers on the PDP must pass the
-   * PDP value explicitly.
+   * Darkening scrim colour, as a CSS colour string.
+   *
+   * The artboards were read as varying this per page; they do not — landing
+   * and PDP are both `#00000070`. The prop stays because a route may yet need
+   * its own value, but nothing overrides the default today.
    */
   scrim?: string;
 };
@@ -56,11 +61,16 @@ export function BackgroundPlate() {
 /**
  * The darkening layer between the shared video plate and the page's content.
  *
- * Split out of `BackgroundPlate` because the two halves now live at different
- * levels: the video belongs to the layout (see above), while the scrim is a
- * per-page value the artboards deliberately vary. Rendering it from the page
- * is what keeps that difference expressible without handing the layout a prop
- * it would have to learn the route to choose.
+ * `BackgroundPlate` renders one, so every route gets a baseline without any
+ * page having to remember to. A page may still render its own, and that
+ * STACKS rather than replaces: two `#00000070` layers composite to ~69% black
+ * instead of ~44%. `/devoluciones` does exactly that on purpose — it is a long
+ * column of prose read over a moving video, and the baseline is not enough
+ * ground for it.
+ *
+ * So a second one is a deliberate choice per route, never an accident. If a
+ * route ever needs a different colour rather than more of the same, that needs
+ * an opt-out on the plate, which does not exist today.
  *
  * Both layers sit at the same negative `z-index`, so paint order is DOM
  * order: the layout's video comes first, this comes later and therefore over
@@ -69,6 +79,10 @@ export function BackgroundPlate() {
 export function PageScrim({ scrim = LANDING_SCRIM }: PageScrimProps) {
   return (
     <div
+      // Queryable on purpose, so a test can COUNT the layers a route ends up
+      // with. The sibling selector this replaces could not see a scrim painted
+      // BEFORE the video, so it reported zero either way and guarded nothing.
+      data-page-scrim
       aria-hidden='true'
       className='fixed inset-0 -z-9'
       style={{ backgroundColor: scrim }}

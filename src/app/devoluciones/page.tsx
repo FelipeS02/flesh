@@ -24,6 +24,11 @@ export const metadata: Metadata = {
 export default function ReturnsPage() {
   return (
     <div className="relative flex min-h-screen flex-1 flex-col gap-10 px-4 md:px-0">
+      {/* A SECOND scrim, on top of the one `BackgroundPlate` already lays
+          down: two `#00000070` layers composite to ~69% black instead of
+          ~44%. Deliberate here and nowhere else — this page is a long column
+          of policy prose read over a moving video, and the sitewide baseline
+          does not give it enough ground to stay legible. */}
       <PageScrim />
       <Header />
 
