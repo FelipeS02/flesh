@@ -1,20 +1,33 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { createCheckoutRateGuard } from "../checkout.guard";
 
 describe("createCheckoutRateGuard", () => {
-  it("does not consume a slot until a schema-valid request reaches the guard", () => {
-    const guard = createCheckoutRateGuard({ now: () => 1_000, limit: 2, windowMs: 60_000 });
-    expect(guard.consume()).toBe(true);
-    expect(guard.consume()).toBe(true);
-    expect(guard.consume()).toBe(false);
+  it("exhausting one key's budget does not refuse a different key", () => {
+    const guard = createCheckoutRateGuard({ limit: 1 });
+    expect(guard.consume("client-a")).toBe(true);
+    expect(guard.consume("client-a")).toBe(false);
+    expect(guard.consume("client-b")).toBe(true);
   });
 
-  it("opens a fresh fixed window without calling external dependencies", () => {
-    const now = vi.fn(() => 1_000);
-    const guard = createCheckoutRateGuard({ now, limit: 1, windowMs: 60_000 });
-    expect(guard.consume()).toBe(true);
-    expect(guard.consume()).toBe(false);
-    now.mockReturnValue(61_000);
-    expect(guard.consume()).toBe(true);
+  it("resets each key's own window independently once it elapses", () => {
+    let now = 0;
+    const guard = createCheckoutRateGuard({ limit: 1, windowMs: 60_000, now: () => now });
+    expect(guard.consume("client-a")).toBe(true);
+    expect(guard.consume("client-a")).toBe(false);
+    now = 60_000;
+    // client-b never consumed, so its window must not be affected by client-a's reset.
+    expect(guard.consume("client-a")).toBe(true);
+    expect(guard.consume("client-b")).toBe(true);
+  });
+
+  it("prunes expired windows so the map does not grow without bound", () => {
+    let now = 0;
+    const guard = createCheckoutRateGuard({ limit: 1, windowMs: 60_000, now: () => now });
+    guard.consume("client-a");
+    expect(guard.size()).toBe(1);
+    now = 60_000;
+    // A fresh consume for a different key must prune the expired client-a entry.
+    guard.consume("client-b");
+    expect(guard.size()).toBe(1);
   });
 });

@@ -1,6 +1,8 @@
 import "server-only";
+import { headers } from "next/headers";
 import { z } from "zod";
 import { getCheckoutProducts, readTiendanubeConfig, type CheckoutProduct } from "@/modules/catalog";
+import { readClientKey } from "@/lib/client-key";
 import type { CheckoutOutcome } from "./port";
 import { createCheckoutRateGuard, type CheckoutRateGuard } from "./checkout.guard";
 import { logCheckoutFailure } from "./checkout.diagnostics";
@@ -40,7 +42,14 @@ const CheckoutInputSchema = z.object({ buyer: BuyerSchema.optional(), lines: z.a
 type Dependencies = {
   getCheckoutProducts: () => Promise<CheckoutProduct[]>;
   createDraftOrder: (request: DraftOrderCheckoutRequest) => Promise<DraftOrderCheckoutResult>;
-  guard: CheckoutRateGuard;
+  // Per-client: one cheap client cannot exhaust another shopper's checkout
+  // budget (the bug this guard replaces). Global: a circuit breaker on the
+  // Tiendanube budget itself — every client shares it, always under one
+  // fixed key, so it still caps total provider load even if client keys
+  // are spoofed (see the module comment on `readClientKey`'s trust model).
+  clientGuard: CheckoutRateGuard;
+  globalGuard: CheckoutRateGuard;
+  readClientKey: () => Promise<string>;
   readBuyer: () => Promise<unknown>;
   writeBuyer: (buyer: z.infer<typeof BuyerSchema>) => Promise<void>;
   writePendingOrder: (draftOrderId: number) => Promise<void>;
@@ -49,12 +58,22 @@ type Dependencies = {
     lines: CheckoutLine[];
   }) => Promise<void>;
 };
-const defaultGuard = createCheckoutRateGuard();
+// The global breaker has no per-client identity of its own — it always
+// consumes this one fixed key, so every client draws from the same shared
+// window instead of getting its own budget.
+const GLOBAL_GUARD_KEY = "global";
+const defaultClientGuard = createCheckoutRateGuard({ limit: 10, windowMs: 60_000 });
+const defaultGlobalGuard = createCheckoutRateGuard({ limit: 60, windowMs: 60_000 });
+async function defaultReadClientKey(): Promise<string> {
+  return readClientKey(await headers());
+}
 function defaultDependencies(): Dependencies {
   return {
     getCheckoutProducts,
     createDraftOrder: createTiendanubeDraftOrderCheckout(readTiendanubeConfig()),
-    guard: defaultGuard,
+    clientGuard: defaultClientGuard,
+    globalGuard: defaultGlobalGuard,
+    readClientKey: defaultReadClientKey,
     readBuyer: readBuyerCookie,
     writeBuyer: writeBuyerCookie,
     writePendingOrder: writePendingOrderCookie,
@@ -69,11 +88,19 @@ export async function startTiendanubeCheckout(input: unknown, dependencies?: Dep
   if (!parsed.success) return unavailable({ reason: "invalid_input" });
   try {
     const resolved = dependencies ?? defaultDependencies();
-    if (!resolved.guard.consume()) return unavailable({ reason: "rate_limited" });
+    const clientKey = await resolved.readClientKey();
+    // Consumed first, before any I/O: a cheap client hammering this endpoint
+    // must be stopped at its own budget, not the shared one, or it can still
+    // starve every other shopper the way the old unkeyed guard did.
+    if (!resolved.clientGuard.consume(clientKey)) return unavailable({ reason: "rate_limited" });
     // Resolved before any catalog/provider I/O: a submission with no usable
     // identity (source "none") has nothing to check stock for.
     const resolution = resolveBuyer(parsed.data.buyer, await resolved.readBuyer());
     if (resolution.source === "none") return unavailable({ reason: "no_buyer_identity" });
+    // The global breaker guards the Tiendanube budget, so it only spends
+    // once a submission is about to actually reach the provider — a
+    // no-identity or rate-limited request never touches it.
+    if (!resolved.globalGuard.consume(GLOBAL_GUARD_KEY)) return unavailable({ reason: "rate_limited" });
     const index = checkoutVariantIndex(await resolved.getCheckoutProducts());
     const rejected: number[] = [];
     const products: DraftOrderCheckoutRequest["products"] = [];

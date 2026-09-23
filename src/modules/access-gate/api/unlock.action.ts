@@ -3,7 +3,7 @@
 import { cookies, headers } from "next/headers";
 import { readAccessGateConfig } from "./config";
 import { createAttemptGuard, type AttemptGuard } from "./attempt.guard";
-import { readClientKey } from "./client-key";
+import { readClientKey } from "@/lib/client-key";
 import { ACCESS_GATE_COOKIE_NAME } from "../domain/cookie-name";
 import { constantTimeEqual, signToken } from "../domain/session";
 
