@@ -77,8 +77,8 @@ export default async function StoreLayout({
       {/* Here and not in a page: a layout survives client-side navigation,
           a page does not. Rendered per page, the plate's <video> was
           remounted on every route change and restarted from the first
-          frame. Each page still draws its own `PageScrim` over it, which
-          is the only part of the plate the artboards vary. */}
+          frame. The plate brings a baseline `PageScrim`; a page that needs
+          more ground stacks its own over it, as `/devoluciones` does. */}
       <BackgroundPlate />
       <NuqsAdapter>
         {/* Inside the adapter, not outside it: the cart's own UI is the

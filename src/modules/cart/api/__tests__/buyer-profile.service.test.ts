@@ -1,13 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createCheckoutRateGuard } from "../checkout.guard";
 import { readBuyerProfileSummary } from "../buyer-profile.service";
 
 const VALID_BUYER = { firstName: "Felipe", lastName: "Saracho", email: "felipe@example.com" };
 
-function dependencies(overrides: Partial<{ readBuyer: () => Promise<unknown>; guard: ReturnType<typeof createCheckoutRateGuard> }> = {}) {
+function dependencies(overrides: Partial<{ readBuyer: () => Promise<unknown>; guard: ReturnType<typeof createCheckoutRateGuard>; readClientKey: () => Promise<string> }> = {}) {
   return {
     readBuyer: overrides.readBuyer ?? (async () => VALID_BUYER),
     guard: overrides.guard ?? createCheckoutRateGuard(),
+    readClientKey: overrides.readClientKey ?? vi.fn(async () => "client-a"),
   };
 }
 
@@ -49,6 +50,19 @@ describe("readBuyerProfileSummary", () => {
     expect(JSON.stringify(summary)).not.toContain("@");
   });
 
+  it("exhausting client A's budget does not refuse client B on the same guard", async () => {
+    const guard = createCheckoutRateGuard({ limit: 1 });
+    const readClientKey = vi.fn(async () => "client-a");
+
+    await readBuyerProfileSummary(dependencies({ guard, readClientKey })); // spends client-a's one slot
+    const exhausted = await readBuyerProfileSummary(dependencies({ guard, readClientKey }));
+    expect(exhausted).toEqual({ hasProfile: false, maskedLabel: null });
+
+    readClientKey.mockResolvedValue("client-b");
+    const stillOpen = await readBuyerProfileSummary(dependencies({ guard, readClientKey }));
+    expect(stillOpen).toEqual({ hasProfile: true, maskedLabel: "F••• S•••" });
+  });
+
   it("exhausting its own guard does not touch a separately-created checkout guard", async () => {
     const ownGuard = createCheckoutRateGuard({ limit: 1 });
     const checkoutGuard = createCheckoutRateGuard({ limit: 1 });
@@ -58,6 +72,6 @@ describe("readBuyerProfileSummary", () => {
 
     // The checkout guard is a fully independent instance — exhausting the
     // profile read's own guard must never be able to touch it (design D7).
-    expect(checkoutGuard.consume()).toBe(true);
+    expect(checkoutGuard.consume("client-a")).toBe(true);
   });
 });

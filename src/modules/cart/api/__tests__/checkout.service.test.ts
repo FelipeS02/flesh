@@ -19,7 +19,17 @@ function dependencies() {
   const writeBuyer = vi.fn(async () => {});
   const writePendingOrder = vi.fn(async () => {});
   const reportCheckoutStarted = vi.fn(async () => {});
-  return { dependencies: { getCheckoutProducts, createDraftOrder, guard: createCheckoutRateGuard(), readBuyer, writeBuyer, writePendingOrder, reportCheckoutStarted }, createDraftOrder, getCheckoutProducts, readBuyer, writeBuyer, writePendingOrder, reportCheckoutStarted };
+  const readClientKey = vi.fn(async () => "client-a");
+  return {
+    dependencies: { getCheckoutProducts, createDraftOrder, clientGuard: createCheckoutRateGuard(), globalGuard: createCheckoutRateGuard(), readClientKey, readBuyer, writeBuyer, writePendingOrder, reportCheckoutStarted },
+    createDraftOrder,
+    getCheckoutProducts,
+    readBuyer,
+    writeBuyer,
+    writePendingOrder,
+    reportCheckoutStarted,
+    readClientKey,
+  };
 }
 
 describe("startTiendanubeCheckout", () => {
@@ -60,16 +70,16 @@ describe("startTiendanubeCheckout", () => {
     expect(createDraftOrder).not.toHaveBeenCalled();
   });
 
-  it("denies after the limit without catalog or provider I/O", async () => {
+  it("denies after the client limit without catalog or provider I/O", async () => {
     const { dependencies: deps, getCheckoutProducts, createDraftOrder } = dependencies();
-    deps.guard = createCheckoutRateGuard({ limit: 0 });
+    deps.clientGuard = createCheckoutRateGuard({ limit: 0 });
     await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toMatchObject({ status: "unavailable" });
     expect(getCheckoutProducts).not.toHaveBeenCalled();
     expect(createDraftOrder).not.toHaveBeenCalled();
   });
 
   it("converts an upstream failure into a generic unavailable outcome", async () => {
-    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, guard: createCheckoutRateGuard(), readBuyer: async () => null, writeBuyer: async () => {}, writePendingOrder: async () => {}, reportCheckoutStarted: async () => {} });
+    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, clientGuard: createCheckoutRateGuard(), globalGuard: createCheckoutRateGuard(), readClientKey: async () => "client-a", readBuyer: async () => null, writeBuyer: async () => {}, writePendingOrder: async () => {}, reportCheckoutStarted: async () => {} });
     expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
   });
 
@@ -92,6 +102,48 @@ describe("startTiendanubeCheckout", () => {
     createDraftOrder.mockResolvedValue({ status: "rejected", variantIds: [999] });
 
     await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
+  });
+});
+
+describe("per-client limit and global breaker (T3)", () => {
+  it("still reaches the provider for a different client after one client is exhausted", async () => {
+    const { dependencies: deps, createDraftOrder, readClientKey } = dependencies();
+    deps.clientGuard = createCheckoutRateGuard({ limit: 1 });
+    readClientKey.mockResolvedValueOnce("client-a").mockResolvedValueOnce("client-a").mockResolvedValueOnce("client-b");
+
+    await startTiendanubeCheckout(INPUT, deps); // client-a spends its one slot
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toMatchObject({ status: "unavailable" }); // client-a refused
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toMatchObject({ status: "redirect" }); // client-b unaffected
+    expect(createDraftOrder).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses through the global breaker once exhausted, even for a fresh client", async () => {
+    const { dependencies: deps, createDraftOrder, readClientKey } = dependencies();
+    deps.globalGuard = createCheckoutRateGuard({ limit: 0 });
+    readClientKey.mockResolvedValue("client-fresh");
+
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toMatchObject({ status: "unavailable" });
+    expect(createDraftOrder).not.toHaveBeenCalled();
+  });
+
+  it("does not spend the global budget on a no-identity submission", async () => {
+    const { dependencies: deps } = dependencies();
+
+    const outcome = await startTiendanubeCheckout({ ...INPUT, buyer: undefined }, deps);
+
+    expect(outcome).toMatchObject({ status: "unavailable", reason: expect.any(String) });
+    // A submission with source "none" returns before the global breaker is
+    // ever consumed, so the full budget remains for a later real submission.
+    expect(deps.globalGuard.size()).toBe(0);
+  });
+
+  it("consumes neither guard for malformed input", async () => {
+    const { dependencies: deps } = dependencies();
+
+    await startTiendanubeCheckout({ ...INPUT, lines: [] }, deps);
+
+    expect(deps.clientGuard.size()).toBe(0);
+    expect(deps.globalGuard.size()).toBe(0);
   });
 });
 
@@ -185,9 +237,9 @@ describe("cookie write timing (spec amendment A2)", () => {
     expect(writeBuyer).not.toHaveBeenCalled();
   });
 
-  it("never writes when the rate guard refuses", async () => {
+  it("never writes when the client rate guard refuses", async () => {
     const { dependencies: deps, writeBuyer } = dependencies();
-    deps.guard = createCheckoutRateGuard({ limit: 0 });
+    deps.clientGuard = createCheckoutRateGuard({ limit: 0 });
 
     await startTiendanubeCheckout(INPUT, deps);
 
@@ -297,10 +349,21 @@ describe("server-side diagnostics", () => {
     consoleError.mockRestore();
   });
 
-  it("names a refusal caused by the rate guard", async () => {
+  it("names a refusal caused by the client rate guard", async () => {
     const consoleError = captureLog();
     const { dependencies: deps } = dependencies();
-    deps.guard = createCheckoutRateGuard({ limit: 0 });
+    deps.clientGuard = createCheckoutRateGuard({ limit: 0 });
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(consoleError).toHaveBeenCalledWith("[checkout] unavailable", { reason: "rate_limited" });
+    consoleError.mockRestore();
+  });
+
+  it("names a refusal caused by the global breaker", async () => {
+    const consoleError = captureLog();
+    const { dependencies: deps } = dependencies();
+    deps.globalGuard = createCheckoutRateGuard({ limit: 0 });
 
     await startTiendanubeCheckout(INPUT, deps);
 
