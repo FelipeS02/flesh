@@ -3,6 +3,7 @@
 import { readPendingOrderCookie, clearPendingOrderCookie } from "./pending-order.cookie";
 import { hasCompletedOrder } from "./order-status";
 import { readTiendanubeConfig } from "@/modules/catalog";
+import { isAccessGranted } from "@/modules/access-gate/api/access-guard";
 
 /**
  * Public boundary for "did the cart I handed off actually get bought?".
@@ -13,6 +14,11 @@ import { readTiendanubeConfig } from "@/modules/catalog";
  * anything else the record holds.
  */
 export async function hasCompletedPendingCheckout(): Promise<boolean> {
+  // The gate lives in the proxy, which does not cover this POST path — an
+  // ungated caller gets the same bare "no" a shopper with nothing pending
+  // sees, never a signal that a pending order (or a gate) exists.
+  if (!(await isAccessGranted())) return false;
+
   try {
     const pendingId = await readPendingOrderCookie();
     if (pendingId === null) return false;
