@@ -21,4 +21,11 @@ describe("InfoAccordions", () => {
     expect(section(/talles/i)).toBeUndefined();
     expect(section(/cambios/i)?.textContent).toContain("02");
   });
+
+  it("sizes the section number to the artboard's 11px mobile / 13px desktop control text", () => {
+    render(<InfoAccordions product={{ descriptionHtml, sizeChart: null }} />);
+    const number = screen.getByText("01");
+    expect(number.className).toContain("text-[11px]");
+    expect(number.className).toContain("md:text-[13px]");
+  });
 });

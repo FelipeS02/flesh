@@ -16,4 +16,12 @@ describe("FitScale", () => {
     expect(container.querySelector("[data-fit-marker]")?.getAttribute("style")).toContain("0%");
     expect(screen.getByText(/baggy/i, { selector: ".sr-only" })).toBeTruthy();
   });
+
+  it("sizes the 'Fit' label and its stops to the artboard's 11px mobile / 13px desktop", () => {
+    render(<FitScale fit={{ type: "top", position: 50 }} />);
+
+    expect(screen.getByText("Fit").className).toContain("text-[11px]");
+    expect(screen.getByText("Fit").className).toContain("md:text-[13px]");
+    expect(screen.getByText("Slim").parentElement?.className).toContain("text-[11px]");
+  });
 });

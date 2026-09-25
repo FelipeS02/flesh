@@ -65,7 +65,7 @@ export function SizeGuide({ sizeChart, highlightSize, compact }: SizeGuideProps)
             // spill into the row above/below because nothing there is
             // itself interactive.
             "relative text-[9px] before:absolute before:-inset-x-1.5 before:top-1/2 before:h-11 before:-translate-y-1/2 before:content-['']"
-          : "text-[9px] md:text-[10px]",
+          : "text-[11px] md:text-[13px]",
       )}
     >
       {compact ? (

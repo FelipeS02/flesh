@@ -38,4 +38,18 @@ describe("SizeTable", () => {
     render(<SizeTable sizeChart={chart} hideCaption />);
     expect(screen.queryByText("Medidas en centímetros")).toBeNull();
   });
+
+  it("sizes header, row-header and caption text to the artboard's 11px mobile / 13px desktop", () => {
+    render(<SizeTable sizeChart={chart} />);
+
+    const columnHeader = screen.getAllByRole("columnheader").find((cell) => cell.textContent === "M")!;
+    expect(columnHeader.className).toContain("text-[11px]");
+    expect(columnHeader.className).toContain("md:text-[13px]");
+
+    const rowHeader = screen.getByRole("rowheader", { name: "Ancho de pecho" });
+    expect(rowHeader.className).toContain("text-[11px]");
+    expect(rowHeader.className).toContain("md:text-[13px]");
+
+    expect(screen.getByText("Medidas en centímetros").className).toContain("text-[11px]");
+  });
 });

@@ -70,4 +70,13 @@ describe("ColourwaySelector", () => {
 
     expect(container.innerHTML).toBe("");
   });
+
+  it("sizes its label to the artboard's 11px mobile / 13px desktop control text", () => {
+    const { container } = render(
+      <ColourwaySelector links={links} currentSlug="remera-cruz-noir" />,
+    );
+
+    expect(container.querySelector("p")?.className).toContain("text-[11px]");
+    expect(container.querySelector("p")?.className).toContain("md:text-[13px]");
+  });
 });

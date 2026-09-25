@@ -53,7 +53,7 @@ export function SizeTable({ sizeChart, highlightSize, hideCaption }: SizeTablePr
                 scope="col"
                 aria-current={isCurrent ? true : undefined}
                 className={cn(
-                  "pb-3 text-[9px] font-normal tracking-control md:text-[10px]",
+                  "pb-3 text-[11px] font-normal tracking-control md:text-[13px]",
                   isCurrent ? "text-primary" : "text-muted-foreground",
                 )}
               >
@@ -64,13 +64,13 @@ export function SizeTable({ sizeChart, highlightSize, hideCaption }: SizeTablePr
         </tr></thead>
         <tbody>
           {rows.map((key) => <tr key={key} className="border-t border-border">
-            <th scope="row" className="py-3.5 text-[9px] font-normal tracking-control text-muted-foreground md:text-[10px">{measurementLabels[key]}</th>
+            <th scope="row" className="py-3.5 text-[11px] font-normal tracking-control text-muted-foreground md:text-[13px]">{measurementLabels[key]}</th>
             {sizeChart.map(({ size, measurements }) => <td key={size} className="py-3.5 text-xs tracking-control text-foreground md:text-[13px]">{measurements[key] ?? "—"}</td>)}
           </tr>)}
         </tbody>
       </table>
       {!hideCaption && (
-        <p className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">Medidas en centímetros</p>
+        <p className="font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">Medidas en centímetros</p>
       )}
     </div>
   );

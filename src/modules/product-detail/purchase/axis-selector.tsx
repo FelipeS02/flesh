@@ -57,7 +57,7 @@ export function AxisSelector({
           // Non-compact grows to `justify-between` so the trigger lands on
           // the RIGHT of the row — harmless with one child when there is no
           // trigger to show.
-          compact ? "text-[9px]" : "justify-between text-[9px] md:text-[10px]",
+          compact ? "text-[9px]" : "justify-between text-[11px] md:text-[13px]",
         )}
       >
         {/* The widget has room for the axis name and nothing else; the panel

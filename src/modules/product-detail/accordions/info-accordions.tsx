@@ -103,7 +103,7 @@ function AccordionSection({
     >
       <summary className="flex cursor-pointer list-none items-center justify-between py-5 [&::-webkit-details-marker]:hidden">
         <span className="flex items-center gap-3 font-sans tracking-control">
-          <span className="text-[9px] text-muted-foreground md:text-[10px]">
+          <span className="text-[11px] text-muted-foreground md:text-[13px]">
             {String(number).padStart(2, "0")}
           </span>
           <span className="text-[13px] text-foreground md:text-sm">{section.title}</span>

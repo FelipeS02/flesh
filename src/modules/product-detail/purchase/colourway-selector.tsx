@@ -31,7 +31,7 @@ export function ColourwaySelector({ links, currentSlug }: ColourwaySelectorProps
 
   return (
     <div className="flex flex-col gap-1">
-      <p className="flex items-center gap-2 font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
+      <p className="flex items-center gap-2 font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">
         <span>Seleccionar Color</span>
         {/* A dot cannot say its own name, so the row prints the current one
             beside the label — the same rule the size boxes do not need,

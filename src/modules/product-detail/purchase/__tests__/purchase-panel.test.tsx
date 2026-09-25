@@ -391,6 +391,16 @@ describe("PurchasePanel", () => {
   });
 });
 
+describe("PurchasePanel axis label sizing", () => {
+  it("sizes the non-compact 'Seleccionar Talle' label to the artboard's 11px mobile / 13px desktop", () => {
+    renderPanel();
+
+    const label = within(panel()).getByText("Seleccionar Talle").closest("p")!;
+    expect(label.className).toContain("text-[11px]");
+    expect(label.className).toContain("md:text-[13px]");
+  });
+});
+
 describe("PurchasePanel size guide", () => {
   it("hides the trigger when no size chart is passed", () => {
     renderPanel();

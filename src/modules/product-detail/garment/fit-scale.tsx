@@ -15,7 +15,7 @@ export function FitScale({ fit }: FitScaleProps) {
 
   return (
     <div role="group" aria-label="Fit" className="flex w-full flex-col gap-3.5">
-      <p className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">Fit</p>
+      <p className="font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">Fit</p>
       <div aria-hidden="true" className="relative flex h-2.5 items-center">
         <span className="block h-px w-full bg-border" />
         <span data-fit-marker className="absolute top-1/2 block -translate-x-1/2 -translate-y-1/2" style={{ left: `${percent}%` }}>
@@ -24,7 +24,7 @@ export function FitScale({ fit }: FitScaleProps) {
           <FleshLogo className="size-6 text-foreground" />
         </span>
       </div>
-      <div className="flex font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
+      <div className="flex font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">
         {stops.map((label, index) => (
           <span key={label} className={cn("flex-1", index === 1 && "text-center", index === 2 && "text-right")}>{label}</span>
         ))}
