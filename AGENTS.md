@@ -45,3 +45,9 @@ belongs to, which is the only thing that makes a list that long navigable.
 So a test's relative imports climb one extra level — `../storage`, never
 `./storage`. Shared fixtures stay in `test/fixtures/`, and `test/harness/` stays
 put: it is already a test directory with nothing to sit beside.
+
+## Product custom fields are written through a script
+
+`colourway`, `fit` and `size_chart` live in Tiendanube, but its admin cannot
+edit them — `scripts/custom-fields.mjs` is the only writer. Use the
+`product-fields` skill (`.claude/skills/product-fields/`) to change them.
