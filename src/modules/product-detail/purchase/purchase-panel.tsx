@@ -7,6 +7,7 @@ import {
   purchaseLimit,
   resolveVariant,
   type ColourwayLink,
+  type GarmentSize,
   type Selection,
   type VariantMatrix,
   type VariantView,
@@ -40,6 +41,14 @@ type PurchasePanelProps = {
    */
   product: VariantMatrix;
   defaultVariantId: number;
+  /**
+   * Kept separate from `product` rather than folded into `VariantMatrix`:
+   * that type is shared with the widget and with every existing fixture
+   * built from it, and widening it would make `sizeChart` a required field
+   * everywhere a `VariantMatrix` literal is already written. Optional here
+   * instead — `undefined` renders exactly today's panel, no trigger.
+   */
+  sizeChart?: readonly GarmentSize[] | null;
 };
 
 /**
@@ -60,6 +69,7 @@ export function PurchasePanel({
   colourwaySelector,
   colourways,
   currentSlug,
+  sizeChart,
 }: PurchasePanelProps) {
   const { axes } = product;
   const dispatch = useCartDispatch();
@@ -84,6 +94,7 @@ export function PurchasePanel({
       colourwaySelector={colourwaySelector}
       colourways={colourways}
       currentSlug={currentSlug}
+      sizeChart={sizeChart}
       query={query}
       // Read here, where `state` already exists, rather than inside `PanelView`
       // — the fallback below renders `PanelView` with no `CartProvider` at all
@@ -144,6 +155,7 @@ export function PurchasePanelFallback({
   colourwaySelector,
   colourways,
   currentSlug,
+  sizeChart,
 }: PurchasePanelProps) {
   return (
     <PanelView
@@ -154,6 +166,7 @@ export function PurchasePanelFallback({
       colourwaySelector={colourwaySelector}
       colourways={colourways}
       currentSlug={currentSlug}
+      sizeChart={sizeChart}
       query={{}}
       onSelect={() => {}}
     />
@@ -179,6 +192,7 @@ function PanelView({
   colourwaySelector,
   colourways,
   currentSlug,
+  sizeChart,
   query,
   onSelect,
   onAdd,
@@ -239,6 +253,7 @@ function PanelView({
           values={deriveAxisStates(product, selection, index)}
           selected={selection[index] ?? null}
           onSelect={(value) => onSelect(index, value)}
+          sizeChart={sizeChart}
         />
       ))}
 
@@ -289,6 +304,7 @@ function PanelView({
         ctaLabel={ctaLabel}
         onSelect={onSelect}
         onAdd={() => selected && onAdd?.(selected)}
+        sizeChart={sizeChart}
       />
     </>
   );

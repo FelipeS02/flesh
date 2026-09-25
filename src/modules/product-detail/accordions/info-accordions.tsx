@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Minus, Plus } from "lucide-react";
-import type { ProductView } from "@/modules/catalog/client";
+import { hasSizeChartMeasurements, type ProductView } from "@/modules/catalog/client";
 import { ReturnsPolicy } from "@/modules/legal/returns-policy";
 import { SizeTable } from "./size-table";
 
@@ -41,8 +41,10 @@ export function InfoAccordions({ product }: InfoAccordionsProps) {
     },
     // Dropped entirely rather than rendered empty: with no registered pattern
     // there are no measurements, and an open section promising a size table
-    // that is not there is worse than no section.
-    ...(product.sizeChart && product.sizeChart.some((size) => Object.keys(size.measurements).length > 0)
+    // that is not there is worse than no section. `hasSizeChartMeasurements`
+    // is the SAME rule the PDP's size-guide trigger reads, so the two never
+    // disagree about whether a chart is worth showing.
+    ...(hasSizeChartMeasurements(product.sizeChart)
       ? [
           {
             title: "Tabla de talles",

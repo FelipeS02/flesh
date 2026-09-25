@@ -1,7 +1,14 @@
 "use client";
 
 import { cn } from "@/lib/utils";
-import type { AxisValueView, OptionAxis } from "@/modules/catalog/client";
+import {
+  axisMatchesSizeChart,
+  hasSizeChartMeasurements,
+  type AxisValueView,
+  type GarmentSize,
+  type OptionAxis,
+} from "@/modules/catalog/client";
+import { SizeGuide } from "./size-guide";
 
 type AxisSelectorProps = {
   axis: OptionAxis;
@@ -10,6 +17,12 @@ type AxisSelectorProps = {
   onSelect: (value: string) => void;
   /** The widget's cramped variant: smaller boxes, no standalone label row. */
   compact?: boolean;
+  /**
+   * Passed to every axis, not just the size one — this component, not the
+   * caller, decides whether IT is the size axis (see `axisMatchesSizeChart`),
+   * so a caller never has to know which index that is.
+   */
+  sizeChart?: readonly GarmentSize[] | null;
 };
 
 /**
@@ -32,18 +45,27 @@ export function AxisSelector({
   selected,
   onSelect,
   compact,
+  sizeChart,
 }: AxisSelectorProps) {
+  const showSizeGuide = !!sizeChart && hasSizeChartMeasurements(sizeChart) && axisMatchesSizeChart(axis.values, sizeChart);
+
   return (
     <div className={cn("flex flex-col", compact ? "gap-1" : "gap-2")}>
       <p
         className={cn(
           "flex items-center gap-2 font-sans tracking-control text-muted-foreground",
-          compact ? "text-[9px]" : "text-[9px] md:text-[10px]",
+          // Non-compact grows to `justify-between` so the trigger lands on
+          // the RIGHT of the row — harmless with one child when there is no
+          // trigger to show.
+          compact ? "text-[9px]" : "justify-between text-[9px] md:text-[10px]",
         )}
       >
         {/* The widget has room for the axis name and nothing else; the panel
             can afford the verb. */}
         <span>{compact ? axis.label : `Seleccionar ${axis.label}`}</span>
+        {showSizeGuide && (
+          <SizeGuide sizeChart={sizeChart} highlightSize={selected} compact={compact} />
+        )}
       </p>
 
       <div

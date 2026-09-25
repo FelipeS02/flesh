@@ -20,7 +20,12 @@ export type {
   VariantView,
 } from "./domain/product";
 
-export { measurementKeys } from "./domain/garment";
+export {
+  axisMatchesSizeChart,
+  hasSizeChartMeasurements,
+  measurementKeys,
+  normalizeGarmentSize,
+} from "./domain/garment";
 export type { GarmentFit, GarmentSize, MeasurementKey } from "./domain/garment";
 
 // Colourways are pure domain: the index is built on the server (see

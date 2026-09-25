@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import type { ColourwayLink, VariantMatrix, VariantView } from "@/modules/catalog";
+import type { ColourwayLink, GarmentSize, VariantMatrix, VariantView } from "@/modules/catalog";
 import { PurchaseWidget } from "../purchase-widget";
 
 const ARS = "ARS";
@@ -131,5 +131,23 @@ describe("PurchaseWidget", () => {
     fireEvent.click(within(widget()).getByRole("button", { name: /agregar al carrito/i }));
 
     expect(props.onAdd).toHaveBeenCalledOnce();
+  });
+
+  it("renders its own compact 'Guía' size-guide trigger right after the size label", () => {
+    const sizeChart: GarmentSize[] = [
+      { size: "M", measurements: { chest_width: 52 } },
+      { size: "L", measurements: { chest_width: 56 } },
+      { size: "XL", measurements: { chest_width: 60 } },
+    ];
+
+    renderWidget({ sizeChart });
+
+    expect(within(widget()).getByRole("button", { name: "Guía" })).toBeDefined();
+  });
+
+  it("hides the size-guide trigger when no chart is passed", () => {
+    renderWidget();
+
+    expect(within(widget()).queryByRole("button", { name: "Guía" })).toBeNull();
   });
 });

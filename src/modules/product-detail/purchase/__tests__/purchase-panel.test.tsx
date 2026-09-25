@@ -1,9 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { withNuqsTestingAdapter, type OnUrlUpdateFunction } from "nuqs/adapters/testing";
-import type { OptionAxis, VariantMatrix, VariantView } from "@/modules/catalog";
+import type { GarmentSize, OptionAxis, VariantMatrix, VariantView } from "@/modules/catalog";
 import type { CartCatalog } from "@/modules/cart/domain/catalog-projection";
 import { CartProvider, useCartState } from "@/modules/cart";
+import { setViewport } from "../../../../../test/fixtures/viewport";
 import { PurchasePanel, PurchasePanelFallback } from "../purchase-panel";
 
 const analyticsSpy = vi.hoisted(() => vi.fn());
@@ -106,10 +107,12 @@ function renderPanel(
     searchParams = "",
     defaultVariantId = 201,
     onUrlUpdate,
+    sizeChart,
   }: {
     searchParams?: string;
     defaultVariantId?: number;
     onUrlUpdate?: OnUrlUpdateFunction;
+    sizeChart?: readonly GarmentSize[] | null;
   } = {},
 ) {
   return render(
@@ -122,6 +125,7 @@ function renderPanel(
         colourwaySelector={<div data-testid="colourway-selector" />}
         colourways={[]}
         currentSlug="remera-classic"
+        sizeChart={sizeChart}
       />
       <CartProbe />
     </CartProvider>,
@@ -130,6 +134,19 @@ function renderPanel(
     },
   );
 }
+
+/** Matches the panel's "Talle" axis (M/L/XL), with measurements so the trigger and modal both have something real to show. */
+const SIZE_CHART: GarmentSize[] = [
+  { size: "M", measurements: { chest_width: 52 } },
+  { size: "L", measurements: { chest_width: 56 } },
+  { size: "XL", measurements: { chest_width: 60 } },
+];
+
+const EMPTY_SIZE_CHART: GarmentSize[] = [
+  { size: "M", measurements: {} },
+  { size: "L", measurements: {} },
+  { size: "XL", measurements: {} },
+];
 
 /**
  * The panel, scoped away from its own shortcut.
@@ -371,6 +388,40 @@ describe("PurchasePanel", () => {
     expect(struck.tagName).toBe("S");
     expect(screen.getByText("$18.900")).toBeDefined();
     expect(within(panel()).getByText("$17.010")).toBeDefined();
+  });
+});
+
+describe("PurchasePanel size guide", () => {
+  it("hides the trigger when no size chart is passed", () => {
+    renderPanel();
+
+    expect(within(panel()).queryByRole("button", { name: /guía de talles/i })).toBeNull();
+  });
+
+  it("hides the trigger when the chart has no measurements — same rule as accordion 02", () => {
+    renderPanel(TEE, { sizeChart: EMPTY_SIZE_CHART });
+
+    expect(within(panel()).queryByRole("button", { name: /guía de talles/i })).toBeNull();
+  });
+
+  it("shows a link-styled trigger next to the size axis when the chart has measurements", () => {
+    renderPanel(TEE, { sizeChart: SIZE_CHART });
+
+    const trigger = within(panel()).getByRole("button", { name: /guía de talles/i });
+    expect(trigger.dataset.variant).toBe("link");
+    // Only the size axis gets it — Color shares nothing with the chart's sizes.
+    expect(within(axisGroup("Color").parentElement!).queryByRole("button", { name: /guía/i })).toBeNull();
+  });
+
+  it("opens a dialog on desktop with the table and the current selection marked", async () => {
+    setViewport("desktop");
+    renderPanel(TEE, { sizeChart: SIZE_CHART, searchParams: "?talle=l" });
+
+    fireEvent.click(within(panel()).getByRole("button", { name: /guía de talles/i }));
+
+    const dialog = await screen.findByRole("dialog", { name: /guía de talles/i });
+    expect(within(dialog).getByRole("table")).toBeDefined();
+    expect(within(dialog).getByRole("columnheader", { current: true }).textContent).toBe("L");
   });
 });
 

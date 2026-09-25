@@ -52,3 +52,34 @@ export function selectSizeChart(
   const selected = rows.filter((row) => soldSizes.has(normalizeGarmentSize(row.size)));
   return selected.length > 0 ? selected.map((row) => ({ ...row, measurements: { ...row.measurements } })) : null;
 }
+
+/**
+ * Whether a size chart has anything worth showing.
+ *
+ * `InfoAccordions` and the PDP's size-guide trigger both decide "does a size
+ * table belong on this page" from this ONE rule — a chart of rows that carry
+ * no measurement at all would render an empty `<table>`, and a trigger that
+ * opened onto that would be worse than no trigger.
+ */
+export function hasSizeChartMeasurements(
+  sizeChart: readonly GarmentSize[] | null | undefined,
+): sizeChart is readonly GarmentSize[] {
+  return !!sizeChart && sizeChart.some((size) => Object.keys(size.measurements).length > 0);
+}
+
+/**
+ * Whether an axis IS the size axis, decided from the chart's own sizes
+ * rather than the axis's label.
+ *
+ * A label check like `/talle/i` breaks the moment a merchant renames the
+ * axis, or a translation changes it; comparing against the chart's actual
+ * sizes can never drift from what the table underneath will show, because
+ * it is reading the same data the table reads.
+ */
+export function axisMatchesSizeChart(
+  values: readonly string[],
+  sizeChart: readonly GarmentSize[],
+): boolean {
+  const chartSizes = new Set(sizeChart.map((row) => normalizeGarmentSize(row.size)));
+  return values.some((value) => chartSizes.has(normalizeGarmentSize(value)));
+}

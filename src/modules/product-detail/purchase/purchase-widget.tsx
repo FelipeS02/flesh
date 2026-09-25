@@ -6,6 +6,7 @@ import {
   deriveAxisStates,
   formatMoney,
   type ColourwayLink,
+  type GarmentSize,
   type Selection,
   type VariantMatrix,
   type VariantView,
@@ -47,6 +48,8 @@ type PurchaseWidgetProps = {
   ctaLabel: string;
   onSelect: (axisIndex: number, value: string) => void;
   onAdd?: () => void;
+  /** See `PurchasePanelProps.sizeChart` — same optional pass-through, same reason it is not part of `VariantMatrix`. */
+  sizeChart?: readonly GarmentSize[] | null;
 };
 
 /**
@@ -71,6 +74,7 @@ export function PurchaseWidget({
   ctaLabel,
   onSelect,
   onAdd,
+  sizeChart,
 }: PurchaseWidgetProps) {
   const visible = useWidgetVisible();
   const { axes } = product;
@@ -104,6 +108,7 @@ export function PurchaseWidget({
               values={deriveAxisStates(product, selection, index)}
               selected={selection[index] ?? null}
               onSelect={(value) => onSelect(index, value)}
+              sizeChart={sizeChart}
             />
           ))}
         </div>

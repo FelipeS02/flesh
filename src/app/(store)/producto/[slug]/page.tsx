@@ -230,6 +230,7 @@ export default async function ProductPage({
                 }
                 colourways={links}
                 currentSlug={product.slug}
+                sizeChart={product.sizeChart}
               />
             }
           >
@@ -248,6 +249,10 @@ export default async function ProductPage({
               // through. They are plain link data, not the catalogue.
               colourways={links}
               currentSlug={product.slug}
+              // Plain serialisable data, same as `axes`/`variants` above — the
+              // size-guide trigger next to the size axis needs it in the same
+              // client bundle that already draws that axis.
+              sizeChart={product.sizeChart}
             />
           </Suspense>
 

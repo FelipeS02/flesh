@@ -21,4 +21,21 @@ describe("SizeTable", () => {
     const { container } = render(<SizeTable sizeChart={[{ size: "M", measurements: {} }]} />);
     expect(container.querySelector("table")).toBeNull();
   });
+
+  it("marks the shopper's selected size with aria-current, case/whitespace-insensitively", () => {
+    render(<SizeTable sizeChart={chart} highlightSize=" l " />);
+
+    const current = screen.getByRole("columnheader", { current: true });
+    expect(current.textContent).toBe("L");
+  });
+
+  it("marks no column when nothing is selected yet", () => {
+    render(<SizeTable sizeChart={chart} />);
+    expect(screen.queryByRole("columnheader", { current: true })).toBeNull();
+  });
+
+  it("hides its own caption when the caller already prints one", () => {
+    render(<SizeTable sizeChart={chart} hideCaption />);
+    expect(screen.queryByText("Medidas en centímetros")).toBeNull();
+  });
 });
