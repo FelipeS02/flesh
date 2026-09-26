@@ -59,9 +59,10 @@ export function DropSection({
 
           `items-start` keeps cards hanging from the top of their row, so a
           card with a swatch row cannot drag a shorter neighbour's title out of
-          line. `justify-items-center` centres each 301px card in its cell,
-          which is what keeps a last row of two sitting under the middle of a
-          row of three rather than against the left edge.
+          line. Tracks are `max-content`, not `1fr`: fractional tracks split
+          the full 1440px row, so two 301px cards each sat centred in a ~720px
+          cell with ~420px of dead space between them. Card-sized tracks keep
+          the gap at `gap-14`, and `justify-center` centres the group.
 
           Mobile stays a single centred stack — one card per row was PR6b's own
           departure from the artboard's 2-up. */}
@@ -72,7 +73,7 @@ export function DropSection({
         // a `md:grid-cols-${columns}` it never sees written down is a class it
         // never emits. The arbitrary property below is written out in full, so
         // it IS scanned, and only the value varies.
-        className="flex w-full flex-col items-center gap-10 md:grid md:max-w-360 md:items-start md:justify-items-center md:grid-cols-[repeat(var(--drop-columns),minmax(0,1fr))] md:gap-14"
+        className="flex w-full flex-col items-center gap-10 md:grid md:max-w-360 md:items-start md:justify-center md:grid-cols-[repeat(var(--drop-columns),max-content)] md:gap-14"
         style={{ "--drop-columns": columns } as CSSProperties}
       >
         {group.products.map((product, index) => {

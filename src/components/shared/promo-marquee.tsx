@@ -12,6 +12,7 @@ import { TRANSFER_RATE_BP } from '@/modules/catalog/client';
 const MESSAGES = [
   `${TRANSFER_RATE_BP / 100}% off extra transferencias`,
   '3 y 6 cuotas',
+  "ADRENALINA YA DISPONIBLE"
 ] as const;
 
 /**

@@ -1,7 +1,7 @@
-import type { ColourwayIndex, ProductView } from "@/modules/catalog";
-import { CatalogViewTracker } from "@/modules/analytics";
-import { DropSection } from "./drop-section";
-import { groupByVolume } from "./volume";
+import type { ColourwayIndex, ProductView } from '@/modules/catalog';
+import { CatalogViewTracker } from '@/modules/analytics';
+import { DropSection } from './drop-section';
+import { groupByVolume } from './volume';
 
 type DropCatalogProps = {
   products: ProductView[];
@@ -24,7 +24,7 @@ export function DropCatalog({ products, colourways }: DropCatalogProps) {
   const volumes = groupByVolume(products);
 
   return (
-    <div id="catalogo" className="flex flex-col items-center gap-12 md:gap-20">
+    <>
       <CatalogViewTracker products={products} />
       {volumes.map((volume, index) => (
         <DropSection
@@ -38,6 +38,6 @@ export function DropCatalog({ products, colourways }: DropCatalogProps) {
           leading={index === 0}
         />
       ))}
-    </div>
+    </>
   );
 }
