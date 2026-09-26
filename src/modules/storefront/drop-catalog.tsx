@@ -36,6 +36,9 @@ export function DropCatalog({ products, colourways }: DropCatalogProps) {
           // is allowed to ask for them eagerly. Every later volume is below
           // by construction, so its photos wait for the viewport.
           leading={index === 0}
+          // On the first volume only: an `id` must be unique, and `/#catalogo`
+          // (nav, empty cart, product 404) should land where the drop starts.
+          id={index === 0 ? 'catalogo' : undefined}
         />
       ))}
     </>

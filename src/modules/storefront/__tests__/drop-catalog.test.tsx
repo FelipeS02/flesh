@@ -92,6 +92,23 @@ describe("DropCatalog", () => {
     expect(container.querySelector("#catalogo")).not.toBeNull();
   });
 
+  it("puts that anchor on the first volume only, so it stays unique", () => {
+    const { container } = render(
+      <DropCatalog
+        colourways={NO_COLOURWAYS}
+        products={[
+          makeProduct({ id: 101, tags: ["drop-1"] }),
+          makeProduct({ id: 201, tags: ["drop-2"] }),
+        ]}
+      />,
+    );
+
+    const anchors = container.querySelectorAll("#catalogo");
+
+    expect(anchors).toHaveLength(1);
+    expect(anchors[0]).toBe(container.querySelector("section"));
+  });
+
   it("renders nothing rather than an empty shell when the catalogue is empty", () => {
     render(<DropCatalog products={[]} colourways={NO_COLOURWAYS} />);
 
