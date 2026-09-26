@@ -1,5 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
+import { checkBotId } from "botid/server";
 import { z } from "zod";
 import { getCheckoutProducts, readTiendanubeConfig, type CheckoutProduct } from "@/modules/catalog";
 import { readClientKey } from "@/lib/client-key";
@@ -50,6 +51,12 @@ type Dependencies = {
   clientGuard: CheckoutRateGuard;
   globalGuard: CheckoutRateGuard;
   readClientKey: () => Promise<string>;
+  // Tiendanube emails `contact_email` the moment a draft order exists, and
+  // nothing proves the shopper owns that address — so a script could make
+  // this store mail anyone. Verifying the address would only mail a code to
+  // the same stranger; what makes the abuse scale is automation, so that is
+  // what gets refused.
+  isBot: () => Promise<boolean>;
   readBuyer: () => Promise<unknown>;
   writeBuyer: (buyer: z.infer<typeof BuyerSchema>) => Promise<void>;
   writePendingOrder: (draftOrderId: number) => Promise<void>;
@@ -67,6 +74,13 @@ const defaultGlobalGuard = createCheckoutRateGuard({ limit: 60, windowMs: 60_000
 async function defaultReadClientKey(): Promise<string> {
   return readClientKey(await headers());
 }
+// Pinned to `basic` rather than left to the dashboard: Deep Analysis bills per
+// call, so switching it on for the project must not silently start charging
+// for every checkout.
+async function defaultIsBot(): Promise<boolean> {
+  const verdict = await checkBotId({ advancedOptions: { checkLevel: "basic" } });
+  return verdict.isBot;
+}
 function defaultDependencies(): Dependencies {
   return {
     getCheckoutProducts,
@@ -74,6 +88,7 @@ function defaultDependencies(): Dependencies {
     clientGuard: defaultClientGuard,
     globalGuard: defaultGlobalGuard,
     readClientKey: defaultReadClientKey,
+    isBot: defaultIsBot,
     readBuyer: readBuyerCookie,
     writeBuyer: writeBuyerCookie,
     writePendingOrder: writePendingOrderCookie,
@@ -93,6 +108,10 @@ export async function startTiendanubeCheckout(input: unknown, dependencies?: Dep
     // must be stopped at its own budget, not the shared one, or it can still
     // starve every other shopper the way the old unkeyed guard did.
     if (!resolved.clientGuard.consume(clientKey)) return unavailable({ reason: "rate_limited" });
+    // After the client guard, so a client already refused never costs a
+    // verdict; before the global breaker, so a bot never spends the budget
+    // every real shopper shares.
+    if (await resolved.isBot()) return unavailable({ reason: "bot_detected" });
     // Resolved before any catalog/provider I/O: a submission with no usable
     // identity (source "none") has nothing to check stock for.
     const resolution = resolveBuyer(parsed.data.buyer, await resolved.readBuyer());

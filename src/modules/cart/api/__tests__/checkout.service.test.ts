@@ -20,8 +20,9 @@ function dependencies() {
   const writePendingOrder = vi.fn(async () => {});
   const reportCheckoutStarted = vi.fn(async () => {});
   const readClientKey = vi.fn(async () => "client-a");
+  const isBot = vi.fn(async () => false);
   return {
-    dependencies: { getCheckoutProducts, createDraftOrder, clientGuard: createCheckoutRateGuard(), globalGuard: createCheckoutRateGuard(), readClientKey, readBuyer, writeBuyer, writePendingOrder, reportCheckoutStarted },
+    dependencies: { getCheckoutProducts, createDraftOrder, clientGuard: createCheckoutRateGuard(), globalGuard: createCheckoutRateGuard(), readClientKey, isBot, readBuyer, writeBuyer, writePendingOrder, reportCheckoutStarted },
     createDraftOrder,
     getCheckoutProducts,
     readBuyer,
@@ -29,6 +30,7 @@ function dependencies() {
     writePendingOrder,
     reportCheckoutStarted,
     readClientKey,
+    isBot,
   };
 }
 
@@ -79,7 +81,7 @@ describe("startTiendanubeCheckout", () => {
   });
 
   it("converts an upstream failure into a generic unavailable outcome", async () => {
-    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, clientGuard: createCheckoutRateGuard(), globalGuard: createCheckoutRateGuard(), readClientKey: async () => "client-a", readBuyer: async () => null, writeBuyer: async () => {}, writePendingOrder: async () => {}, reportCheckoutStarted: async () => {} });
+    const outcome = await startTiendanubeCheckout(INPUT, { getCheckoutProducts: async () => CATALOG, createDraftOrder: async () => { throw new Error("secret upstream detail"); }, clientGuard: createCheckoutRateGuard(), globalGuard: createCheckoutRateGuard(), readClientKey: async () => "client-a", isBot: async () => false, readBuyer: async () => null, writeBuyer: async () => {}, writePendingOrder: async () => {}, reportCheckoutStarted: async () => {} });
     expect(outcome).toEqual({ status: "unavailable", reason: "No pudimos iniciar el checkout. Intentá de nuevo." });
   });
 
@@ -124,6 +126,29 @@ describe("per-client limit and global breaker (T3)", () => {
 
     await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toMatchObject({ status: "unavailable" });
     expect(createDraftOrder).not.toHaveBeenCalled();
+  });
+
+  it("refuses a bot before the global breaker, the catalog, the provider or the buyer cookie", async () => {
+    const { dependencies: deps, isBot, getCheckoutProducts, createDraftOrder, writeBuyer } = dependencies();
+    isBot.mockResolvedValue(true);
+    await expect(startTiendanubeCheckout(INPUT, deps)).resolves.toMatchObject({ status: "unavailable" });
+    expect(deps.globalGuard.size()).toBe(0);
+    expect(getCheckoutProducts).not.toHaveBeenCalled();
+    expect(createDraftOrder).not.toHaveBeenCalled();
+    expect(writeBuyer).not.toHaveBeenCalled();
+  });
+
+  it("does not ask for a bot verdict once the client guard has already refused", async () => {
+    const { dependencies: deps, isBot } = dependencies();
+    deps.clientGuard = createCheckoutRateGuard({ limit: 0 });
+    await startTiendanubeCheckout(INPUT, deps);
+    expect(isBot).not.toHaveBeenCalled();
+  });
+
+  it("does not ask for a bot verdict on malformed input", async () => {
+    const { dependencies: deps, isBot } = dependencies();
+    await startTiendanubeCheckout({ ...INPUT, lines: [] }, deps);
+    expect(isBot).not.toHaveBeenCalled();
   });
 
   it("does not spend the global budget on a no-identity submission", async () => {
@@ -368,6 +393,17 @@ describe("server-side diagnostics", () => {
     await startTiendanubeCheckout(INPUT, deps);
 
     expect(consoleError).toHaveBeenCalledWith("[checkout] unavailable", { reason: "rate_limited" });
+    consoleError.mockRestore();
+  });
+
+  it("names a refusal caused by the bot check", async () => {
+    const consoleError = captureLog();
+    const { dependencies: deps, isBot } = dependencies();
+    isBot.mockResolvedValue(true);
+
+    await startTiendanubeCheckout(INPUT, deps);
+
+    expect(consoleError).toHaveBeenCalledWith("[checkout] unavailable", { reason: "bot_detected" });
     consoleError.mockRestore();
   });
 

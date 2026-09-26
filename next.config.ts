@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { withBotId } from "botid/next/config";
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -30,4 +31,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// Serves the BotID challenge through this origin, so an ad-blocker that drops
+// third-party scripts cannot strip the proof a real shopper's checkout needs.
+export default withBotId(nextConfig);
