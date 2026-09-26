@@ -3,7 +3,8 @@
 import { useEffect } from 'react';
 
 /**
- * Publishes the two heights the mobile gallery has to give back.
+ * Publishes the viewport height and the two heights the mobile gallery has to
+ * give back from it.
  *
  * The stage is meant to be exactly one screenful minus the chrome above and
  * below it: the sticky header band, and the fixed purchase widget. Neither
@@ -25,6 +26,12 @@ import { useEffect } from 'react';
  * already collapsed. Re-measuring there made the stage a marquee taller, so
  * back at the top it slid its thumbnails under the widget. Only a WIDTH change
  * can reflow the band or the widget, so a height-only resize is ignored.
+ *
+ * The viewport itself is frozen the same way. `100svh` is specified never to
+ * move with the toolbar, yet the stage still grew as it retracted on iOS, so
+ * the height the page was first shown at is written down in px instead: the
+ * toolbar is visible on first paint, which makes it the small viewport, the
+ * same value `svh` would give before hydration.
  */
 export function StageMetrics() {
   useEffect(() => {
@@ -44,6 +51,7 @@ export function StageMetrics() {
         '--pdp-widget-height',
         `${widget.getBoundingClientRect().height}px`,
       );
+      root.style.setProperty('--pdp-viewport-height', `${window.innerHeight}px`);
     };
 
     let width = window.innerWidth;

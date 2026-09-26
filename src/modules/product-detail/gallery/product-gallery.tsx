@@ -332,7 +332,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   };
 
   return (
-    <div className='flex h-[calc(100svh-var(--pdp-band-height,6.5rem)-var(--pdp-widget-height,9.5rem))] w-full flex-col max-md:pb-2 gap-4 md:h-auto md:flex-row md:items-start'>
+    <div className='flex h-[calc(var(--pdp-viewport-height,100svh)-var(--pdp-band-height,6.5rem)-var(--pdp-widget-height,9.5rem))] w-full flex-col max-md:pb-2 gap-4 md:h-auto md:flex-row md:items-start'>
       <div
         ref={stage}
         data-gallery-stage

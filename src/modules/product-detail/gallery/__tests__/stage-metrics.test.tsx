@@ -35,13 +35,23 @@ describe("StageMetrics", () => {
     document.body.innerHTML = "";
     root.style.removeProperty("--pdp-band-height");
     root.style.removeProperty("--pdp-widget-height");
+    root.style.removeProperty("--pdp-viewport-height");
   });
 
-  it("publishes both heights on mount", () => {
+  it("publishes all three heights on mount", () => {
     render(<StageMetrics />);
 
     expect(root.style.getPropertyValue("--pdp-band-height")).toBe("104px");
     expect(root.style.getPropertyValue("--pdp-widget-height")).toBe("150px");
+    expect(root.style.getPropertyValue("--pdp-viewport-height")).toBe("664px");
+  });
+
+  it("keeps the first viewport height while the toolbar collapses", () => {
+    render(<StageMetrics />);
+
+    resizeTo(390, 750);
+
+    expect(root.style.getPropertyValue("--pdp-viewport-height")).toBe("664px");
   });
 
   it("keeps the band height when a height-only resize fires mid-scroll", () => {
