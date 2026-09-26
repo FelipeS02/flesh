@@ -1,5 +1,5 @@
-import type { NextConfig } from "next";
-import { withBotId } from "botid/next/config";
+import type { NextConfig } from 'next';
+import { withBotId } from 'botid/next/config';
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -16,7 +16,7 @@ const nextConfig: NextConfig = {
     // Order matters: Next offers these in sequence and the browser takes the
     // first it understands, so WebP stays as the fallback for anything that
     // cannot read AVIF.
-    formats: ["image/avif", "image/webp"],
+    formats: ['image/avif', 'image/webp'],
     // Required since Next 16 — an unlisted `quality` is coerced to the
     // nearest allowed entry rather than honoured, so without 90 here the
     // gallery would silently fall back to 75 and the config would read as
@@ -24,8 +24,8 @@ const nextConfig: NextConfig = {
     qualities: [75, 90],
     remotePatterns: [
       {
-        protocol: "https",
-        hostname: "dcdn-us.mitiendanube.com",
+        protocol: 'https',
+        hostname: 'dcdn-us.mitiendanube.com',
       },
     ],
   },

@@ -13,7 +13,7 @@ type DropCatalogProps = {
 };
 
 /**
- * The landing's product area, and the target of the nav's "Catalogo" link.
+ * The landing's product area, and the target of the nav's "Catálogo" link.
  *
  * Grouping lives here rather than in `page.tsx` on purpose: the page is the
  * one async boundary in the app and therefore the one place Vitest cannot
@@ -36,6 +36,9 @@ export function DropCatalog({ products, colourways }: DropCatalogProps) {
           // is allowed to ask for them eagerly. Every later volume is below
           // by construction, so its photos wait for the viewport.
           leading={index === 0}
+          // On the first volume only: an `id` must be unique, and `/#catalogo`
+          // (nav, empty cart, product 404) should land where the drop starts.
+          id={index === 0 ? 'catalogo' : undefined}
         />
       ))}
     </>

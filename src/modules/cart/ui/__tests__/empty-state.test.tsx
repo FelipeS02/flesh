@@ -32,9 +32,9 @@ describe("EmptyState", () => {
       <EmptyState state={{ status: "ready", lines: [], notices: [] }} onBrowse={vi.fn()} />,
     );
 
-    expect(screen.getByText("Tu carrito esta vacio")).not.toBeNull();
+    expect(screen.getByText("Tu carrito está vacío")).not.toBeNull();
     expect(
-      screen.getByText("Todavia no elegiste ninguna pieza del Volumen I"),
+      screen.getByText("Todavía no elegiste ninguna pieza del Volumen I"),
     ).not.toBeNull();
   });
 
@@ -46,7 +46,7 @@ describe("EmptyState", () => {
       />,
     );
 
-    expect(screen.queryByText(/vacio/i)).toBeNull();
+    expect(screen.queryByText(/vacío/i)).toBeNull();
     expect(screen.queryByRole("link")).toBeNull();
   });
 
@@ -75,13 +75,14 @@ describe("EmptyState", () => {
     expect(onBrowse).toHaveBeenCalledTimes(1);
   });
 
-  // The display face (Kraut) carries no accented Latin-1 glyphs, so an accent
-  // anywhere in this block is a character that silently fails to draw.
-  it("keeps every line inside ASCII, as the display face requires", () => {
+  // The shipped Kraut is a modified build with the Spanish accents drawn in,
+  // so the old ASCII-only workaround is gone: a stripped accent is a spelling
+  // mistake now, not a missing glyph.
+  it("spells its Spanish with accents", () => {
     const { container } = render(
       <EmptyState state={{ status: "ready", lines: [], notices: [] }} onBrowse={vi.fn()} />,
     );
 
-    expect(container.textContent).toMatch(/^[\x00-\x7F]*$/);
+    expect(container.textContent).not.toMatch(/esta vacio|Todavia/);
   });
 });

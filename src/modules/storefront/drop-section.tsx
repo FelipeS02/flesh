@@ -1,10 +1,11 @@
-import type { CSSProperties } from "react";
+import type { ComponentProps, CSSProperties } from "react";
+import { cn } from "@/lib/utils";
 import type { ColourwayIndex } from "@/modules/catalog";
 import { balancedColumns } from "./columns";
 import { ProductCard } from "./product-card";
 import type { VolumeGroup } from "./volume";
 
-type DropSectionProps = {
+type DropSectionProps = ComponentProps<"section"> & {
   group: VolumeGroup;
   colourways: ColourwayIndex;
   /**
@@ -32,6 +33,8 @@ export function DropSection({
   titled,
   colourways,
   leading = false,
+  className,
+  ...props
 }: DropSectionProps) {
   const heading = titled ? group.title : null;
   const columns = balancedColumns(group.products.length);
@@ -45,7 +48,8 @@ export function DropSection({
   return (
     <section
       aria-label={group.title ?? undefined}
-      className="flex w-full flex-col items-center gap-5 md:gap-8"
+      {...props}
+      className={cn("flex w-full flex-col items-center gap-5 md:gap-8", className)}
     >
       {heading && (
         <h2 className="font-display text-2xl text-foreground md:text-4xl">

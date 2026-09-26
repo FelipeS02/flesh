@@ -205,7 +205,7 @@ describe('CartDrawer', () => {
 
     expect(screen.getByText('Remera Classic')).not.toBeNull();
     expect(screen.getByText('Subtotal')).not.toBeNull();
-    expect(screen.queryByText('Tu carrito esta vacio')).toBeNull();
+    expect(screen.queryByText('Tu carrito está vacío')).toBeNull();
   });
 
   it('shows empty only once a ready cart has zero lines', () => {
@@ -233,7 +233,7 @@ describe('CartDrawer', () => {
     // RTL runs effects before this assertion, so the ready branch is the real
     // client outcome. The dedicated server-render assertion below catches the
     // hydrating branch without pretending jsdom can pause effects.
-    expect(screen.getByText('Tu carrito esta vacio')).not.toBeNull();
+    expect(screen.getByText('Tu carrito está vacío')).not.toBeNull();
     expect(
       screen.getByText('Un producto ya no está disponible.'),
     ).not.toBeNull();

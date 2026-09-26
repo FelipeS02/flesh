@@ -37,18 +37,18 @@ const copperplate = localFont({
   display: 'swap',
 });
 
-// Kraut-type-a-fuck (Mr.Fisk, 2003), the display face.
+// Kraut-type-a-fuck (Mr.Fisk, 2003), the display face — a MODIFIED build.
 //
-// The unicode-range below is MEASURED from the binary, never guessed:
+// Upstream Kraut ships printable ASCII plus two private-use glyphs and nothing
+// else. The shipped file has the Spanish Latin-1 letters drawn in by hand
+// (commit e3851c5), measured from the WOFF2's cmap:
 //
-//   fc-query --format='%{charset}\n' kraut.ttf   # the upstream binary
-//   -> 20-7e e000-e001
+//   -> 20-7e a1 bf-c1 c9-d3 da-dc e1 e9-f3 fa-fc e000-e001
 //
-// That is printable ASCII plus two private-use glyphs, and NOTHING else. The
-// font has no accented Latin coverage at all: no á é í ó ú ñ, no ¿ ¡. Since
-// the UI copy is Spanish, declaring the range is what makes the browser fall
-// through to the next family in `--font-display` for those characters instead
-// of stretching Kraut over glyphs it does not have.
+// That covers á é í ó ú ü ñ ¿ ¡ in both cases, so display copy may carry its
+// accents. Anything outside that set still falls through to the next family
+// in `--font-display`: redraw from the upstream binary and the accents are gone
+// again, which is why this is measured and not remembered.
 const kraut = localFont({
   src: './fonts/kraut.woff2',
   variable: '--font-kraut',

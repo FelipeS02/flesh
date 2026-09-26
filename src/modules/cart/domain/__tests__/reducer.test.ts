@@ -130,7 +130,7 @@ describe("cartReducer", () => {
  * The hydration union, per the cart-state decision: while the cart is
  * hydrating it has NO readable `lines`, so no surface can assert a fact about
  * a cart nobody has read yet. A badge that shows 0 and jumps to 3 is a glitch;
- * "Tu carrito esta vacio" over three stored garments is a lie. The tests below
+ * "Tu carrito está vacío" over three stored garments is a lie. The tests below
  * are about that guarantee, and about the one thing that must survive it: a
  * click that lands before storage was read.
  */
