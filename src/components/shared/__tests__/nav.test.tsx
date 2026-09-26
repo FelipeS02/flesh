@@ -22,7 +22,7 @@ const label = {
 describe("Nav", () => {
   it("exposes exactly four nav items, in the designed order", () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
-      "Catalogo",
+      "Catálogo",
       "Instagram",
       "Devolución",
       "Playlist",
@@ -67,7 +67,7 @@ describe("Nav", () => {
     expect(playlist.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
-  it("does NOT mark internal links (Catalogo, Devolucion) with target or rel", () => {
+  it("does NOT mark internal links (Catálogo, Devolución) with target or rel", () => {
     render(<Nav />);
 
     const catalogo = screen.getByRole("link", { name: label.catalogo });
@@ -79,7 +79,7 @@ describe("Nav", () => {
     expect(devolucion.getAttribute("rel")).toBeNull();
   });
 
-  it("marks Catalogo active only on the root pathname", () => {
+  it("marks Catálogo active only on the root pathname", () => {
     route.pathname = "/";
     render(<Nav />);
 

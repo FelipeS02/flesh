@@ -8,7 +8,7 @@ import type { CartLine, CartLineId, CartNotice } from "./line";
  * With a flag, `lines` is always readable and every consumer has to REMEMBER
  * to check the flag first. "Zero lines renders the empty state" would then be
  * true of a cart that simply has not been read yet, which is exactly the bug:
- * a badge showing 0 that jumps to 3 is a glitch, and "Tu carrito esta vacio"
+ * a badge showing 0 that jumps to 3 is a glitch, and "Tu carrito está vacío"
  * over three stored garments is a lie with the face of authority — worse than
  * showing nothing. With the union, `state.lines.length === 0` DOES NOT COMPILE
  * while hydrating. The compiler enforces what a comment could only ask for.

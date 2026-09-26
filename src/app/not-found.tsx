@@ -60,7 +60,7 @@ export default function NotFound() {
         asChild
         className="mt-8 h-16 w-full max-w-104 font-display text-xl hover:bg-primary/90 md:text-[28px]"
       >
-        <Link href="/">Volver al catalogo</Link>
+        <Link href="/">Volver al catálogo</Link>
       </Button>
     </main>
   );

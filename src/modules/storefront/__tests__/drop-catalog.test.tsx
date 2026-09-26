@@ -81,7 +81,7 @@ describe("DropCatalog", () => {
     ).toEqual(["Volumen I", "Volumen II"]);
   });
 
-  it("carries the anchor the nav's Catalogo link points at", () => {
+  it("carries the anchor the nav's Catálogo link points at", () => {
     const { container } = render(
       <DropCatalog
         colourways={NO_COLOURWAYS}

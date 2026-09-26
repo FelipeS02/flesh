@@ -67,7 +67,7 @@ export default function ProductNotFound() {
           asChild
           className="mt-7 h-16 w-full font-display text-xl hover:bg-primary/90 md:mt-10 md:max-w-104 md:text-[28px]"
         >
-          <Link href={CATALOG_HREF}>Volver al catalogo</Link>
+          <Link href={CATALOG_HREF}>Volver al catálogo</Link>
         </Button>
       </div>
     </main>

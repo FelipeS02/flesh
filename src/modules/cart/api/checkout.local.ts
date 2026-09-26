@@ -4,9 +4,7 @@ import type { CartLineId, CheckoutOutcome, CheckoutPort } from "./port";
 
 /**
  * The message the CTA renders when the port answers `unavailable`, which today
- * is every real checkout attempt. Body copy, so accents are correct here — the
- * ASCII-only rule applies to `$font-display` strings, not to this (see the
- * design's resolved open question about Copperplate's measured charset).
+ * is every real checkout attempt.
  *
  * It is a named export rather than an inline literal so a test can assert the
  * exact outcome the UI will show, instead of asserting that some string came

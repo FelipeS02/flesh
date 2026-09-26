@@ -13,7 +13,7 @@ type DropCatalogProps = {
 };
 
 /**
- * The landing's product area, and the target of the nav's "Catalogo" link.
+ * The landing's product area, and the target of the nav's "Catálogo" link.
  *
  * Grouping lives here rather than in `page.tsx` on purpose: the page is the
  * one async boundary in the app and therefore the one place Vitest cannot

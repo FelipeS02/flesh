@@ -32,7 +32,7 @@ const CATALOG_HREF = "/#catalogo";
  * `status` first is the only thing the discriminated union lets a caller do
  * at all: `state.lines` does not exist on the `hydrating` member, so this
  * condition is the only one that compiles. A cart nobody has read yet is not
- * empty, it is UNKNOWN — announcing "Tu carrito esta vacio" over three
+ * empty, it is UNKNOWN — announcing "Tu carrito está vacío" over three
  * stored lines the visitor cannot see yet would be a lie with the face of
  * authority, which is exactly what the union exists to make impossible
  * (design D4 / obs #248).
@@ -50,20 +50,15 @@ export function EmptyState({ state, onBrowse }: EmptyStateProps) {
 
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 py-20 text-center">
-      {/* ASCII-only: display-font Spanish copy cannot carry accents (spec
-          "Checkout and empty-state copy is ASCII-only"; Kraut's measured
-          `unicode-range` has no Latin-1 accented block). The rule is applied
-          to the whole block rather than to the display line alone, so moving a
-          phrase between the two faces can never introduce a missing glyph. */}
       <p className="font-display text-2xl text-foreground md:text-3xl">
-        Tu carrito esta vacio
+        Tu carrito está vacío
       </p>
 
       {/* Cased in the source and uppercased in CSS, not typed in capitals: a
           screen reader given "VOLUMEN" may spell it out letter by letter,
           while `text-transform` changes only what is painted. */}
       <p className="max-w-64 font-sans text-[11px] leading-relaxed tracking-control text-muted-foreground uppercase">
-        Todavia no elegiste ninguna pieza del Volumen I
+        Todavía no elegiste ninguna pieza del Volumen I
       </p>
 
       <Link

@@ -20,6 +20,12 @@ describe("ProductNotFound", () => {
     ).toEqual(["/#catalogo"]);
   });
 
+  it("spells catálogo with its accent", () => {
+    render(<ProductNotFound />);
+
+    expect(screen.queryByText(/catalogo/)).toBeNull();
+  });
+
   it("keeps the wordmark as the way home", () => {
     render(<ProductNotFound />);
 

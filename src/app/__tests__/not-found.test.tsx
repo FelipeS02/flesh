@@ -9,6 +9,12 @@ describe("NotFound (general)", () => {
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
 
+  it("spells catálogo with its accent", () => {
+    render(<NotFound />);
+
+    expect(screen.queryByText(/catalogo/)).toBeNull();
+  });
+
   it("reads the numeral as 404, not as two fours and an image", () => {
     render(<NotFound />);
 
