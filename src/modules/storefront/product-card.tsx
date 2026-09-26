@@ -114,7 +114,7 @@ export function ProductCard({
         </h3>
 
         {variant && (
-          <div className='flex flex-col mt-2'>
+          <div className='flex flex-col mt-2 -ml-1'>
             <span className='font-display text-base text-muted-foreground md:text-2xl '>
               {formatMoney(variant.price)}
               {/* `<s>` and not a strikethrough class, for the same reason the
