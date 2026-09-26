@@ -233,6 +233,35 @@ describe("ProductGallery", () => {
     expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
   });
 
+  it("clamps a mobile scroll against the CURRENT image count after the gallery shrinks", () => {
+    const { container, rerender } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    rerender(<ProductGallery images={FIVE_IMAGES.slice(0, 3)} title={TITLE} />);
+    observeMobileIndex(container, 4);
+
+    const rail = thumbnails();
+    expect(rail).toHaveLength(3);
+    expect(rail[2]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps one mobile scroll subscription when the image count changes", () => {
+    const { container, rerender } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+    const stage = mobileStage(container);
+    const addEventListener = vi.spyOn(stage, "addEventListener");
+    const removeEventListener = vi.spyOn(stage, "removeEventListener");
+
+    rerender(<ProductGallery images={FIVE_IMAGES.slice(0, 3)} title={TITLE} />);
+
+    const scrollCalls = (spy: typeof addEventListener) =>
+      spy.mock.calls.filter(([type]) => type === "scroll");
+    expect(scrollCalls(addEventListener)).toHaveLength(0);
+    expect(scrollCalls(removeEventListener)).toHaveLength(0);
+  });
+
   it("renders thumbnails as native buttons without intercepting Enter", () => {
     render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
 

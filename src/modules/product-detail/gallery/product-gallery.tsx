@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import Image from 'next/image';
 import {
   Carousel,
@@ -153,12 +160,13 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     }
   }, []);
 
-  // Memoized for the same reason as `alignMobile` above: it now feeds a
-  // native `addEventListener` in the effect below rather than a JSX prop, so
-  // an unmemoized function would force that effect to tear the listener down
-  // and reattach it on every render instead of only when the slide count
-  // genuinely changes.
-  const observeMobileScroll = useCallback(() => {
+  // An Effect Event, not a `useCallback`: it only ever runs from the scroll
+  // listener the effect below attaches, and it must read the CURRENT slide
+  // count without that count becoming a reason to resubscribe. As a callback
+  // dependency, every change to the gallery tore the listener down and
+  // reattached it. `alignMobile` cannot follow: `select` calls it from a click
+  // handler, and an Effect Event may only be called from inside an effect.
+  const observeMobileScroll = useEffectEvent(() => {
     const node = mobileStage.current;
     if (!node || node.clientWidth <= 0) return;
 
@@ -167,7 +175,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     setSelectedIndex(
       clampIndex(Math.round(node.scrollLeft / node.clientWidth), ordered.length),
     );
-  }, [ordered.length]);
+  });
 
   // The single Embla instance's own viewport node is now ALSO the native
   // scroll container mobile swipes against (see `viewportClassName` on
@@ -182,9 +190,10 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     mobileStage.current = node;
     if (!node || isDesktop) return;
 
-    node.addEventListener('scroll', observeMobileScroll);
-    return () => node.removeEventListener('scroll', observeMobileScroll);
-  }, [api, isDesktop, observeMobileScroll]);
+    const onScroll = () => observeMobileScroll();
+    node.addEventListener('scroll', onScroll);
+    return () => node.removeEventListener('scroll', onScroll);
+  }, [api, isDesktop]);
 
   // A changed identity/order can make the same index refer to another image.
   // Reset both engines together rather than carrying a stale visual selection.
