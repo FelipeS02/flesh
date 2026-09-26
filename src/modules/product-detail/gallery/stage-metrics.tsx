@@ -19,6 +19,12 @@ import { useEffect } from 'react';
  * edge case: a reload restored mid-scroll measures a band that is already
  * collapsed and leaves the stage short by the marquee's height until the next
  * resize. Visible only on that reload, and only until the viewport changes.
+ *
+ * "Resize only" is not enough on its own: mobile Safari and every iOS browser
+ * report the toolbar collapsing on scroll as a resize, and by then the band is
+ * already collapsed. Re-measuring there made the stage a marquee taller, so
+ * back at the top it slid its thumbnails under the widget. Only a WIDTH change
+ * can reflow the band or the widget, so a height-only resize is ignored.
  */
 export function StageMetrics() {
   useEffect(() => {
@@ -40,10 +46,19 @@ export function StageMetrics() {
       );
     };
 
-    sync();
-    window.addEventListener('resize', sync, { passive: true });
+    let width = window.innerWidth;
 
-    return () => window.removeEventListener('resize', sync);
+    const onResize = () => {
+      if (window.innerWidth === width) return;
+
+      width = window.innerWidth;
+      sync();
+    };
+
+    sync();
+    window.addEventListener('resize', onResize, { passive: true });
+
+    return () => window.removeEventListener('resize', onResize);
   }, []);
 
   return null;
