@@ -1,6 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
 import Image from 'next/image';
 import {
   Carousel,
@@ -121,7 +128,10 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   const [api, setApi] = useState<DesktopApi>();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const stage = useRef<HTMLDivElement>(null);
-  const mobileStage = useRef<HTMLDivElement>(null);
+  // Typed as the primitive's own return, not `HTMLDivElement`: this now
+  // comes from Embla's `rootNode()` (see the effect below) rather than a JSX
+  // `ref`, and the carousel API declares that accessor as `HTMLElement`.
+  const mobileStage = useRef<HTMLElement>(null);
   const pendingDesktopTarget = useRef<number | null>(null);
 
   // `position` is the wire's ordering field. The incoming array is incidental.
@@ -132,20 +142,6 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   const previousImageSignature = useRef(imageSignature);
   const selected = clampIndex(selectedIndex, ordered.length);
   const hasRail = ordered.length > 1;
-
-  // Carousel does not publish `undefined` when it unmounts, so the dead Embla
-  // identity outlives the desktop branch and every effect below would go on
-  // commanding it. Dropping it while rendering the switch — React's "adjusting
-  // state when a prop changes" — is what keeps a committed render from ever
-  // pairing the current `isDesktop` with the other branch's engine. An effect
-  // cleared it a render too late, and only on the way out to mobile: coming
-  // back to desktop still handed the stale api to the effects below until
-  // Embla republished.
-  const [renderedDesktop, setRenderedDesktop] = useState(isDesktop);
-  if (renderedDesktop !== isDesktop) {
-    setRenderedDesktop(isDesktop);
-    setApi(undefined);
-  }
 
   // Kept manual, unlike the plain values above: this identity gates the mobile
   // handoff effect, and Vitest runs without `babel-plugin-react-compiler`, so
@@ -163,6 +159,41 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
       node.scrollLeft = left;
     }
   }, []);
+
+  // An Effect Event, not a `useCallback`: it only ever runs from the scroll
+  // listener the effect below attaches, and it must read the CURRENT slide
+  // count without that count becoming a reason to resubscribe. As a callback
+  // dependency, every change to the gallery tore the listener down and
+  // reattached it. `alignMobile` cannot follow: `select` calls it from a click
+  // handler, and an Effect Event may only be called from inside an effect.
+  const observeMobileScroll = useEffectEvent(() => {
+    const node = mobileStage.current;
+    if (!node || node.clientWidth <= 0) return;
+
+    // Observation only: correcting a touch gesture fights the browser's
+    // momentum and snap physics. Explicit thumbnail navigation is above.
+    setSelectedIndex(
+      clampIndex(Math.round(node.scrollLeft / node.clientWidth), ordered.length),
+    );
+  });
+
+  // The single Embla instance's own viewport node is now ALSO the native
+  // scroll container mobile swipes against (see `viewportClassName` on
+  // `CarouselContent`). Reading it back through `rootNode()` once the engine
+  // exists reaches that element without asking the primitive to forward a
+  // second ref onto it. The listener only ever attaches below `md`: on
+  // desktop the viewport is `overflow-hidden` and Embla repositions it with a
+  // transform, so a native `scroll` event there would never correspond to a
+  // real selection change.
+  useEffect(() => {
+    const node = api?.rootNode() ?? null;
+    mobileStage.current = node;
+    if (!node || isDesktop) return;
+
+    const onScroll = () => observeMobileScroll();
+    node.addEventListener('scroll', onScroll);
+    return () => node.removeEventListener('scroll', onScroll);
+  }, [api, isDesktop]);
 
   // A changed identity/order can make the same index refer to another image.
   // Reset both engines together rather than carrying a stale visual selection.
@@ -194,8 +225,8 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     api.on('select', sync);
     api.on('reInit', sync);
 
-    // A thumbnail can be activated between the desktop branch mounting and
-    // Embla publishing its API. Deliver that command before normal handoff
+    // A thumbnail can be activated between the gallery mounting and Embla
+    // publishing its API. Deliver that command before normal handoff
     // alignment, otherwise the stale confirmed index silently wins.
     if (!flushPendingTarget()) api.scrollTo(selected, true);
 
@@ -205,7 +236,8 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     };
   }, [api, isDesktop, ordered.length]);
 
-  // Leaving desktop invalidates commands queued for its unmounted engine.
+  // Leaving desktop invalidates commands queued for the desktop engine while
+  // it was active — the engine itself now stays mounted, only inactive.
   // Mobile handoff aligns only the last position an engine actually confirmed.
   useEffect(() => {
     if (isDesktop) return;
@@ -272,17 +304,6 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     alignMobile(nextIndex, 'smooth');
   }
 
-  function observeMobileScroll() {
-    const node = mobileStage.current;
-    if (!node || node.clientWidth <= 0) return;
-
-    // Observation only: correcting a touch gesture fights the browser's
-    // momentum and snap physics. Explicit thumbnail navigation is above.
-    setSelectedIndex(
-      clampIndex(Math.round(node.scrollLeft / node.clientWidth), ordered.length),
-    );
-  }
-
   const renderImage = (image: ImageView, index: number) => {
     // The stage is 560 CSS px, so at 2x it needs ~1120 — past every
     // derivative the CDN has generated (the widest is 640). `mediaSource`
@@ -339,51 +360,50 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
         data-orientation={isDesktop ? 'vertical' : 'horizontal'}
         className='relative -mx-4 min-h-0 w-[calc(100%+2rem)] flex-1 md:mx-0 md:w-full md:min-w-0'
       >
-        {isDesktop ? (
-          <Carousel
-            opts={{ duration: 20 }}
-            orientation='vertical'
-            setApi={setApi}
-            className={cn(
-              'h-full w-full mask-y-from-(--gallery-mask-stop,100%) *:data-[slot=carousel-content]:h-full mx-auto md:max-w-220',
-              dimmed && 'opacity-40',
+        {/*
+          One tree for both layouts: CSS (`md:`) owns the layout switch, not
+          React. `active: false` below `md` still builds Embla's engine (so
+          `selectedScrollSnap`/`slideNodes`/`scrollProgress` all work) but
+          skips translate/drag/resize init — real native scroll-snap owns the
+          gesture there instead, on the viewport `CarouselContent` exposes via
+          `viewportClassName`. Crossing the breakpoint runs Embla's own
+          `reActivate`, and the server-painted hero `<img>` never unmounts.
+        */}
+        <Carousel
+          orientation='vertical'
+          opts={{
+            duration: 20,
+            active: false,
+            breakpoints: { [DESKTOP_QUERY]: { active: true } },
+          }}
+          setApi={setApi}
+          aria-label={`Galería de imágenes de ${title}`}
+          className={cn(
+            'h-full w-full mx-auto *:data-[slot=carousel-content]:h-full',
+            'mask-b-from-98% md:mask-y-from-(--gallery-mask-stop,100%) md:max-w-220',
+            dimmed && 'opacity-40',
+          )}
+        >
+          <CarouselContent
+            // Below `md` this IS the mobile stage: Embla stays inactive, so
+            // nothing fights the browser's own scroll-snap physics.
+            viewportClassName={cn(
+              'overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden',
+              'md:overflow-hidden md:snap-none',
             )}
-          >
-            <CarouselContent className='mt-0 ml-0 h-full md:h-180.5'>
-              {ordered.map((image, index) => (
-                <CarouselItem key={image.id} className='pt-0 pl-0'>
-                  <div className='relative size-full'>{renderImage(image, index)}</div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-          </Carousel>
-        ) : (
-          <div
-            ref={mobileStage}
-            data-gallery-mobile-stage
-            role='region'
-            aria-label={`Galería de imágenes de ${title}`}
-            aria-roledescription='carousel'
-            onScroll={observeMobileScroll}
-            className={cn(
-              'flex h-full min-h-0 w-full snap-x snap-mandatory overflow-x-auto scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden mask-b-from-98%',
-              dimmed && 'opacity-40',
-            )}
+            className='mt-0 ml-0 h-full flex-row md:h-180.5 md:flex-col'
           >
             {ordered.map((image, index) => (
-              <div
+              <CarouselItem
                 key={image.id}
-                role='group'
                 aria-label={`Imagen ${index + 1} de ${ordered.length}`}
-                aria-roledescription='slide'
-                data-slot='carousel-item'
-                className='relative min-w-full shrink-0 snap-center'
+                className='min-w-full shrink-0 snap-center pt-0 pl-0 md:min-w-0'
               >
-                {renderImage(image, index)}
-              </div>
+                <div className='relative size-full'>{renderImage(image, index)}</div>
+              </CarouselItem>
             ))}
-          </div>
-        )}
+          </CarouselContent>
+        </Carousel>
 
         {badge && (
           <div data-gallery-badge className='absolute top-3 left-7 md:top-4 md:left-4'>

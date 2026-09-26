@@ -48,6 +48,9 @@ vi.mock("embla-carousel-react", async () => {
         scrollTo,
         selectedScrollSnap: () => emblaHarness.selected,
         slideNodes: () => emblaHarness.slides,
+        // The single-tree gallery reads this to find the node it hands
+        // native scroll behaviour to below `md` — see `product-gallery.tsx`.
+        rootNode: () => emblaHarness.viewport,
       };
 
       emblaHarness.api = api;
@@ -112,10 +115,13 @@ function slideFilters(container: HTMLElement): string[] {
   ).map((slide) => slide.style.filter);
 }
 
+// The single tree has no mobile-only element any more: below `md` this same
+// node — Embla's own viewport, exposed as `data-slot="carousel-content"` —
+// IS the native scroll-snap container (see `viewportClassName`).
 function mobileStage(container: HTMLElement): HTMLDivElement {
-  const stage = container.querySelector<HTMLDivElement>("[data-gallery-mobile-stage]");
+  const stage = container.querySelector<HTMLDivElement>('[data-slot="carousel-content"]');
 
-  if (!stage) throw new Error("Expected the native mobile gallery stage");
+  if (!stage) throw new Error("Expected the carousel's viewport element");
 
   return stage;
 }
@@ -227,6 +233,35 @@ describe("ProductGallery", () => {
     expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
   });
 
+  it("clamps a mobile scroll against the CURRENT image count after the gallery shrinks", () => {
+    const { container, rerender } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+
+    rerender(<ProductGallery images={FIVE_IMAGES.slice(0, 3)} title={TITLE} />);
+    observeMobileIndex(container, 4);
+
+    const rail = thumbnails();
+    expect(rail).toHaveLength(3);
+    expect(rail[2]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("keeps one mobile scroll subscription when the image count changes", () => {
+    const { container, rerender } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+    const stage = mobileStage(container);
+    const addEventListener = vi.spyOn(stage, "addEventListener");
+    const removeEventListener = vi.spyOn(stage, "removeEventListener");
+
+    rerender(<ProductGallery images={FIVE_IMAGES.slice(0, 3)} title={TITLE} />);
+
+    const scrollCalls = (spy: typeof addEventListener) =>
+      spy.mock.calls.filter(([type]) => type === "scroll");
+    expect(scrollCalls(addEventListener)).toHaveLength(0);
+    expect(scrollCalls(removeEventListener)).toHaveLength(0);
+  });
+
   it("renders thumbnails as native buttons without intercepting Enter", () => {
     render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
 
@@ -310,37 +345,35 @@ describe("ProductGallery", () => {
     expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("does not let an unmounted Embla API consume a selector command on desktop re-entry", () => {
-    act(() => setViewport("desktop"));
+  // The whole point of the single-tree rewrite: Embla used to unmount and
+  // remount across the breakpoint (a fresh instance each time), which is
+  // exactly what let a stale API from the OLD instance silently swallow a
+  // command meant for the new one. One persistent instance removes the class
+  // of bug rather than guarding around it.
+  it("keeps one Embla instance alive across a mobile-desktop-mobile round trip", () => {
     render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+    expect(emblaHarness.apis).toHaveLength(1);
 
-    const oldApi = emblaHarness.apis[0]!;
-    oldApi.scrollTo.mockClear();
-
+    act(() => setViewport("desktop"));
     act(() => setViewport("mobile"));
-    setEmblaReady(false);
     act(() => setViewport("desktop"));
 
-    const newApi = emblaHarness.apis[1]!;
-    expect(newApi.api).not.toBe(oldApi.api);
-    const oldCallCount = oldApi.scrollTo.mock.calls.length;
+    expect(emblaHarness.apis).toHaveLength(1);
+  });
 
-    fireEvent.click(thumbnails()[2]!);
+  // This is the acceptance criterion the whole change exists for: the server
+  // paints the mobile branch (see `useMediaQuery`'s server snapshot), and
+  // hydration must not tear that tree down to mount a desktop one — the
+  // hero `<img>` a visitor's LCP is measured against has to survive the flip.
+  it("keeps the hero image as the same DOM node across the mobile-to-desktop hydration flip", () => {
+    const { container } = render(
+      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+    );
+    const heroBefore = slideImages(container)[0];
 
-    expect(oldApi.scrollTo).toHaveBeenCalledTimes(oldCallCount);
-    expect(newApi.scrollTo).not.toHaveBeenCalled();
-    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+    act(() => setViewport("desktop"));
 
-    setEmblaReady(true);
-
-    expect(oldApi.scrollTo).toHaveBeenCalledTimes(oldCallCount);
-    expect(newApi.scrollTo).toHaveBeenCalledTimes(1);
-    expect(newApi.scrollTo).toHaveBeenCalledWith(2);
-    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
-
-    emitEmblaSelection(2);
-
-    expect(thumbnails()[2]!.getAttribute("aria-pressed")).toBe("true");
+    expect(slideImages(container)[0]).toBe(heroBefore);
   });
 
   // How the blur behaves *between* snaps is `slide-blur.test.ts`'s job —

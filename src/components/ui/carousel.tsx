@@ -132,13 +132,22 @@ function Carousel({
   )
 }
 
-function CarouselContent({ className, ...props }: React.ComponentProps<"div">) {
+function CarouselContent({
+  className,
+  viewportClassName,
+  ...props
+}: React.ComponentProps<"div"> & { viewportClassName?: string }) {
   const { carouselRef, orientation } = useCarousel()
 
   return (
     <div
       ref={carouselRef}
-      className="overflow-hidden"
+      // This div is Embla's OWN scroll container — `carouselRef` is the exact
+      // node `useEmblaCarousel` hands to the engine as its root. It is the
+      // only element a caller can turn into a native scrollable viewport (for
+      // a breakpoint where Embla itself stays inactive), and the primitive
+      // otherwise never exposes it to a caller at all.
+      className={cn("overflow-hidden", viewportClassName)}
       data-slot="carousel-content"
     >
       <div
