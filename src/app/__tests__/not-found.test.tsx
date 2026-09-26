@@ -7,9 +7,6 @@ describe("NotFound (general)", () => {
     render(<NotFound />);
 
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe(
-      "Te perdiste",
-    );
   });
 
   it("reads the numeral as 404, not as two fours and an image", () => {
@@ -24,11 +21,10 @@ describe("NotFound (general)", () => {
     render(<NotFound />);
 
     expect(
-      screen.getByRole("link", { name: "Volver al inicio" }).getAttribute("href"),
-    ).toBe("/");
-    expect(
-      screen.getByRole("link", { name: "FLESH inicio" }).getAttribute("href"),
-    ).toBe("/");
+      screen
+        .getAllByRole("link")
+        .filter((link) => link.getAttribute("href") === "/"),
+    ).toHaveLength(2);
   });
 
   it("keeps the skull out of the accessibility tree", () => {

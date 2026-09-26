@@ -10,9 +10,6 @@ import { Button } from "@/components/ui/button";
  * no video plate, no cart. `bg-background` is therefore a real ground, the same
  * one `/acceso` stands on, and the gate's skull is borrowed here as the zero of
  * the numeral.
- *
- * Every display line is ASCII on purpose: Kraut has no accented glyphs, and a
- * fallback serif stepping in mid-word reads as a rendering bug.
  */
 export default function NotFound() {
   return (
@@ -22,7 +19,7 @@ export default function NotFound() {
         aria-label="FLESH inicio"
         className="absolute top-10 left-1/2 -translate-x-1/2 md:top-11"
       >
-        <FleshLogotype className="w-47.5" />
+        <FleshLogotype className="w-20 md:w-40" />
       </Link>
 
       {/* One image to assistive tech, labelled with the number it draws:
@@ -34,7 +31,7 @@ export default function NotFound() {
         className="flex items-center gap-1 font-display text-[140px] leading-none text-foreground md:gap-2 md:text-[300px]"
       >
         <span>4</span>
-        <span className="relative block aspect-square w-37.5 md:w-75">
+        <span className="relative block aspect-square -mt-5 w-37.5 md:w-75">
           {/* The artwork's own ground is black, so at full opacity it melts
               into `bg-background` instead of showing as a square. */}
           <Image
@@ -63,7 +60,7 @@ export default function NotFound() {
         asChild
         className="mt-8 h-16 w-full max-w-104 font-display text-xl hover:bg-primary/90 md:text-[28px]"
       >
-        <Link href="/">Volver al inicio</Link>
+        <Link href="/">Volver al catalogo</Link>
       </Button>
     </main>
   );
