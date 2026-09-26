@@ -72,7 +72,7 @@ function DialogContent({
       >
         {styledBackground && (
           <Image
-            className='-z-1 opacity-20'
+            className='-z-1 opacity-20 object-cover object-top'
             fill
             sizes='(max-width: 383px) 100vw, 384px'
             src={DialogBackground}
@@ -143,7 +143,7 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     <DialogPrimitive.Title
       data-slot='dialog-title'
       className={cn(
-        'font-heading text-base leading-none font-medium',
+        'text-xl font-display leading-none font-medium',
         className,
       )}
       {...props}

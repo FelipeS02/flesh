@@ -53,7 +53,7 @@ export function AxisSelector({
     <div className={cn("flex flex-col", compact ? "gap-1" : "gap-2")}>
       <p
         className={cn(
-          "flex items-center gap-2 font-sans tracking-control text-muted-foreground",
+          "flex items-center gap-2 font-sans tracking-control",
           // Non-compact grows to `justify-between` so the trigger lands on
           // the RIGHT of the row — harmless with one child when there is no
           // trigger to show.

@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from 'react';
+import { cn } from '@/lib/utils';
 import {
   deriveAxisStates,
   formatMoney,
@@ -10,11 +10,14 @@ import {
   type Selection,
   type VariantMatrix,
   type VariantView,
-} from "@/modules/catalog/client";
-import { transferPrice } from "@/modules/storefront/pricing";
-import { AxisSelector } from "./axis-selector";
-import { ColourwaySwatches } from "./colourway-swatches";
-import { widgetVisible } from "./widget-visibility";
+} from '@/modules/catalog/client';
+import { transferPrice } from '@/modules/storefront/pricing';
+import { AxisSelector } from './axis-selector';
+import { ColourwaySwatches } from './colourway-swatches';
+import { widgetVisible } from './widget-visibility';
+import Image from 'next/image';
+import { SHEET_BACKGROUND_SIZES, SheetBackground } from '@/components/ui/sheet-background';
+import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 
 /**
  * The sentinel the widget watches, and the reason it exists.
@@ -26,7 +29,7 @@ import { widgetVisible } from "./widget-visibility";
  * zero-height marker at the panel's top edge crosses cleanly, exactly once,
  * in each direction.
  */
-const PANEL_TOP_SELECTOR = "[data-pdp-panel-top]";
+const PANEL_TOP_SELECTOR = '[data-pdp-panel-top]';
 
 /**
  * Extends the observer's root a full viewport BELOW the fold.
@@ -35,7 +38,7 @@ const PANEL_TOP_SELECTOR = "[data-pdp-panel-top]";
  * the screen — which is the whole first screenful — and the widget would be
  * hidden exactly when it is most useful.
  */
-const PANEL_TOP_ROOT_MARGIN = "-50% 0px 100% 0px";
+const PANEL_TOP_ROOT_MARGIN = '-50% 0px 100% 0px';
 
 type PurchaseWidgetProps = {
   product: VariantMatrix;
@@ -93,13 +96,22 @@ export function PurchaseWidget({
       // the one that says nothing is the one that cannot be misread.
       aria-hidden={!visible || undefined}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 flex flex-col gap-3 border-t border-border bg-popover px-4 pt-3 pb-6 shadow-[0_-2px_24px_rgba(0,0,0,0.8)] md:hidden",
-        "transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none",
-        visible ? "translate-y-0 opacity-100" : "translate-y-full opacity-0",
+        'fixed inset-x-0 bottom-0 z-40 flex flex-col gap-3 bg-popover px-4 pt-3 pb-6 shadow-[0_-2px_24px_rgba(0,0,0,0.8)] md:hidden',
+        'transition-[translate,opacity] duration-300 ease-out motion-reduce:transition-none',
+        visible ? 'translate-y-0 opacity-100' : 'translate-y-full opacity-0',
       )}
     >
-      <div className="flex items-end justify-between gap-4">
-        <div className="flex flex-wrap items-end gap-4">
+      <BarbedWireSeparator className='absolute -translate-y-1/2 top-0 left-0' />
+      <Image
+        className='-z-1 opacity-20 object-cover object-bottom'
+        fill
+        sizes={SHEET_BACKGROUND_SIZES}
+        src={SheetBackground}
+        alt='background'
+        aria-hidden
+      />
+      <div className='flex items-end justify-between gap-4'>
+        <div className='flex flex-wrap items-end gap-4'>
           {axes.map((axis, index) => (
             <AxisSelector
               key={axis.label}
@@ -114,30 +126,38 @@ export function PurchaseWidget({
         </div>
 
         {colourways.length > 0 && (
-          <div className="flex shrink-0 flex-col items-end gap-1">
-            <p className="font-sans text-[9px] tracking-control text-muted-foreground">
+          <div className='flex shrink-0 flex-col items-end gap-1'>
+            <p className='font-sans text-[9px] tracking-control text-muted-foreground'>
               Color
             </p>
-            <ColourwaySwatches compact links={colourways} currentSlug={currentSlug} />
+            <ColourwaySwatches
+              compact
+              links={colourways}
+              currentSlug={currentSlug}
+            />
           </div>
         )}
       </div>
 
       <button
-        type="button"
+        type='button'
         // See the panel's own add button: the toast's mobile dismiss hook
         // reads this so the tap that creates the toast cannot hide it.
-        data-cart-add=""
+        data-cart-add=''
         disabled={!canAddToCart}
         onClick={() => onAdd?.()}
         // Label left, price right. The price is the transfer price and only
         // the transfer price — the button is one line, and a line that tried
         // to carry both figures would have to explain which is which in a
         // space that has no room to explain anything.
-        className="flex h-12 w-full items-center justify-between bg-primary px-4 font-display text-lg text-primary-foreground transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100"
+        className='flex h-12 w-full items-center justify-between bg-primary px-4 font-display text-lg text-primary-foreground transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100'
       >
         <span>{ctaLabel}</span>
-        {priced && <span className="tabular-nums">{formatMoney(transferPrice(priced.price))}</span>}
+        {priced && (
+          <span className='tabular-nums'>
+            {formatMoney(transferPrice(priced.price))}
+          </span>
+        )}
       </button>
     </div>
   );
@@ -172,7 +192,9 @@ function useWidgetVisible(): boolean {
         // above exists to make the callback fire at the right moment, not to
         // encode the rule. The rule is one comparison, and it lives in
         // `widgetVisible` where it can be proven.
-        setVisible(widgetVisible(entry.boundingClientRect.top, window.innerHeight));
+        setVisible(
+          widgetVisible(entry.boundingClientRect.top, window.innerHeight),
+        );
       },
       { rootMargin: PANEL_TOP_ROOT_MARGIN },
     );

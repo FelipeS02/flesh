@@ -50,7 +50,7 @@ export function PriceBlock({ variant }: PriceBlockProps) {
           {promo !== null && <DiscountBadge percent={promo} className="self-center" />}
         </span>
         <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
-          3 y 6 cuotas sin interes
+          3 y 6 cuotas
         </span>
       </div>
     </div>

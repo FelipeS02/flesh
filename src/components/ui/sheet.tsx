@@ -7,10 +7,8 @@ import { cn } from 'cn';
 import { Button } from '@/components/ui/button';
 import { XIcon } from 'lucide-react';
 import Image from 'next/image';
-import {
-  SHEET_BACKGROUND_SIZES,
-  SheetBackground,
-} from './sheet-background';
+import { SHEET_BACKGROUND_SIZES, SheetBackground } from './sheet-background';
+import BarbedWireSeparator from '../shared/barbed-wire-separator';
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot='sheet' {...props} />;
@@ -67,7 +65,7 @@ function SheetContent({
       >
         {styledBackground && (
           <Image
-            className='-z-1 opacity-20'
+            className='-z-1 opacity-20 object-cover'
             fill
             sizes={SHEET_BACKGROUND_SIZES}
             src={SheetBackground}
@@ -121,7 +119,7 @@ function SheetTitle({ className, ...props }: SheetPrimitive.Title.Props) {
     <SheetPrimitive.Title
       data-slot='sheet-title'
       className={cn(
-        'font-heading text-base font-medium text-foreground',
+        'font-display text-base font-medium text-foreground',
         className,
       )}
       {...props}

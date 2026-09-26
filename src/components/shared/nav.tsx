@@ -57,7 +57,7 @@ export function Nav() {
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "font-display text-[22px] md:text-4xl",
-                  active ? "text-primary" : "text-foreground",
+                  active ? "text-primary max-sm:hidden" : "text-foreground",
                 )}
               >
                 {item.label}
