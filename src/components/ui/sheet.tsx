@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { XIcon } from 'lucide-react';
 import Image from 'next/image';
 import { SHEET_BACKGROUND_SIZES, SheetBackground } from './sheet-background';
-import BarbedWireSeparator from '../shared/barbed-wire-separator';
 
 function Sheet({ ...props }: SheetPrimitive.Root.Props) {
   return <SheetPrimitive.Root data-slot='sheet' {...props} />;
