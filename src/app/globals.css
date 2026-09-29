@@ -38,7 +38,7 @@
 
   --muted: oklch(0.269 0 0);
   /* Struck-through original prices. */
-  --muted-foreground: oklch(0.708 0 0);
+  --muted-foreground: oklch(0.85 0 0);
 
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(1 0 0);
