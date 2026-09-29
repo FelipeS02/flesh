@@ -150,7 +150,7 @@ export function ProductCard({
         <SwatchRow
           links={colourwayLinks(colourways, product)}
           currentSlug={product.slug}
-          className='mt-2'
+          className='mt-2 -ml-1'
         />
       </div>
     </article>
