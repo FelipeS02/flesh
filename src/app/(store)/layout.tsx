@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import Script from 'next/script';
+import { Analytics } from '@vercel/analytics/next';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import { BackgroundPlate } from '@/components/shared/background-plate';
 import { SheetBackgroundPreload } from '@/components/ui/sheet-background';
@@ -118,6 +120,12 @@ export default async function StoreLayout({
           <Script src={metaPixelSource()} strategy='afterInteractive' />
         </>
       )}
+      {/* Ungated, unlike GA4 and Meta: both are cookieless and only
+          report from a Vercel deployment, so there is no env var to forget. Here rather than the root
+          layout only to keep every tracker off `/acceso`, with the notice.
+          Their beacons need `_vercel/` excluded from the proxy's matcher. */}
+      <Analytics />
+      <SpeedInsights />
     </>
   );
 }
