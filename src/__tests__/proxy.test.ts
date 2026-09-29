@@ -29,6 +29,10 @@ describe("proxy matcher", () => {
     "/_next/image",
     "/favicon.ico",
     "/password_ilustration.webp",
+    // Vercel Analytics and Speed Insights beacons: extensionless POSTs from
+    // visitors who may not hold the gate cookie yet, so a 307 drops the event.
+    "/_vercel/insights/view",
+    "/_vercel/speed-insights/vitals",
   ])("lets %s through", (pathname) => {
     expect(matches(pathname)).toBe(false);
   });
