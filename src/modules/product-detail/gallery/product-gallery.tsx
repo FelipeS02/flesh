@@ -19,8 +19,9 @@ import { Button } from '@/components/ui/button';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { type ImageView, mediaSource } from '@/modules/catalog/client';
-import { DESKTOP_GALLERY_ENGINE } from './gallery-config';
+import { DESKTOP_GALLERY_ENGINE, DESKTOP_SCROLL_SNAP } from './gallery-config';
 import { useEmblaDesktop } from './use-embla-desktop';
+import { scrollToSlide, useNativeDesktopScroll } from './use-native-desktop-scroll';
 
 const DESKTOP_QUERY = '(min-width: 768px)';
 
@@ -78,22 +79,33 @@ type ProductGalleryProps = {
 
 type DesktopApi = NonNullable<CarouselApi>;
 
+const NATIVE_ENGINE = DESKTOP_GALLERY_ENGINE === 'native-scroll';
+
 function clampIndex(index: number, imageCount: number): number {
   if (imageCount < 1) return 0;
 
   return Math.min(Math.max(index, 0), imageCount - 1);
 }
 
-/** A single state boundary for the native mobile and controlled desktop engines. */
+/**
+ * A single state boundary for the native mobile scroller and whichever desktop
+ * engine `gallery-config` selects (a native vertical scroller, or the
+ * controlled Embla carousel).
+ */
 export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const [api, setApi] = useState<DesktopApi>();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const stage = useRef<HTMLDivElement>(null);
-  // Typed as the primitive's own return, not `HTMLDivElement`: this now
-  // comes from Embla's `rootNode()` (see the effect below) rather than a JSX
-  // `ref`, and the carousel API declares that accessor as `HTMLElement`.
-  const mobileStage = useRef<HTMLElement>(null);
+  // The native scroll container: mobile's horizontal scroller and, with the
+  // native engine, desktop's vertical one. Typed as the primitive's own
+  // return, not `HTMLDivElement`: it comes from Embla's `rootNode()` (see the
+  // effect below) rather than a JSX `ref`, and the carousel API declares that
+  // accessor as `HTMLElement`.
+  const scroller = useRef<HTMLElement>(null);
+  // Whether a native scroll, rather than Embla, is what moves the gallery at
+  // this width. Mobile is always native; desktop only with the native engine.
+  const nativeDesktop = isDesktop && NATIVE_ENGINE;
 
   // `position` is the wire's ordering field. The incoming array is incidental.
   const ordered = [...images].toSorted((a, b) => a.position - b.position);
@@ -104,57 +116,59 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   const selected = clampIndex(selectedIndex, ordered.length);
   const hasRail = ordered.length > 1;
 
-  // Kept manual, unlike the plain values above: this identity gates the mobile
+  // Kept manual, unlike the plain values above: this identity gates the
   // handoff effect, and Vitest runs without `babel-plugin-react-compiler`, so
   // there the compiler's automatic memoization does not exist. Recreated every
   // render, the effect re-runs every render and re-aligns the stage mid-gesture
-  // — the exact correction `observeMobileScroll` refuses to make.
-  const alignMobile = useCallback((index: number, behavior: ScrollBehavior) => {
-    const node = mobileStage.current;
-    if (!node) return;
-
-    const left = index * node.clientWidth;
-    if (typeof node.scrollTo === 'function') {
-      node.scrollTo({ left, behavior });
-    } else {
-      node.scrollLeft = left;
-    }
-  }, []);
+  // — the exact correction `observeScroll` refuses to make.
+  const alignScroller = useCallback(
+    (index: number, behavior: ScrollBehavior, vertical: boolean) =>
+      scrollToSlide(scroller.current, index, vertical, behavior),
+    [],
+  );
 
   // An Effect Event, not a `useCallback`: it only ever runs from the scroll
   // listener the effect below attaches, and it must read the CURRENT slide
   // count without that count becoming a reason to resubscribe. As a callback
   // dependency, every change to the gallery tore the listener down and
-  // reattached it. `alignMobile` cannot follow: `select` calls it from a click
-  // handler, and an Effect Event may only be called from inside an effect.
-  const observeMobileScroll = useEffectEvent(() => {
-    const node = mobileStage.current;
-    if (!node || node.clientWidth <= 0) return;
+  // reattached it. `alignScroller` cannot follow: `select` calls it from a
+  // click handler, and an Effect Event may only be called from inside an
+  // effect.
+  //
+  // One observation for both layouts, generalised by axis: a native scroller
+  // is one slide per viewport, so the selection is the nearest multiple of
+  // its client size whichever way it scrolls.
+  const observeScroll = useEffectEvent(() => {
+    const node = scroller.current;
+    if (!node) return;
+
+    const size = nativeDesktop ? node.clientHeight : node.clientWidth;
+    if (size <= 0) return;
 
     // Observation only: correcting a touch gesture fights the browser's
     // momentum and snap physics. Explicit thumbnail navigation is above.
-    setSelectedIndex(
-      clampIndex(Math.round(node.scrollLeft / node.clientWidth), ordered.length),
-    );
+    const offset = nativeDesktop ? node.scrollTop : node.scrollLeft;
+    setSelectedIndex(clampIndex(Math.round(offset / size), ordered.length));
   });
 
-  // The single Embla instance's own viewport node is now ALSO the native
-  // scroll container mobile swipes against (see `viewportClassName` on
+  // The single Embla instance's own viewport node is ALSO the native scroll
+  // container: mobile swipes against it horizontally and, with the native
+  // engine, desktop scrolls it vertically (see `viewportClassName` on
   // `CarouselContent`). Reading it back through `rootNode()` once the engine
   // exists reaches that element without asking the primitive to forward a
-  // second ref onto it. The listener only ever attaches below `md`: on
-  // desktop the viewport is `overflow-hidden` and Embla repositions it with a
-  // transform, so a native `scroll` event there would never correspond to a
-  // real selection change.
+  // second ref onto it. The listener attaches wherever a native scroll is what
+  // moves the gallery. With the Embla desktop engine the viewport is
+  // `overflow-hidden` and Embla repositions it with a transform, so a native
+  // `scroll` event there would never correspond to a real selection change.
   useEffect(() => {
     const node = api?.rootNode() ?? null;
-    mobileStage.current = node;
-    if (!node || isDesktop) return;
+    scroller.current = node;
+    if (!node || (isDesktop && !nativeDesktop)) return;
 
-    const onScroll = () => observeMobileScroll();
+    const onScroll = () => observeScroll();
     node.addEventListener('scroll', onScroll);
     return () => node.removeEventListener('scroll', onScroll);
-  }, [api, isDesktop]);
+  }, [api, isDesktop, nativeDesktop]);
 
   // A changed identity/order can make the same index refer to another image.
   // Reset both engines together rather than carrying a stale visual selection.
@@ -164,35 +178,50 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     previousImageSignature.current = imageSignature;
     setSelectedIndex(0);
     api?.scrollTo(0, true);
-    alignMobile(0, 'auto');
-  }, [alignMobile, api, imageSignature]);
+    alignScroller(0, 'auto', nativeDesktop);
+  }, [alignScroller, api, imageSignature, nativeDesktop]);
 
-  // Leaving desktop hands the last position an engine actually confirmed to
-  // the mobile scroller (the Embla engine drops its own queued commands).
+  // Crossing the breakpoint hands the last position an engine actually
+  // confirmed to whichever scroller takes over: leaving desktop re-aligns the
+  // horizontal mobile scroller, entering desktop with the native engine aligns
+  // the vertical one. The Embla desktop engine aligns itself (see its sync
+  // effect), so it is skipped here. `auto`, so it lands instantly instead of
+  // animating a scroller that just became visible.
   useEffect(() => {
-    if (isDesktop) return;
+    if (isDesktop && !nativeDesktop) return;
 
-    alignMobile(selected, 'auto');
-  }, [alignMobile, isDesktop]);
+    alignScroller(selected, 'auto', nativeDesktop);
+  }, [alignScroller, isDesktop, nativeDesktop]);
 
   const embla = useEmblaDesktop({
     api,
-    enabled: isDesktop && DESKTOP_GALLERY_ENGINE === 'embla',
+    enabled: isDesktop && !NATIVE_ENGINE,
     count: ordered.length,
     selected,
     stage,
     onSelect: setSelectedIndex,
   });
 
+  // Declared after the Embla engine on purpose: on the render where `api`
+  // arrives both effects run, and the Embla engine's disabled path clears
+  // slide styles. The native paint has to be the later write.
+  useNativeDesktopScroll({
+    api,
+    viewport: scroller,
+    stage,
+    enabled: nativeDesktop,
+    count: ordered.length,
+  });
+
   function select(index: number) {
     const nextIndex = clampIndex(index, ordered.length);
 
-    if (isDesktop) {
+    if (isDesktop && !nativeDesktop) {
       embla.select(nextIndex);
       return;
     }
 
-    alignMobile(nextIndex, 'smooth');
+    alignScroller(nextIndex, 'smooth', nativeDesktop);
   }
 
   const renderImage = (image: ImageView, index: number) => {
@@ -253,25 +282,42 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
       >
         {/*
           One tree for both layouts: CSS (`md:`) owns the layout switch, not
-          React. `active: false` below `md` still builds Embla's engine (so
-          `selectedScrollSnap`/`slideNodes`/`scrollProgress` all work) but
-          skips translate/drag/resize init — real native scroll-snap owns the
-          gesture there instead, on the viewport `CarouselContent` exposes via
-          `viewportClassName`. Crossing the breakpoint runs Embla's own
-          `reActivate`, and the server-painted hero `<img>` never unmounts.
+          React. Embla is built once and never unmounted, and the server-painted
+          hero `<img>` never unmounts with it. What changes across the
+          breakpoint is only who moves the slides.
+
+          Below `md`, and on desktop with the native engine, `active: false`
+          still builds Embla's engine but skips translate/drag/resize init —
+          real native scroll-snap owns the gesture instead, on the viewport
+          `CarouselContent` exposes via `viewportClassName` (horizontal on
+          mobile, vertical on desktop). The native engine never reactivates
+          Embla, so there is no breakpoint override. With the Embla desktop
+          engine, crossing the breakpoint runs Embla's own `reActivate` and it
+          takes over the same viewport as a transform.
         */}
         <Carousel
           orientation='vertical'
-          opts={{
-            duration: 20,
-            active: false,
-            breakpoints: { [DESKTOP_QUERY]: { active: true } },
-          }}
+          opts={
+            NATIVE_ENGINE
+              ? { duration: 20, active: false }
+              : {
+                  duration: 20,
+                  active: false,
+                  breakpoints: { [DESKTOP_QUERY]: { active: true } },
+                }
+          }
           setApi={setApi}
           aria-label={`Galería de imágenes de ${title}`}
           className={cn(
             'h-full w-full mx-auto *:data-[slot=carousel-content]:h-full',
-            'mask-b-from-98% md:mask-y-from-(--gallery-mask-stop,100%) md:max-w-220',
+            'mask-b-from-98% md:max-w-220',
+            NATIVE_ENGINE
+              ? // Top and bottom are separate properties because the fades are
+                // independent here: each is on only while there is content
+                // beyond that edge. The viewport is one stage tall on desktop,
+                // and `h-full` on it (above) follows this box.
+                'md:h-180.5 md:mask-t-from-(--gallery-mask-top,100%) md:mask-b-from-(--gallery-mask-bottom,100%)'
+              : 'md:mask-y-from-(--gallery-mask-stop,100%)',
             dimmed && 'opacity-40',
           )}
         >
@@ -280,15 +326,41 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
             // nothing fights the browser's own scroll-snap physics.
             viewportClassName={cn(
               'overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden',
-              'md:overflow-hidden md:snap-none',
+              NATIVE_ENGINE
+                ? [
+                    // The viewport is the desktop scroller too. No
+                    // `overscroll-contain`, deliberately: default scroll
+                    // chaining hands the wheel to the page once the gallery
+                    // hits either end, so a reader heading for the size
+                    // selector is never trapped on the last photo.
+                    // `scroll-auto` turns off the mobile `scroll-smooth`
+                    // here, so an explicit `auto` alignment is instant and
+                    // only thumbnail jumps animate.
+                    'md:overflow-x-hidden md:overflow-y-auto md:scroll-auto',
+                    DESKTOP_SCROLL_SNAP
+                      ? 'md:snap-y md:snap-mandatory'
+                      : 'md:snap-none',
+                  ]
+                : 'md:overflow-hidden md:snap-none',
             )}
-            className='mt-0 ml-0 h-full flex-row md:h-180.5 md:flex-col'
+            className={
+              NATIVE_ENGINE
+                ? 'mt-0 ml-0 h-full flex-row md:h-auto md:flex-col'
+                : 'mt-0 ml-0 h-full flex-row md:h-180.5 md:flex-col'
+            }
           >
             {ordered.map((image, index) => (
               <CarouselItem
                 key={image.id}
                 aria-label={`Imagen ${index + 1} de ${ordered.length}`}
-                className='min-w-full shrink-0 snap-center pt-0 pl-0 md:min-w-0'
+                className={cn(
+                  'min-w-full shrink-0 snap-center pt-0 pl-0 md:min-w-0',
+                  // Native slides size themselves: the track is `h-auto`, so
+                  // the default `basis-full` would resolve against nothing.
+                  // Each is exactly one stage tall, which is what makes
+                  // `scrollTop / clientHeight` the fractional slide index.
+                  NATIVE_ENGINE && 'md:h-180.5 md:basis-auto',
+                )}
               >
                 <div className='relative size-full'>{renderImage(image, index)}</div>
               </CarouselItem>

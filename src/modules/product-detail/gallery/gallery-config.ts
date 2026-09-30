@@ -17,7 +17,7 @@
  */
 export type DesktopGalleryEngine = "native-scroll" | "embla";
 
-export const DESKTOP_GALLERY_ENGINE: DesktopGalleryEngine = "embla";
+export const DESKTOP_GALLERY_ENGINE: DesktopGalleryEngine = "native-scroll";
 
 /**
  * Whether the native desktop scroller snaps each photo into place
