@@ -19,9 +19,17 @@ import { Button } from '@/components/ui/button';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { type ImageView, mediaSource } from '@/modules/catalog/client';
-import { DESKTOP_GALLERY_ENGINE, DESKTOP_SCROLL_SNAP } from './gallery-config';
+import {
+  DESKTOP_GALLERY_ENGINE,
+  DESKTOP_GALLERY_UNDER_HEADER,
+  DESKTOP_SCROLL_SNAP,
+} from './gallery-config';
 import { useEmblaDesktop } from './use-embla-desktop';
-import { scrollToSlide, useNativeDesktopScroll } from './use-native-desktop-scroll';
+import {
+  scrollToSlide,
+  scrollUnit,
+  useNativeDesktopScroll,
+} from './use-native-desktop-scroll';
 
 const DESKTOP_QUERY = '(min-width: 768px)';
 
@@ -106,6 +114,10 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   // Whether a native scroll, rather than Embla, is what moves the gallery at
   // this width. Mobile is always native; desktop only with the native engine.
   const nativeDesktop = isDesktop && NATIVE_ENGINE;
+  // Whether the native desktop scroller runs up behind the sticky header. Only
+  // meaningful with the native engine; the Embla one moves by transform inside
+  // a clipped viewport and has nothing to scroll under anything.
+  const underHeader = NATIVE_ENGINE && DESKTOP_GALLERY_UNDER_HEADER;
 
   // `position` is the wire's ordering field. The incoming array is incidental.
   const ordered = [...images].toSorted((a, b) => a.position - b.position);
@@ -142,7 +154,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     const node = scroller.current;
     if (!node) return;
 
-    const size = nativeDesktop ? node.clientHeight : node.clientWidth;
+    const size = scrollUnit(node, nativeDesktop);
     if (size <= 0) return;
 
     // Observation only: correcting a touch gesture fights the browser's
@@ -278,7 +290,17 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
         ref={stage}
         data-gallery-stage
         data-orientation={isDesktop ? 'vertical' : 'horizontal'}
-        className='relative -mx-4 min-h-0 w-[calc(100%+2rem)] flex-1 md:mx-0 md:w-full md:min-w-0'
+        className={cn(
+          'relative -mx-4 min-h-0 w-[calc(100%+2rem)] flex-1 md:mx-0 md:w-full md:min-w-0',
+          // Raises ONLY the stage — the rail beside it stays put — by the
+          // distance the sticky column sits below the top of the page: the
+          // header band plus the 40px `md:mt-10` above the gallery (the same
+          // sum `page.tsx` uses for its `top`). Defined once, as a property,
+          // so the margin, the viewport padding, the height and the badge all
+          // read one number instead of four copies of the calc.
+          underHeader &&
+            'md:[--gallery-under-header-offset:calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))] md:-mt-(--gallery-under-header-offset)',
+        )}
       >
         {/*
           One tree for both layouts: CSS (`md:`) owns the layout switch, not
@@ -312,11 +334,18 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
             'h-full w-full mx-auto *:data-[slot=carousel-content]:h-full',
             'mask-b-from-98% md:max-w-220',
             NATIVE_ENGINE
-              ? // Top and bottom are separate properties because the fades are
-                // independent here: each is on only while there is content
-                // beyond that edge. The viewport is one stage tall on desktop,
-                // and `h-full` on it (above) follows this box.
-                'md:h-180.5 md:mask-t-from-(--gallery-mask-top,100%) md:mask-b-from-(--gallery-mask-bottom,100%)'
+              ? [
+                  // The viewport's `h-full` (above) follows this box. With the
+                  // header offset the box grows by exactly that much, so the
+                  // first photo still lands where it always did.
+                  underHeader
+                    ? 'md:h-[calc(--spacing(180.5)+var(--gallery-under-header-offset))]'
+                    : 'md:h-180.5',
+                  // Top and bottom are separate properties because the fades
+                  // are independent here: each is on only while there is
+                  // content beyond that edge.
+                  'md:mask-t-from-(--gallery-mask-top,100%) md:mask-b-from-(--gallery-mask-bottom,100%)',
+                ]
               : 'md:mask-y-from-(--gallery-mask-stop,100%)',
             dimmed && 'opacity-40',
           )}
@@ -340,6 +369,13 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
                     DESKTOP_SCROLL_SNAP
                       ? 'md:snap-y md:snap-mandatory'
                       : 'md:snap-none',
+                    // Padding lets the first photo start below the header
+                    // while scrolled content still runs up behind it.
+                    // `scroll-pt` is the snap half: without it a snapped
+                    // photo would park flush with the viewport top, under the
+                    // header, instead of in the stage.
+                    underHeader &&
+                      'md:pt-(--gallery-under-header-offset) md:scroll-pt-(--gallery-under-header-offset)',
                   ]
                 : 'md:overflow-hidden md:snap-none',
             )}
@@ -369,7 +405,17 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
         </Carousel>
 
         {badge && (
-          <div data-gallery-badge className='absolute top-3 left-7 md:top-4 md:left-4'>
+          <div
+            data-gallery-badge
+            className={cn(
+              'absolute top-3 left-7 md:left-4',
+              // Same 16px below the photo's box as before: the stage now
+              // starts higher, so the badge rides down by the stage's raise.
+              underHeader
+                ? 'md:top-[calc(--spacing(4)+var(--gallery-under-header-offset))]'
+                : 'md:top-4',
+            )}
+          >
             {badge}
           </div>
         )}

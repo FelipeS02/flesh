@@ -7,7 +7,7 @@ import { MAX_BLUR_PX } from "../slide-blur";
 
 // A getter, not a value: the config is read at render time, so each test can
 // pick the snap flag without re-importing the module graph.
-const config = vi.hoisted(() => ({ snap: false }));
+const config = vi.hoisted(() => ({ snap: false, underHeader: false }));
 
 vi.mock("../gallery-config", () => ({
   DESKTOP_GALLERY_ENGINE: "native-scroll",
@@ -16,6 +16,9 @@ vi.mock("../gallery-config", () => ({
   DESKTOP_EDGE_FADE_STOP: 96,
   get DESKTOP_SCROLL_SNAP() {
     return config.snap;
+  },
+  get DESKTOP_GALLERY_UNDER_HEADER() {
+    return config.underHeader;
   },
 }));
 
@@ -111,6 +114,8 @@ function scrollViewportTo(node: HTMLElement, top: number) {
 
 beforeEach(() => {
   config.snap = false;
+  config.underHeader = false;
+  document.documentElement.style.removeProperty("--gallery-under-header-progress");
   embla.viewport = null;
   embla.options = [];
   frames.length = 0;
@@ -334,5 +339,156 @@ describe("ProductGallery with the native-scroll desktop engine", () => {
     expect(slides(container).map((slide) => slide.style.filter)).toEqual(
       Array(5).fill(""),
     );
+  });
+});
+
+describe("ProductGallery running under the sticky header", () => {
+  const OFFSET_VAR = "--gallery-under-header-offset";
+  const PROGRESS_VAR = "--gallery-under-header-progress";
+  // jsdom reports no layout, so the two heights that diverge under the header
+  // are stubbed: the viewport is taller than a slide by the header offset.
+  const VIEWPORT_HEIGHT = 942;
+
+  function measureUnderHeader(container: HTMLElement, scrollTop = 0) {
+    const node = viewport(container);
+    const scrollTo = measure(node, scrollTop);
+
+    Object.defineProperty(node, "clientHeight", {
+      configurable: true,
+      value: VIEWPORT_HEIGHT,
+    });
+    Object.defineProperty(slides(container)[0]!, "offsetHeight", {
+      configurable: true,
+      value: SLIDE_HEIGHT,
+    });
+
+    return { node, scrollTo };
+  }
+
+  function stage(container: HTMLElement) {
+    return container.querySelector<HTMLElement>("[data-gallery-stage]")!;
+  }
+
+  function progress() {
+    return document.documentElement.style.getPropertyValue(PROGRESS_VAR);
+  }
+
+  beforeEach(() => {
+    config.underHeader = true;
+  });
+
+  it("raises only the stage, and pads the scroller by the same offset", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(stage(container).className).toContain(`md:-mt-(${OFFSET_VAR})`);
+    expect(stage(container).className).toContain(OFFSET_VAR + ":calc(");
+    expect(viewport(container).className).toContain(`md:pt-(${OFFSET_VAR})`);
+    expect(viewport(container).className).toContain(`md:scroll-pt-(${OFFSET_VAR})`);
+    expect(
+      container.querySelector("[data-slot=carousel]")?.className,
+    ).toContain(`md:h-[calc(--spacing(180.5)+var(${OFFSET_VAR}))]`);
+  });
+
+  it("keeps the badge where it was by offsetting it with the stage", () => {
+    const { container } = render(
+      <ProductGallery images={IMAGES} title={TITLE} badge={<span>NEW</span>} />,
+    );
+
+    expect(
+      container.querySelector("[data-gallery-badge]")?.className,
+    ).toContain(`md:top-[calc(--spacing(4)+var(${OFFSET_VAR}))]`);
+  });
+
+  it("measures slides by their own height, not by the padded viewport", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    // 3 slides down is 3 * 722; divided by the 942px viewport it would read
+    // as slide 2.3 and select the wrong thumbnail.
+    scrollViewportTo(node, 3 * SLIDE_HEIGHT);
+
+    expect(thumbnails()[3]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("scrolls a thumbnail jump by slide height", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { scrollTo } = measureUnderHeader(container);
+
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({
+      top: 2 * SLIDE_HEIGHT,
+      behavior: "smooth",
+    });
+  });
+
+  it("keeps the edge fade the same pixel depth on the taller viewport", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    scrollViewportTo(node, 2 * SLIDE_HEIGHT);
+
+    // 4% of a 722px stage is 29px; the same 29px of a 942px viewport is ~3.07%.
+    const depth = 100 - Number.parseFloat(stageVar(container, "--gallery-mask-bottom"));
+    expect(depth).toBeCloseTo((4 * SLIDE_HEIGHT) / VIEWPORT_HEIGHT, 3);
+  });
+
+  it("publishes how far the gallery has scrolled for the header backdrop", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    scrollViewportTo(node, 80);
+    expect(progress()).toBe("0.5");
+
+    scrollViewportTo(node, 400);
+    expect(progress()).toBe("1");
+
+    scrollViewportTo(node, 0);
+    expect(progress()).toBe("0");
+  });
+
+  it("clears the published progress on leaving desktop and on unmount", () => {
+    const { container, unmount } = render(
+      <ProductGallery images={IMAGES} title={TITLE} />,
+    );
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+    scrollViewportTo(node, 80);
+    expect(progress()).toBe("0.5");
+
+    act(() => setViewport("mobile"));
+    expect(progress()).toBe("");
+
+    act(() => setViewport("desktop"));
+    scrollViewportTo(node, 80);
+    expect(progress()).toBe("0.5");
+
+    unmount();
+    expect(progress()).toBe("");
+  });
+
+  it("does none of it with the flag off", () => {
+    config.underHeader = false;
+    const { container } = render(
+      <ProductGallery images={IMAGES} title={TITLE} badge={<span>NEW</span>} />,
+    );
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    scrollViewportTo(node, 80);
+
+    expect(stage(container).className).not.toContain(OFFSET_VAR);
+    expect(viewport(container).className).not.toContain(OFFSET_VAR);
+    expect(container.querySelector("[data-gallery-badge]")?.className).not.toContain(
+      OFFSET_VAR,
+    );
+    expect(container.querySelector("[data-slot=carousel]")?.className).toContain(
+      "md:h-180.5",
+    );
+    expect(progress()).toBe("");
   });
 });

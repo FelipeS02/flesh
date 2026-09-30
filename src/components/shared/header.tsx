@@ -5,6 +5,7 @@ import type { CSSProperties } from 'react';
 import ShoppingBag from '@/components/shared/shopping-bag';
 import Link from 'next/link';
 import FleshLogotype from '@/components/shared/flesh-logotype';
+import { HEADER_SCROLL_RANGE } from '@/components/shared/header-scroll';
 import { PromoMarquee } from '@/components/shared/promo-marquee';
 import {
   CartDrawer,
@@ -13,7 +14,6 @@ import {
   useCartState,
 } from '@/modules/cart';
 
-const HEADER_SCROLL_RANGE = 160;
 const LOGOTYPE_TARGET_SCALE = 0.75;
 
 /**
@@ -25,6 +25,10 @@ const LOGOTYPE_TARGET_SCALE = 0.75;
  * promo band collapsing — is a CSS consumer of that one variable rather than
  * a second listener. The band is the element holding it precisely so the
  * marquee can read it by cascade instead of reaching for the document root.
+ *
+ * The one exception is the backdrop: it also honours
+ * `--gallery-under-header-progress` from the root, published by the PDP
+ * gallery, which scrolls behind this band without moving the page.
  */
 export function Header() {
   const bandRef = useRef<HTMLDivElement>(null);
@@ -70,7 +74,7 @@ export function Header() {
       <div
         ref={bandRef}
         data-header-band
-        className='isolate before:bg-linear-to-b before:backdrop-blur-md before:bg-background before:mask-b-from-0 before:-z-1 before:absolute before:inset-0 before:-mx-4 before:opacity-(--header-scroll-progress) sticky top-0 z-50 md:px-18'
+        className='isolate before:bg-linear-to-b before:backdrop-blur-md before:bg-background before:mask-b-from-0 before:-z-1 before:absolute before:inset-0 before:-mx-4 before:opacity-[max(var(--header-scroll-progress),var(--gallery-under-header-progress,0))] sticky top-0 z-50 md:px-18'
         style={
           {
             '--header-scroll-progress': 0,

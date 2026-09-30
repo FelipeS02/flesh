@@ -163,6 +163,11 @@ export default async function ProductPage({
             so changes to the band do not create a second spacing constant here.
             The fallback preserves the previous offset before hydration.
 
+            `ProductGallery` raises its own stage by this same sum (band plus
+            the 40px `md:mt-10`) so its scroller can run up behind the header.
+            If this `top` changes, change `--gallery-under-header-offset`
+            there with it.
+
             Mobile stacks the two columns, so there is nothing to stay beside. */}
         <div className='md:sticky md:top-[calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))] md:min-w-0 md:flex-1 md:self-start md:basis-160'>
           <ProductGallery

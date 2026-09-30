@@ -10,6 +10,7 @@ import { MAX_BLUR_PX } from "../slide-blur";
 vi.mock("../gallery-config", () => ({
   DESKTOP_GALLERY_ENGINE: "embla",
   DESKTOP_SCROLL_SNAP: false,
+  DESKTOP_GALLERY_UNDER_HEADER: false,
 }));
 
 const emblaHarness = vi.hoisted(() => ({

@@ -41,3 +41,15 @@ export const DESKTOP_SCROLL_SNAP = false;
  * deeper, 100 turns it off.
  */
 export const DESKTOP_EDGE_FADE_STOP = 96;
+
+/**
+ * Whether the native desktop scroller runs UP BEHIND the sticky header, so a
+ * photo scrolling up passes under the promo marquee and logotype instead of
+ * being cut at the stage's top edge — the way the PDP's right-hand panel
+ * already scrolls under it. The header's frosted backdrop follows the
+ * gallery's own scroll while this is on.
+ *
+ * Only read by the `native-scroll` engine. `false` is the original geometry:
+ * the scroller ends exactly at the stage.
+ */
+export const DESKTOP_GALLERY_UNDER_HEADER = true;

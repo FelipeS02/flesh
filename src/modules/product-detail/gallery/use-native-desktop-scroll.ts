@@ -2,7 +2,11 @@
 
 import { useEffect, type RefObject } from 'react';
 import type { CarouselApi } from '@/components/ui/carousel';
-import { DESKTOP_EDGE_FADE_STOP } from './gallery-config';
+import {
+  HEADER_SCROLL_RANGE,
+  UNDER_HEADER_PROGRESS_PROPERTY,
+} from '@/components/shared/header-scroll';
+import { DESKTOP_EDGE_FADE_STOP, DESKTOP_GALLERY_UNDER_HEADER } from './gallery-config';
 import {
   MASK_STOP_AT_REST,
   edgeMaskStops,
@@ -20,6 +24,26 @@ const MASK_TOP_PROPERTY = '--gallery-mask-top';
 const MASK_BOTTOM_PROPERTY = '--gallery-mask-bottom';
 
 /**
+ * The distance one slide occupies along the scroll axis.
+ *
+ * Horizontally that is the viewport's width. Vertically it cannot be
+ * `clientHeight`: under the header the viewport is taller than a slide by the
+ * header offset (it carries that much padding), so the slide's OWN height is
+ * the unit. Read from the first slide's layout box rather than computed style,
+ * which would force a style recalculation on every scroll frame; slides are
+ * all one size. `clientHeight` is the fallback for an unmeasured slide, and
+ * is exactly right when there is no padding.
+ */
+export function scrollUnit(node: HTMLElement, vertical: boolean): number {
+  if (!vertical) return node.clientWidth;
+
+  const first = node.firstElementChild?.firstElementChild;
+  const height = first instanceof HTMLElement ? first.offsetHeight : 0;
+
+  return height > 0 ? height : node.clientHeight;
+}
+
+/**
  * Scrolls a native scroller so slide `index` fills it, along the given axis.
  *
  * Both layouts need this — mobile scrolls horizontally, the native desktop
@@ -35,7 +59,7 @@ export function scrollToSlide(
 ): void {
   if (!node) return;
 
-  const offset = index * (vertical ? node.clientHeight : node.clientWidth);
+  const offset = index * scrollUnit(node, vertical);
   if (typeof node.scrollTo === 'function') {
     node.scrollTo(vertical ? { top: offset, behavior } : { left: offset, behavior });
   } else if (vertical) {
@@ -104,9 +128,16 @@ export function useNativeDesktopScroll({
       frame = 0;
 
       const nodes = slideNodes(node);
-      const position = nativeScrollPosition(node.scrollTop, node.clientHeight);
+      const unit = scrollUnit(node, true);
+      const position = nativeScrollPosition(node.scrollTop, unit);
       const blurs = nativeSlideBlurs(position, nodes.length);
-      const stops = edgeMaskStops(position, nodes.length, DESKTOP_EDGE_FADE_STOP);
+      // The mask is a percentage of the carousel box, and under the header
+      // that box is taller than the stage the depth was tuned against. Scaling
+      // the depth by slide-over-viewport keeps the fade the same pixels deep
+      // at the bottom edge instead of deepening with the header offset.
+      const scale = node.clientHeight > 0 ? Math.min(unit / node.clientHeight, 1) : 1;
+      const fullStop = MASK_STOP_AT_REST - (MASK_STOP_AT_REST - DESKTOP_EDGE_FADE_STOP) * scale;
+      const stops = edgeMaskStops(position, nodes.length, fullStop);
 
       nodes.forEach((slide, index) => {
         const blur = blurs[index] ?? 0;
@@ -115,6 +146,19 @@ export function useNativeDesktopScroll({
         slide.style.filter = blur === 0 ? '' : `blur(${blur}px)`;
       });
       paintMasks(stage.current, stops.top, stops.bottom);
+
+      // Only the backdrop follows the gallery; the logotype scale and marquee
+      // collapse stay page-scroll, so the header does not shrink while the
+      // page itself has not moved. Written on the root, which the header band
+      // inherits from, rather than reaching into the header.
+      if (DESKTOP_GALLERY_UNDER_HEADER) {
+        const progress = Math.min(Math.max(node.scrollTop / HEADER_SCROLL_RANGE, 0), 1);
+
+        document.documentElement.style.setProperty(
+          UNDER_HEADER_PROGRESS_PROPERTY,
+          String(Number.isFinite(progress) ? progress : 0),
+        );
+      }
     };
     const schedule = () => {
       if (frame) return;
@@ -138,6 +182,9 @@ export function useNativeDesktopScroll({
         slide.style.filter = '';
       });
       paintMasks(stageNode, MASK_STOP_AT_REST, MASK_STOP_AT_REST);
+      // A stale value would leave the header backdrop showing over a page the
+      // gallery no longer scrolls behind.
+      document.documentElement.style.removeProperty(UNDER_HEADER_PROGRESS_PROPERTY);
     };
   }, [api, enabled, count, viewport, stage]);
 }

@@ -150,6 +150,18 @@ describe('Header', () => {
     expect(band?.style.getPropertyValue('--_logotype-scale')).toBe('0.75');
   });
 
+  // The gallery scrolls on its own and runs up behind the band, where the
+  // page-scroll progress alone would leave a photo under a transparent header.
+  // The band learns of it only through this one inherited property.
+  it('fades its backdrop in for page scroll OR gallery scroll, taking the larger', () => {
+    const { container } = renderHeader();
+    const band = container.querySelector<HTMLElement>('[data-header-band]');
+
+    expect(band?.className).toContain(
+      'before:opacity-[max(var(--header-scroll-progress),var(--gallery-under-header-progress,0))]',
+    );
+  });
+
   it('carries the promo marquee inside the band, so it reads the same scroll progress', () => {
     const { container } = renderHeader();
 
