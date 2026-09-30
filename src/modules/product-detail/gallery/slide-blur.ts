@@ -233,16 +233,23 @@ function clampUnit(value: number): number {
  * (position 0 to 1) and the bottom one shrinks over the last slide's. So the
  * first photo parked has a clean top edge and the last a clean bottom edge,
  * and everything between is softened at both.
+ *
+ * `fullStop` is where a fully-on edge fade starts. It is a parameter rather
+ * than `MASK_STOP_MID_TRANSITION` because the two engines use the fade
+ * differently: Embla's only lives for a transition's midpoint, so it can
+ * afford to be deep, while this one is on for the whole time the photo is
+ * being looked at, and at 88% it swallowed the lower part of the garment.
  */
 export function edgeMaskStops(
   position: number,
   slideCount: number,
+  fullStop: number = MASK_STOP_MID_TRANSITION,
 ): { top: number; bottom: number } {
   if (slideCount < 2) return { top: MASK_STOP_AT_REST, bottom: MASK_STOP_AT_REST };
 
   const finite = Number.isFinite(position) ? position : 0;
   const stopFor = (intensity: number) =>
-    MASK_STOP_AT_REST - intensity * (MASK_STOP_AT_REST - MASK_STOP_MID_TRANSITION);
+    MASK_STOP_AT_REST - intensity * (MASK_STOP_AT_REST - fullStop);
 
   return {
     top: stopFor(clampUnit(finite)),

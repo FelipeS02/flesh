@@ -29,3 +29,15 @@ export const DESKTOP_GALLERY_ENGINE: DesktopGalleryEngine = "native-scroll";
  * Only read by the `native-scroll` engine; Embla does its own snapping.
  */
 export const DESKTOP_SCROLL_SNAP = false;
+
+/**
+ * Where the native engine's edge fade starts when it is fully on, as a
+ * percentage of the stage height: 96 fades the outer 4% (~29px of the 722px
+ * stage). A hand-tuned knob like the two above.
+ *
+ * Shallower than Embla's 88 on purpose. That fade only existed for the
+ * midpoint of a transition; this one is on while the shopper is looking at the
+ * photo, and at 88 it ate the lower 12% of the garment. Lower numbers fade
+ * deeper, 100 turns it off.
+ */
+export const DESKTOP_EDGE_FADE_STOP = 96;

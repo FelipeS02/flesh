@@ -2,6 +2,7 @@
 
 import { useEffect, type RefObject } from 'react';
 import type { CarouselApi } from '@/components/ui/carousel';
+import { DESKTOP_EDGE_FADE_STOP } from './gallery-config';
 import {
   MASK_STOP_AT_REST,
   edgeMaskStops,
@@ -105,7 +106,7 @@ export function useNativeDesktopScroll({
       const nodes = slideNodes(node);
       const position = nativeScrollPosition(node.scrollTop, node.clientHeight);
       const blurs = nativeSlideBlurs(position, nodes.length);
-      const stops = edgeMaskStops(position, nodes.length);
+      const stops = edgeMaskStops(position, nodes.length, DESKTOP_EDGE_FADE_STOP);
 
       nodes.forEach((slide, index) => {
         const blur = blurs[index] ?? 0;

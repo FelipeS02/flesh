@@ -11,6 +11,9 @@ const config = vi.hoisted(() => ({ snap: false }));
 
 vi.mock("../gallery-config", () => ({
   DESKTOP_GALLERY_ENGINE: "native-scroll",
+  // Deliberately not the slide-blur default (88), so these assertions prove
+  // the engine reads the tunable depth rather than the Embla constant.
+  DESKTOP_EDGE_FADE_STOP: 96,
   get DESKTOP_SCROLL_SNAP() {
     return config.snap;
   },
@@ -234,8 +237,8 @@ describe("ProductGallery with the native-scroll desktop engine", () => {
       `blur(${MAX_BLUR_PX}px)`,
       `blur(${MAX_BLUR_PX}px)`,
     ]);
-    expect(stageVar(container, "--gallery-mask-top")).toBe("94%");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("88%");
+    expect(stageVar(container, "--gallery-mask-top")).toBe("98%");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
   });
 
   it("leaves a parked photo with no filter at all, and never scales or fades", () => {
@@ -251,8 +254,8 @@ describe("ProductGallery with the native-scroll desktop engine", () => {
     expect(parked.style.filter).toBe("");
     expect(parked.style.transform).toBe("");
     expect(parked.style.opacity).toBe("");
-    expect(stageVar(container, "--gallery-mask-top")).toBe("88%");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("88%");
+    expect(stageVar(container, "--gallery-mask-top")).toBe("96%");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
   });
 
   it("has no top fade on the first slide, only the bottom one", () => {
@@ -260,7 +263,7 @@ describe("ProductGallery with the native-scroll desktop engine", () => {
     act(() => setViewport("desktop"));
 
     expect(stageVar(container, "--gallery-mask-top")).toBe("100%");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("88%");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
   });
 
   it("coalesces a burst of scroll events into one paint per frame", () => {

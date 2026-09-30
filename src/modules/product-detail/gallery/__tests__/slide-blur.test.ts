@@ -224,6 +224,12 @@ describe("edgeMaskStops", () => {
     expect(edgeMaskStops(0, 0)).toEqual(none);
   });
 
+  it("fades to a caller-chosen depth instead of the Embla one", () => {
+    expect(edgeMaskStops(2, 5, 96)).toEqual({ top: 96, bottom: 96 });
+    expect(edgeMaskStops(0.5, 5, 96).top).toBe(98);
+    expect(edgeMaskStops(0, 5, 96).top).toBe(MASK_STOP_AT_REST);
+  });
+
   it("survives overshoot and unmeasured positions", () => {
     expect(edgeMaskStops(-0.4, 5)).toEqual(edgeMaskStops(0, 5));
     expect(edgeMaskStops(6, 5)).toEqual(edgeMaskStops(4, 5));
