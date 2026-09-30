@@ -5,6 +5,13 @@ import { setViewport } from "../../../../../test/fixtures/viewport";
 import { ProductGallery } from "../product-gallery";
 import { MAX_BLUR_PX } from "../slide-blur";
 
+// This file proves the Embla desktop engine, whatever the shipped default is.
+// The native engine has its own file beside this one.
+vi.mock("../gallery-config", () => ({
+  DESKTOP_GALLERY_ENGINE: "embla",
+  DESKTOP_SCROLL_SNAP: false,
+}));
+
 const emblaHarness = vi.hoisted(() => ({
   ready: true,
   selected: 0,

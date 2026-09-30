@@ -19,14 +19,8 @@ import { Button } from '@/components/ui/button';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { type ImageView, mediaSource } from '@/modules/catalog/client';
-import {
-  MASK_STOP_AT_REST,
-  maskStop,
-  restingSlideVisualStates,
-  slideVisualStates,
-  type SlideVisualState,
-} from './slide-blur';
-import { useWheelNavigation } from './use-wheel-navigation';
+import { DESKTOP_GALLERY_ENGINE } from './gallery-config';
+import { useEmblaDesktop } from './use-embla-desktop';
 
 const DESKTOP_QUERY = '(min-width: 768px)';
 
@@ -90,38 +84,6 @@ function clampIndex(index: number, imageCount: number): number {
   return Math.min(Math.max(index, 0), imageCount - 1);
 }
 
-/**
- * The custom property the desktop carousel's `mask-y-from-*` reads. It is
- * set on the stage rather than on the carousel because custom properties
- * inherit, and the stage is the node this component already holds a ref to.
- */
-const MASK_STOP_PROPERTY = '--gallery-mask-stop';
-
-function paintMaskStop(node: HTMLElement | null, stop: number): void {
-  node?.style.setProperty(MASK_STOP_PROPERTY, `${stop}%`);
-}
-
-function clearDesktopStyles(api: DesktopApi | undefined): void {
-  api?.slideNodes().forEach((slide) => {
-    slide.style.transform = '';
-    slide.style.opacity = '';
-    slide.style.filter = '';
-    slide.style.pointerEvents = '';
-  });
-}
-
-function paintDesktopStyles(api: DesktopApi, values: SlideVisualState[]): void {
-  api.slideNodes().forEach((slide, index) => {
-    const value = values[index];
-    if (!value) return;
-
-    slide.style.transform = `scale(${value.scale})`;
-    slide.style.opacity = String(value.opacity);
-    slide.style.filter = value.filter;
-    slide.style.pointerEvents = value.pointerEvents;
-  });
-}
-
 /** A single state boundary for the native mobile and controlled desktop engines. */
 export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
@@ -132,7 +94,6 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   // comes from Embla's `rootNode()` (see the effect below) rather than a JSX
   // `ref`, and the carousel API declares that accessor as `HTMLElement`.
   const mobileStage = useRef<HTMLElement>(null);
-  const pendingDesktopTarget = useRef<number | null>(null);
 
   // `position` is the wire's ordering field. The incoming array is incidental.
   const ordered = [...images].toSorted((a, b) => a.position - b.position);
@@ -206,98 +167,28 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     alignMobile(0, 'auto');
   }, [alignMobile, api, imageSignature]);
 
-  useEffect(() => {
-    if (!api || !isDesktop) return;
-
-    const flushPendingTarget = () => {
-      const target = pendingDesktopTarget.current;
-      if (target === null) return false;
-
-      pendingDesktopTarget.current = null;
-      api.scrollTo(clampIndex(target, ordered.length));
-      return true;
-    };
-    const sync = () => {
-      if (flushPendingTarget()) return;
-
-      setSelectedIndex(clampIndex(api.selectedScrollSnap(), ordered.length));
-    };
-    api.on('select', sync);
-    api.on('reInit', sync);
-
-    // A thumbnail can be activated between the gallery mounting and Embla
-    // publishing its API. Deliver that command before normal handoff
-    // alignment, otherwise the stale confirmed index silently wins.
-    if (!flushPendingTarget()) api.scrollTo(selected, true);
-
-    return () => {
-      api.off('select', sync);
-      api.off('reInit', sync);
-    };
-  }, [api, isDesktop, ordered.length]);
-
-  // Leaving desktop invalidates commands queued for the desktop engine while
-  // it was active — the engine itself now stays mounted, only inactive.
-  // Mobile handoff aligns only the last position an engine actually confirmed.
+  // Leaving desktop hands the last position an engine actually confirmed to
+  // the mobile scroller (the Embla engine drops its own queued commands).
   useEffect(() => {
     if (isDesktop) return;
 
-    pendingDesktopTarget.current = null;
     alignMobile(selected, 'auto');
   }, [alignMobile, isDesktop]);
 
-  // Per-frame style work stays outside React: scroll events only paint the
-  // controlled desktop slide nodes and never re-render the gallery.
-  useEffect(() => {
-    if (!api || !isDesktop) {
-      clearDesktopStyles(api);
-      paintMaskStop(stage.current, MASK_STOP_AT_REST);
-      return;
-    }
-
-    const paintMoving = () => {
-      const progress = api.scrollProgress();
-      const count = api.slideNodes().length;
-
-      paintDesktopStyles(api, slideVisualStates(progress, count));
-      paintMaskStop(stage.current, maskStop(progress, count));
-    };
-    const paintResting = () => {
-      paintDesktopStyles(
-        api,
-        restingSlideVisualStates(
-          api.selectedScrollSnap(),
-          api.slideNodes().length,
-        ),
-      );
-      // Written as the constant rather than through `maskStop`, for the same
-      // reason the blur has a resting path: a float round-trip can leave a
-      // sliver of fade on the photo the page is parked on.
-      paintMaskStop(stage.current, MASK_STOP_AT_REST);
-    };
-
-    paintResting();
-    api.on('scroll', paintMoving);
-    api.on('settle', paintResting);
-    api.on('reInit', paintResting);
-
-    return () => {
-      api.off('scroll', paintMoving);
-      api.off('settle', paintResting);
-      api.off('reInit', paintResting);
-      clearDesktopStyles(api);
-      paintMaskStop(stage.current, MASK_STOP_AT_REST);
-    };
-  }, [api, isDesktop]);
-
-  useWheelNavigation({ api, target: stage, enabled: isDesktop });
+  const embla = useEmblaDesktop({
+    api,
+    enabled: isDesktop && DESKTOP_GALLERY_ENGINE === 'embla',
+    count: ordered.length,
+    selected,
+    stage,
+    onSelect: setSelectedIndex,
+  });
 
   function select(index: number) {
     const nextIndex = clampIndex(index, ordered.length);
 
     if (isDesktop) {
-      if (api) api.scrollTo(nextIndex);
-      else pendingDesktopTarget.current = nextIndex;
+      embla.select(nextIndex);
       return;
     }
 
