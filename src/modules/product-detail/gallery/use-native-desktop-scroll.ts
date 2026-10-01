@@ -27,6 +27,11 @@ const PEEK_STRIP_PROPERTY = '--gallery-peek-strip';
  * twice here. Subtracting the first slide's top removes the header padding the
  * content starts below.
  *
+ * No top is past the end of the scroll. A short last slide ends centred (see
+ * `paintPeekStrip`), so the scroller stops before its top: that end is where
+ * it parks, or it would never be selected, come into focus, or be reached by
+ * its thumbnail.
+ *
  * Unmeasured slides (display:none, jsdom) all report the same top, and then
  * the tops fall back to one viewport apart, which is exactly right when there
  * is no padding and every slide fills the viewport.
@@ -36,9 +41,14 @@ export function slideTops(node: HTMLElement): number[] {
   const first = slides[0]?.offsetTop ?? 0;
   const tops = slides.map((slide) => slide.offsetTop - first);
 
-  return tops.length > 1 && tops[1]! > 0
-    ? tops
-    : slides.map((_, index) => index * node.clientHeight);
+  if (!(tops.length > 1 && tops[1]! > 0)) {
+    return slides.map((_, index) => index * node.clientHeight);
+  }
+
+  // An unmeasured scroller reports no overflow; clamping to it would collapse
+  // every top onto 0.
+  const end = node.scrollHeight - node.clientHeight;
+  return end > 0 ? tops.map((top) => Math.min(top, end)) : tops;
 }
 
 /**
@@ -74,9 +84,14 @@ function slideNodes(viewport: HTMLElement): HTMLElement[] {
 }
 
 /**
- * Sizes the room under the last slide so that it can park at the top like the
- * others: the visible stage (the viewport minus the header padding above the
- * first slide) minus that slide's own height, never negative.
+ * Sizes the room under the last slide, from the visible stage (the viewport
+ * minus the header padding above the first slide) and that slide's height.
+ *
+ * Parking a short last photo (a banner) at the top like the others left a
+ * tall empty band under it, so it ends centred instead: half the spare room.
+ * Never less than the peek strip, though, or a nearly full-height photo would
+ * end lower than every other slide parks; and never more than parking at the
+ * top needs, nor negative.
  *
  * It cannot be a CSS `calc`: it depends on the last photo's height, which is
  * its aspect ratio times the stage width. An unmeasured last slide leaves the
@@ -86,6 +101,7 @@ function paintPeekStrip(
   stage: HTMLElement | null,
   viewport: HTMLElement,
   slides: HTMLElement[],
+  peek: number,
 ): void {
   const first = slides[0];
   const last = slides.at(-1);
@@ -96,7 +112,9 @@ function paintPeekStrip(
   }
 
   const visible = viewport.clientHeight - first.offsetTop;
-  stage.style.setProperty(PEEK_STRIP_PROPERTY, `${Math.max(visible - last.offsetHeight, 0)}px`);
+  const spare = visible - last.offsetHeight;
+  const room = Math.min(spare, Math.max(spare / 2, visible * peek));
+  stage.style.setProperty(PEEK_STRIP_PROPERTY, `${Math.max(room, 0)}px`);
 }
 
 type NativeDesktopScrollOptions = {
@@ -106,6 +124,8 @@ type NativeDesktopScrollOptions = {
   /** True only on the desktop layout; mobile paints nothing. */
   enabled: boolean;
   count: number;
+  /** The fraction of the stage the next slide peeks into, already clamped. */
+  peek: number;
 };
 
 /**
@@ -129,6 +149,7 @@ export function useNativeDesktopScroll({
   stage,
   enabled,
   count,
+  peek,
 }: NativeDesktopScrollOptions) {
   useEffect(() => {
     const node = viewport.current;
@@ -151,7 +172,7 @@ export function useNativeDesktopScroll({
         // the photo to its own layer, which leaves a parked slide soft.
         slide.style.filter = blur === 0 ? '' : `blur(${blur}px)`;
       });
-      paintPeekStrip(stage.current, node, nodes);
+      paintPeekStrip(stage.current, node, nodes, peek);
 
       // Only the backdrop follows the gallery; the logotype scale and marquee
       // collapse stay page-scroll, so the header does not shrink while the
@@ -192,5 +213,5 @@ export function useNativeDesktopScroll({
       // gallery no longer scrolls behind.
       document.documentElement.style.removeProperty(UNDER_HEADER_PROGRESS_PROPERTY);
     };
-  }, [enabled, count, viewport, stage]);
+  }, [enabled, count, peek, viewport, stage]);
 }

@@ -697,9 +697,10 @@ describe("ProductGallery slides sized by their photos", () => {
     expect(slides(container)[2]!.style.filter).toBe(`blur(${HALFWAY_BLUR_PX}px)`);
   });
 
-  // The last slide can only park if there is room under it: visible height
-  // minus the slide itself. It depends on the LAST photo, so it is measured.
-  it("sizes the bottom room so the last slide can park, from the last slide's own height", () => {
+  // The bottom room depends on the LAST photo, so it is measured. A short one
+  // (a banner) ends centred in the stage rather than parked at the top over a
+  // tall empty band.
+  it("sizes the bottom room so a short last slide ends centred in the stage", () => {
     config.underHeader = true;
     const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
     act(() => setViewport("desktop"));
@@ -708,7 +709,40 @@ describe("ProductGallery slides sized by their photos", () => {
 
     scrollViewportTo(node, 0);
 
-    expect(stageVar(container, "--gallery-peek-strip")).toBe("500px");
+    expect(stageVar(container, "--gallery-peek-strip")).toBe("250px");
+  });
+
+  // Centring a nearly full-height photo would drop it below where every
+  // other slide parks; it keeps the peek strip under it and parks at the top.
+  it("parks a full-height last slide at the top, over the peek strip", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    // Visible stage 800, peek 0.2: a 640 slide is exactly full height.
+    const node = viewport(container);
+    measure(node);
+    Object.defineProperty(node, "clientHeight", { configurable: true, value: 900 });
+    layoutSlides(container, [500, 360, 420, 640], { gap: GAP, padTop: 100 });
+
+    scrollViewportTo(node, 0);
+
+    expect(stageVar(container, "--gallery-peek-strip")).toBe("160px");
+  });
+
+  // With the last slide centred, the scroller ends short of its top. That end
+  // is where it parks, or it would never select or come into focus.
+  it("treats the end of the scroll as the last slide's parking spot", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node, scrollTo, tops } = measureUneven(container);
+    const end = tops[3]! - 250;
+    Object.defineProperty(node, "scrollHeight", { configurable: true, value: end + 900 });
+
+    scrollViewportTo(node, end);
+    expect(thumbnails()[3]!.getAttribute("aria-pressed")).toBe("true");
+    expect(slides(container)[3]!.style.filter).toBe("");
+
+    fireEvent.click(thumbnails()[3]!);
+    expect(scrollTo).toHaveBeenLastCalledWith({ top: end, behavior: "smooth" });
   });
 
   it("asks for no bottom room when the last slide already fills the stage", () => {
