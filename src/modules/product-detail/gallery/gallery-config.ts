@@ -5,8 +5,11 @@
  * parks every photo exactly on the stage. Slides snap by their START, which
  * sits just below the header (`scroll-padding-top`), so a parked photo is the
  * one under the header and the next one peeks below it.
+ *
+ * Off as shipped: the gallery is a free scroll, and the flag stays for trying
+ * the snapping feel again.
  */
-export const DESKTOP_SCROLL_SNAP = true;
+export const DESKTOP_SCROLL_SNAP = false;
 
 /**
  * Where the gallery's edge fade starts when it is fully on, as a
