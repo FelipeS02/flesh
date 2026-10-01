@@ -4,13 +4,17 @@ import { unstable_cache } from "next/cache";
 import { buildColourwayIndex, type ColourwayIndex } from "../domain/colourway";
 import type { ProductView } from "../domain/product";
 import { readTiendanubeConfig } from "./config";
+import { cachedImageMeasurer, readImageDimensions } from "./image-dimensions";
 import type { CatalogPort, CheckoutProduct } from "./port";
 import { createTiendanubeCatalogLoader, type CatalogSnapshot } from "./tiendanube";
 
 export const CATALOG_CACHE_TAG = "tiendanube-catalog";
 
 const loadPersistentSnapshot = unstable_cache(
-  async () => createTiendanubeCatalogLoader(readTiendanubeConfig())(),
+  async () =>
+    createTiendanubeCatalogLoader(readTiendanubeConfig(), {
+      measureImage: cachedImageMeasurer(readImageDimensions()),
+    })(),
   ["tiendanube-catalog-snapshot-v1"],
   { revalidate: 300, tags: [CATALOG_CACHE_TAG] },
 );

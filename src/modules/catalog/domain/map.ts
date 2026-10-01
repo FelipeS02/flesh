@@ -26,6 +26,9 @@ export function mapToProductView(
   // product. `null` is the ordinary case: a garment that comes one way.
   colourway: Colourway | null = null,
   garment: { fit?: GarmentFit | null; sizeChart?: readonly GarmentSize[] | null } = {},
+  // Measured separately (see `api/image-dimensions.ts`), keyed by image id,
+  // for the same reason colours are: it is not on the wire.
+  imageSizes: ReadonlyMap<number, { width: number; height: number }> = new Map(),
 ): ProductView {
   assertPositionalCorrelation(product);
 
@@ -43,7 +46,12 @@ export function mapToProductView(
 
   const images: ImageView[] = [...product.images]
     .sort((a, b) => a.position - b.position)
-    .map((image) => ({ id: image.id, src: image.src, position: image.position }));
+    .map((image) => ({
+      id: image.id,
+      src: image.src,
+      position: image.position,
+      ...imageSizes.get(image.id),
+    }));
 
   const defaultVariant = variants.find((variant) => variant.inStock) ?? variants[0];
   if (!defaultVariant) {

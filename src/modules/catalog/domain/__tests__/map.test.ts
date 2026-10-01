@@ -169,6 +169,38 @@ describe("mapToProductView — images", () => {
   });
 });
 
+describe("mapToProductView — image dimensions", () => {
+  const wire = buildWireProduct({
+    variants: [buildWireVariant({ values: [] })],
+    images: [
+      { id: 1, product_id: 900, src: "a.jpg", position: 1 },
+      { id: 2, product_id: 900, src: "b.jpg", position: 2 },
+    ],
+  });
+
+  it("carries a measured width and height onto the image it belongs to", () => {
+    const result = mapToProductView(wire, null, {}, new Map([[2, { width: 1200, height: 1800 }]]));
+
+    expect(result.images[0]).toEqual({ id: 1, src: "a.jpg", position: 1 });
+    expect(result.images[1]).toEqual({
+      id: 2,
+      src: "b.jpg",
+      position: 2,
+      width: 1200,
+      height: 1800,
+    });
+  });
+
+  it("leaves an unmeasured image without dimensions rather than guessing", () => {
+    const result = mapToProductView(wire);
+
+    for (const image of result.images) {
+      expect(image).not.toHaveProperty("width");
+      expect(image).not.toHaveProperty("height");
+    }
+  });
+});
+
 describe("mapToProductView — description sanitisation", () => {
   it("sanitises merchant HTML at the mapper, so no consumer ever holds raw markup", () => {
     // The mapper is the only place the wire description is read, which makes

@@ -5,6 +5,7 @@ import type { ProductView } from "../domain/product";
 import { ColourwayFieldSchema, ColourwayOwnerSchema, toColourwayIndex } from "./colourways";
 import type { TiendanubeConfig } from "./config";
 import { FitFieldSchema, toFitIndex } from "./fit";
+import type { ImageDimensions, ImageMeasurer } from "./image-dimensions";
 import { ProductSchema } from "./schema";
 import { SizeChartFieldSchema, toSizeChartIndex } from "./size-chart";
 import type { TiendanubeProduct } from "./types";
@@ -16,6 +17,10 @@ const MAX_PAGES = 50;
 const MAX_ATTEMPTS = 3;
 const DEFAULT_TIMEOUT_MS = 8_000;
 const MAX_RETRY_WAIT_MS = 60_000;
+// The catalogue is a few dozen photos, so this is about being a polite client
+// of the CDN, not about throughput: a cold snapshot must not open every
+// connection at once.
+const IMAGE_MEASURE_CONCURRENCY = 6;
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
@@ -25,6 +30,10 @@ type Dependencies = {
   random?: () => number;
   timeoutMs?: number;
   warn?: (message: string) => void;
+  // Optional so the loader stays testable, and usable, without any network
+  // beyond the Tiendanube API. Without it no image is measured and the
+  // gallery simply uses its fallback layout.
+  measureImage?: ImageMeasurer;
 };
 
 export type CatalogSnapshot = {
@@ -157,6 +166,10 @@ export function createTiendanubeCatalogLoader(
     if (fits.diagnostics.length > 0) warn(`[catalog] Ignored ${fits.diagnostics.length} malformed fit owner(s).`);
     if (sizeCharts.diagnostics.length > 0) warn(`[catalog] Ignored ${sizeCharts.diagnostics.length} malformed size-chart owner(s).`);
 
+    const imageSizes = dependencies.measureImage
+      ? await measureGalleryImages(products, dependencies.measureImage, warn)
+      : new Map<number, ImageDimensions>();
+
     const purchasable: ProductView[] = [];
     const listed: ProductView[] = [];
     const checkout: CheckoutProduct[] = [];
@@ -164,7 +177,7 @@ export function createTiendanubeCatalogLoader(
       const view = mapToProductView(product, colourways.values.get(product.id) ?? null, {
         fit: fits.values.get(product.id) ?? null,
         sizeChart: sizeCharts.values.get(product.id) ?? null,
-      });
+      }, imageSizes);
       // Explicit rule, not an accident of the `visibility=visible,unlisted`
       // query param above: if that param is ever widened, or the API ever
       // returns a hidden product anyway, a hidden good must still never
@@ -186,6 +199,43 @@ export function createTiendanubeCatalogLoader(
 
     return { purchasable, listed, checkout };
   };
+}
+
+/**
+ * Measures every orderable product's gallery photos, a few at a time.
+ *
+ * A failure here must never fail the snapshot — it IS the storefront — so a
+ * measurer that throws is treated the same as one that returns `null`: that
+ * photo has no size, and the whole run says so in ONE warning that carries a
+ * count and nothing else (no URLs, which would be noise at best).
+ */
+async function measureGalleryImages(
+  products: TiendanubeProduct[],
+  measureImage: ImageMeasurer,
+  warn: (message: string) => void,
+): Promise<Map<number, ImageDimensions>> {
+  const pending = products
+    .filter((product) => product.visibility !== "hidden")
+    .flatMap((product) => product.images);
+  const sizes = new Map<number, ImageDimensions>();
+  let unmeasured = 0;
+  let next = 0;
+
+  const worker = async () => {
+    while (next < pending.length) {
+      const image = pending[next++]!;
+      const size = await measureImage({ src: image.src, updatedAt: image.updated_at }).catch(() => null);
+      if (size) sizes.set(image.id, size);
+      else unmeasured += 1;
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(IMAGE_MEASURE_CONCURRENCY, pending.length) }, worker));
+
+  if (unmeasured > 0) {
+    warn(`[catalog] Could not measure ${unmeasured} gallery image(s); they use the fallback layout.`);
+  }
+
+  return sizes;
 }
 
 async function loadProducts(

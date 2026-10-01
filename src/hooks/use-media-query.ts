@@ -8,8 +8,9 @@ import { useCallback, useSyncExternalStore } from "react";
  * Reach for this ONLY when CSS genuinely cannot express the rule. Every
  * breakpoint answered in JS costs a hydration pass where the server's guess
  * is on screen, so a `md:` class is always the better answer when one exists.
- * The gallery uses it because embla fixes its scroll axis at initialisation
- * and no stylesheet can reach that decision.
+ * The gallery uses it because which axis a native scroll offset belongs to
+ * (and so how selection and alignment read it) is decided in JS, and no
+ * stylesheet can reach that decision.
  *
  * `useSyncExternalStore` rather than `useState` + `useEffect`: it subscribes
  * and reads in one tear-free step, so a component cannot render against a

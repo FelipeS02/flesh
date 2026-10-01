@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Archived Embla-era gallery (see its README). Kept restorable, never
+    // compiled, linted or run.
+    "src/modules/product-detail/gallery/product-gallery.old/**",
   ]),
   // `src/components/ui/**` is vendored: shadcn COPIES these files in, and
   // `shadcn add --overwrite` will hand them back verbatim. Patching the

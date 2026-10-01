@@ -15,6 +15,13 @@ export type ImageView = {
   id: number;
   src: string;
   position: number;
+  // Intrinsic pixel size, measured from the file (Tiendanube's wire does not
+  // carry it). Both or neither: the gallery turns them into an aspect ratio.
+  // Integers rather than a pre-divided ratio, so `aspect-ratio: w / h` is
+  // exact and the size stays usable for anything else that wants it. Absent
+  // means "could not be measured", and the consumer falls back.
+  width?: number;
+  height?: number;
 };
 
 // Mirrors the wire's own positional model (at most 3 attributes per
