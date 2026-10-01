@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ZodError } from "zod";
 import { products } from "../fixtures/products";
-import { ProductSchema } from "../schema";
+import { ImageSchema, ProductSchema } from "../schema";
 
 // Minimal well-formed Tiendanube wire payload — verified contract shape:
 // prices are strings, name/description/handle/attributes are {en,es,pt}
@@ -105,5 +105,19 @@ describe("ProductSchema", () => {
     // pinning the total would make adding a review fixture look like a schema
     // regression.
     expect(products.length).toBeGreaterThan(0);
+  });
+});
+
+describe("ImageSchema", () => {
+  const base = { id: 1, product_id: 2, src: "https://cdn.example.com/a.png", position: 1 };
+
+  // Tiendanube documents `updated_at` on a product image, but it is the one
+  // field the gallery's measurement cache keys on, so a payload without it
+  // must still parse: losing a whole product over a cache key would be absurd.
+  it("reads updated_at when present and does not require it", () => {
+    expect(ImageSchema.parse({ ...base, updated_at: "2026-01-01T00:00:00Z" }).updated_at).toBe(
+      "2026-01-01T00:00:00Z",
+    );
+    expect(ImageSchema.safeParse(base).success).toBe(true);
   });
 });

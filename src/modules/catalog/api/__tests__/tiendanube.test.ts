@@ -332,3 +332,105 @@ describe("Tiendanube catalog loader", () => {
     expect(snapshot.checkout.map((item) => item.productId).sort()).toEqual([101, 102]);
   });
 });
+
+describe("Tiendanube catalog loader — image dimensions", () => {
+  const withImages = {
+    ...product,
+    images: [
+      { id: 1, product_id: 101, src: "https://cdn.example.com/a.png", position: 1, updated_at: "2026-02-01T00:00:00Z" },
+      { id: 2, product_id: 101, src: "https://cdn.example.com/b.png", position: 2 },
+    ],
+  };
+
+  it("measures nothing unless a measurer is supplied", async () => {
+    const fetchImpl = successfulFetch([withImages]);
+    const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
+
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(snapshot.purchasable[0]!.images[0]).not.toHaveProperty("width");
+  });
+
+  it("puts each measured size on its image and hands the measurer src and updated_at", async () => {
+    const measureImage = vi.fn(async ({ src }: { src: string }) =>
+      src.endsWith("a.png") ? { width: 1000, height: 1500 } : { width: 900, height: 900 },
+    );
+    const snapshot = await createTiendanubeCatalogLoader(config, {
+      fetchImpl: successfulFetch([withImages]),
+      measureImage,
+    })();
+
+    expect(snapshot.purchasable[0]!.images).toEqual([
+      { id: 1, src: "https://cdn.example.com/a.png", position: 1, width: 1000, height: 1500 },
+      { id: 2, src: "https://cdn.example.com/b.png", position: 2, width: 900, height: 900 },
+    ]);
+    expect(measureImage).toHaveBeenCalledWith({
+      src: "https://cdn.example.com/a.png",
+      updatedAt: "2026-02-01T00:00:00Z",
+    });
+  });
+
+  // The snapshot is the storefront. A CDN hiccup on a photo's header must cost
+  // that photo its aspect ratio, never the product page.
+  it("still builds the snapshot when a measurement fails, warning once", async () => {
+    const warn = vi.fn();
+    const measureImage = vi.fn(async ({ src }: { src: string }) => {
+      if (src.endsWith("a.png")) throw new Error("cdn down");
+      return null;
+    });
+
+    const snapshot = await createTiendanubeCatalogLoader(config, {
+      fetchImpl: successfulFetch([withImages]),
+      measureImage,
+      warn,
+    })();
+
+    expect(snapshot.purchasable).toHaveLength(1);
+    expect(snapshot.purchasable[0]!.images[0]).not.toHaveProperty("width");
+    const imageWarnings = warn.mock.calls.filter(([message]) => /image/i.test(String(message)));
+    expect(imageWarnings).toHaveLength(1);
+    expect(String(imageWarnings[0]![0])).toContain("2");
+    expect(String(imageWarnings[0]![0])).not.toContain("cdn.example.com");
+  });
+
+  it("does not measure the photos of a hidden product", async () => {
+    const measureImage = vi.fn(async () => ({ width: 1, height: 1 }));
+
+    await createTiendanubeCatalogLoader(config, {
+      fetchImpl: successfulFetch([{ ...withImages, visibility: "hidden" }]),
+      measureImage,
+    })();
+
+    expect(measureImage).not.toHaveBeenCalled();
+  });
+
+  it("bounds how many measurements run at once", async () => {
+    const many = {
+      ...product,
+      images: Array.from({ length: 30 }, (_, index) => ({
+        id: index + 1,
+        product_id: 101,
+        src: `https://cdn.example.com/${index}.png`,
+        position: index + 1,
+      })),
+    };
+    let running = 0;
+    let peak = 0;
+    const measureImage = vi.fn(async () => {
+      running += 1;
+      peak = Math.max(peak, running);
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      running -= 1;
+
+      return { width: 10, height: 10 };
+    });
+
+    await createTiendanubeCatalogLoader(config, {
+      fetchImpl: successfulFetch([many]),
+      measureImage,
+    })();
+
+    expect(measureImage).toHaveBeenCalledTimes(30);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(6);
+  });
+});

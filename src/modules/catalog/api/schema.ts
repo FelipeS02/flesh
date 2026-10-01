@@ -61,6 +61,10 @@ export const ImageSchema = z.object({
   product_id: z.number(),
   src: z.string(),
   position: z.number(),
+  // Documented by Tiendanube but optional HERE on purpose: it is only the
+  // gallery's measurement cache key, and a payload without it must not cost
+  // the whole product its place in the snapshot.
+  updated_at: z.string().optional(),
 });
 
 export const VariantSchema = z.object({
