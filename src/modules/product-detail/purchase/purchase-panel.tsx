@@ -22,6 +22,7 @@ import { AxisSelector } from "./axis-selector";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
 import { PurchaseWidget } from "./purchase-widget";
+import { StockNote } from "./stock-note";
 import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 
 type PurchasePanelProps = {
@@ -220,6 +221,11 @@ function PanelView({
   const held = selected ? (heldQuantity?.(selected.id) ?? 0) : 0;
   const atLimit = limit !== null && held >= limit;
   const canAddToCart = selected?.inStock === true && !atLimit;
+  // The catalog's count, not the cart's remainder: three left with two
+  // already held is not "the last unit" — two other people could still buy
+  // the third. And once the cart holds the one there is, the button already
+  // says "Máximo disponible"; urging the shopper on would be pointless.
+  const lastUnit = limit === 1 && !atLimit;
 
   // Four different facts deserve four different sentences. A dead button
   // reading "Agregar al carrito" tells you the site is broken; "Sin stock"
@@ -257,6 +263,12 @@ function PanelView({
         />
       ))}
 
+      {/* Wrapped with the CTA so the note sits 12px above it instead of the
+          panel's 20px rhythm: it belongs to the button, not to the list of
+          choices above it. */}
+      <div className="flex flex-col gap-3">
+      {lastUnit && <StockNote />}
+
       <button
         type="button"
         // Read by the toast's mobile dismiss-on-interaction hook, which must
@@ -279,6 +291,7 @@ function PanelView({
       >
         {ctaLabel}
       </button>
+      </div>
 
       </div>
 
@@ -302,6 +315,7 @@ function PanelView({
         priced={priced}
         canAddToCart={canAddToCart}
         ctaLabel={ctaLabel}
+        lastUnit={lastUnit}
         onSelect={onSelect}
         onAdd={() => selected && onAdd?.(selected)}
         sizeChart={sizeChart}

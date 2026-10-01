@@ -362,6 +362,51 @@ describe("PurchasePanel", () => {
     expect(screen.getByTestId("cart-lines").textContent).toBe("601 x1");
   });
 
+  it("warns above the CTA when the chosen variant is the last unit", () => {
+    window.localStorage.clear();
+    const lastOne: VariantMatrix = {
+      axes: [SIZE],
+      variants: [variant(701, ["M"], { stockManagement: true, stock: 1 })],
+    };
+
+    renderPanel(lastOne, { defaultVariantId: 701 });
+
+    const note = within(panel()).getByText("Última unidad disponible");
+    const cta = addToCart(/agregar al carrito/i);
+    expect(note.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it.each([
+    ["more than one unit is left", { stockManagement: true, stock: 2 }],
+    ["the merchant does not track stock", { stockManagement: false, stock: null }],
+    ["the variant is sold out", { stockManagement: true, stock: 0, inStock: false }],
+  ])("says nothing about scarcity when %s", (_, overrides) => {
+    window.localStorage.clear();
+    renderPanel(
+      { axes: [SIZE], variants: [variant(702, ["M"], overrides)] },
+      { defaultVariantId: 702 },
+    );
+
+    expect(screen.queryByText("Última unidad disponible")).toBeNull();
+  });
+
+  it("drops the note once that last unit is already in the cart", async () => {
+    // "Máximo disponible" already explains the dead button; a scarcity nudge
+    // above a button that cannot be pressed would be urging an impossible act.
+    window.localStorage.clear();
+    renderPanel(
+      { axes: [SIZE], variants: [variant(703, ["M"], { stockManagement: true, stock: 1 })] },
+      { defaultVariantId: 703 },
+    );
+
+    await act(async () => {
+      addToCart(/agregar al carrito/i).click();
+    });
+
+    expect(addToCart(/m[aá]ximo disponible/i)).toBeDefined();
+    expect(screen.queryByText("Última unidad disponible")).toBeNull();
+  });
+
   it("shows the transfer price, its label and the list price", () => {
     renderPanel();
 

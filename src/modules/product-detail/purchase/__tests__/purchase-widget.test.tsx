@@ -133,6 +133,21 @@ describe("PurchaseWidget", () => {
     expect(props.onAdd).toHaveBeenCalledOnce();
   });
 
+  it("puts the last-unit note above its button when told it is the last unit", () => {
+    renderWidget({ lastUnit: true });
+
+    const note = within(widget()).getByText("Última unidad disponible");
+    const cta = within(widget()).getByRole("button", { name: /agregar al carrito/i });
+
+    expect(note.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("shows no last-unit note by default", () => {
+    renderWidget();
+
+    expect(within(widget()).queryByText("Última unidad disponible")).toBeNull();
+  });
+
   it("renders its own compact 'Guía' size-guide trigger right after the size label", () => {
     const sizeChart: GarmentSize[] = [
       { size: "M", measurements: { chest_width: 52 } },
