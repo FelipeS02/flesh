@@ -5,6 +5,14 @@
  */
 export const MAX_BLUR_PX = 7;
 
+/**
+ * How far, in slides, the scroll has to move off a slide before it starts to
+ * blur. Slides take their photo's height, so a tall one is still mostly in
+ * view well into the scroll; a ramp starting at zero softened the photo the
+ * shopper was still looking at.
+ */
+export const BLUR_ONSET = 0.3;
+
 function noBlur(slideCount: number): number[] {
   return Array.from({ length: Math.max(slideCount, 0) }, () => 0);
 }
@@ -17,7 +25,9 @@ function blursFromPosition(position: number, slideCount: number): number[] {
     // for something nobody can see.
     const distance = Math.min(Math.abs(index - position), 1);
 
-    return distance * MAX_BLUR_PX;
+    const ramp = Math.max(distance - BLUR_ONSET, 0) / (1 - BLUR_ONSET);
+
+    return ramp * MAX_BLUR_PX;
   });
 }
 

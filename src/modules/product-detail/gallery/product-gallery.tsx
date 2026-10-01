@@ -200,6 +200,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
     stage,
     enabled: isDesktop,
     count: ordered.length,
+    peek,
   });
 
   function select(index: number) {
