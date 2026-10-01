@@ -10,23 +10,15 @@ import {
   type ReactNode,
 } from 'react';
 import Image from 'next/image';
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  type CarouselApi,
-} from '@/components/ui/carousel';
 import { Button } from '@/components/ui/button';
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import { type ImageView, mediaSource } from '@/modules/catalog/client';
 import {
-  DESKTOP_GALLERY_ENGINE,
   DESKTOP_GALLERY_UNDER_HEADER,
   DESKTOP_NEXT_SLIDE_PEEK,
   DESKTOP_SCROLL_SNAP,
 } from './gallery-config';
-import { useEmblaDesktop } from './use-embla-desktop';
 import {
   scrollToSlide,
   scrollUnit,
@@ -75,8 +67,7 @@ const THUMBNAIL_WIDTH = 64;
  * on screen, so the photo used to fade in DURING the gesture. Flipping the
  * attribute to `eager` resumes a deferred load, so this window walks with the
  * selection and the next photo has already landed by the time it arrives. One
- * is enough: the gallery advances a slide at a time, and a thumbnail jump
- * moves the selection before its scroll finishes.
+ * is enough: a thumbnail jump moves the selection before its scroll finishes.
  */
 const PRELOAD_AHEAD = 1;
 
@@ -86,10 +77,6 @@ type ProductGalleryProps = {
   badge?: ReactNode;
   dimmed?: boolean;
 };
-
-type DesktopApi = NonNullable<CarouselApi>;
-
-const NATIVE_ENGINE = DESKTOP_GALLERY_ENGINE === 'native-scroll';
 
 /**
  * The most of the stage the next slide may take. A peek of 1 or more would
@@ -105,28 +92,27 @@ function clampIndex(index: number, imageCount: number): number {
 }
 
 /**
- * A single state boundary for the native mobile scroller and whichever desktop
- * engine `gallery-config` selects (a native vertical scroller, or the
- * controlled Embla carousel).
+ * One state boundary for a gallery that is native scrolling on both layouts:
+ * horizontal scroll-snap below `md`, a vertical scroller at `md` and up.
+ *
+ * Deliberately NOT built on `ui/carousel`, against the project's shadcn-first
+ * rule: that primitive is an Embla wrapper, and Embla was inactive on every
+ * breakpoint here — it only lent its DOM, while the browser's own scrolling
+ * owned the gesture. A carousel engine that never moves anything is dead
+ * weight on the page that sells the garment. What the primitive gave the
+ * markup for free (the region and slide roles) is written out below. The
+ * Embla-era version is archived in `product-gallery.old/`.
  */
 export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryProps) {
   const isDesktop = useMediaQuery(DESKTOP_QUERY);
-  const [api, setApi] = useState<DesktopApi>();
   const [selectedIndex, setSelectedIndex] = useState(0);
   const stage = useRef<HTMLDivElement>(null);
-  // The native scroll container: mobile's horizontal scroller and, with the
-  // native engine, desktop's vertical one. Typed as the primitive's own
-  // return, not `HTMLDivElement`: it comes from Embla's `rootNode()` (see the
-  // effect below) rather than a JSX `ref`, and the carousel API declares that
-  // accessor as `HTMLElement`.
-  const scroller = useRef<HTMLElement>(null);
-  // Whether a native scroll, rather than Embla, is what moves the gallery at
-  // this width. Mobile is always native; desktop only with the native engine.
-  const nativeDesktop = isDesktop && NATIVE_ENGINE;
-  // Whether the native desktop scroller runs up behind the sticky header. Only
-  // meaningful with the native engine; the Embla one moves by transform inside
-  // a clipped viewport and has nothing to scroll under anything.
-  const underHeader = NATIVE_ENGINE && DESKTOP_GALLERY_UNDER_HEADER;
+  // The one scroll container: mobile's horizontal scroller and desktop's
+  // vertical one are the same element, with CSS (`md:`) picking the axis.
+  const scroller = useRef<HTMLDivElement>(null);
+  // Read at render, not frozen at module load, so a test (or a hand-edit with
+  // hot reload) can flip it.
+  const underHeader = DESKTOP_GALLERY_UNDER_HEADER;
   const peek = Math.min(Math.max(DESKTOP_NEXT_SLIDE_PEEK, 0), MAX_NEXT_SLIDE_PEEK);
 
   // `position` is the wire's ordering field. The incoming array is incidental.
@@ -151,99 +137,65 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
 
   // An Effect Event, not a `useCallback`: it only ever runs from the scroll
   // listener the effect below attaches, and it must read the CURRENT slide
-  // count without that count becoming a reason to resubscribe. As a callback
-  // dependency, every change to the gallery tore the listener down and
+  // count and axis without either becoming a reason to resubscribe. As a
+  // callback dependency, every change to the gallery tore the listener down and
   // reattached it. `alignScroller` cannot follow: `select` calls it from a
   // click handler, and an Effect Event may only be called from inside an
   // effect.
   //
-  // One observation for both layouts, generalised by axis: a native scroller
-  // is one slide per viewport, so the selection is the nearest multiple of
-  // its client size whichever way it scrolls.
+  // One observation for both layouts, generalised by axis: the selection is
+  // the nearest whole slide, whichever way the scroller moves.
   const observeScroll = useEffectEvent(() => {
     const node = scroller.current;
     if (!node) return;
 
-    const size = scrollUnit(node, nativeDesktop);
+    const size = scrollUnit(node, isDesktop);
     if (size <= 0) return;
 
     // Observation only: correcting a touch gesture fights the browser's
-    // momentum and snap physics. Explicit thumbnail navigation is above.
-    const offset = nativeDesktop ? node.scrollTop : node.scrollLeft;
+    // momentum and snap physics. Explicit thumbnail navigation is below.
+    const offset = isDesktop ? node.scrollTop : node.scrollLeft;
     setSelectedIndex(clampIndex(Math.round(offset / size), ordered.length));
   });
 
-  // The single Embla instance's own viewport node is ALSO the native scroll
-  // container: mobile swipes against it horizontally and, with the native
-  // engine, desktop scrolls it vertically (see `viewportClassName` on
-  // `CarouselContent`). Reading it back through `rootNode()` once the engine
-  // exists reaches that element without asking the primitive to forward a
-  // second ref onto it. The listener attaches wherever a native scroll is what
-  // moves the gallery. With the Embla desktop engine the viewport is
-  // `overflow-hidden` and Embla repositions it with a transform, so a native
-  // `scroll` event there would never correspond to a real selection change.
+  // Attached once for the element's life, on both axes: the browser only
+  // fires `scroll` along the axis that actually scrolls at the current width.
   useEffect(() => {
-    const node = api?.rootNode() ?? null;
-    scroller.current = node;
-    if (!node || (isDesktop && !nativeDesktop)) return;
+    const node = scroller.current;
+    if (!node) return;
 
     const onScroll = () => observeScroll();
     node.addEventListener('scroll', onScroll);
     return () => node.removeEventListener('scroll', onScroll);
-  }, [api, isDesktop, nativeDesktop]);
+  }, []);
 
   // A changed identity/order can make the same index refer to another image.
-  // Reset both engines together rather than carrying a stale visual selection.
+  // Reset rather than carrying a stale visual selection.
   useEffect(() => {
     if (previousImageSignature.current === imageSignature) return;
 
     previousImageSignature.current = imageSignature;
     setSelectedIndex(0);
-    api?.scrollTo(0, true);
-    alignScroller(0, 'auto', nativeDesktop);
-  }, [alignScroller, api, imageSignature, nativeDesktop]);
+    alignScroller(0, 'auto', isDesktop);
+  }, [alignScroller, imageSignature, isDesktop]);
 
-  // Crossing the breakpoint hands the last position an engine actually
-  // confirmed to whichever scroller takes over: leaving desktop re-aligns the
-  // horizontal mobile scroller, entering desktop with the native engine aligns
-  // the vertical one. The Embla desktop engine aligns itself (see its sync
-  // effect), so it is skipped here. `auto`, so it lands instantly instead of
-  // animating a scroller that just became visible.
+  // Crossing the breakpoint hands the last confirmed position to the other
+  // axis: the same element scrolls horizontally below `md` and vertically
+  // above it, and each axis has its own offset. `auto`, so it lands instantly
+  // instead of animating a scroller that just changed shape.
   useEffect(() => {
-    if (isDesktop && !nativeDesktop) return;
+    alignScroller(selected, 'auto', isDesktop);
+  }, [alignScroller, isDesktop]);
 
-    alignScroller(selected, 'auto', nativeDesktop);
-  }, [alignScroller, isDesktop, nativeDesktop]);
-
-  const embla = useEmblaDesktop({
-    api,
-    enabled: isDesktop && !NATIVE_ENGINE,
-    count: ordered.length,
-    selected,
-    stage,
-    onSelect: setSelectedIndex,
-  });
-
-  // Declared after the Embla engine on purpose: on the render where `api`
-  // arrives both effects run, and the Embla engine's disabled path clears
-  // slide styles. The native paint has to be the later write.
   useNativeDesktopScroll({
-    api,
     viewport: scroller,
     stage,
-    enabled: nativeDesktop,
+    enabled: isDesktop,
     count: ordered.length,
   });
 
   function select(index: number) {
-    const nextIndex = clampIndex(index, ordered.length);
-
-    if (isDesktop && !nativeDesktop) {
-      embla.select(nextIndex);
-      return;
-    }
-
-    alignScroller(nextIndex, 'smooth', nativeDesktop);
+    alignScroller(clampIndex(index, ordered.length), 'smooth', isDesktop);
   }
 
   const renderImage = (image: ImageView, index: number) => {
@@ -302,142 +254,110 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
         data-orientation={isDesktop ? 'vertical' : 'horizontal'}
         className={cn(
           'relative -mx-4 min-h-0 w-[calc(100%+2rem)] flex-1 md:mx-0 md:w-full md:min-w-0',
-          NATIVE_ENGINE && [
-            // How far the sticky column sits below the top of the page: the
-            // header band plus the 40px `md:mt-10` above the gallery (the same
-            // sum `page.tsx` uses for its `top`). Defined once, as a property,
-            // so every consumer below reads one number instead of its own
-            // copy of the calc. Named for what it is used for under the
-            // header; with that off it still sizes the stage.
-            'md:[--gallery-under-header-offset:calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))]',
-            // The part of the stage below the header, running to the BOTTOM of
-            // the window so no page shows under it. Never under 722px (the
-            // old fixed stage), so a short window cannot squash the photo.
-            'md:[--gallery-visible:max(--spacing(180.5),calc(100svh-var(--gallery-under-header-offset)))]',
-            // One slide is the visible stage minus the strip the NEXT slide
-            // peeks into (`--gallery-peek`, set below from the config knob).
-            'md:[--gallery-slide:calc(var(--gallery-visible)*(1-var(--gallery-peek,0)))]',
-            'md:[--gallery-peek-strip:calc(var(--gallery-visible)-var(--gallery-slide))]',
-          ],
+          // How far the sticky column sits below the top of the page: the
+          // header band plus the 40px `md:mt-10` above the gallery (the same
+          // sum `page.tsx` uses for its `top`). Defined once, as a property,
+          // so every consumer below reads one number instead of its own
+          // copy of the calc. Named for what it is used for under the
+          // header; with that off it still sizes the stage.
+          'md:[--gallery-under-header-offset:calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))]',
+          // The part of the stage below the header, running to the BOTTOM of
+          // the window so no page shows under it. Never under 722px, so a
+          // short window cannot squash the photo.
+          'md:[--gallery-visible:max(--spacing(180.5),calc(100svh-var(--gallery-under-header-offset)))]',
+          // One slide is the visible stage minus the strip the NEXT slide
+          // peeks into (`--gallery-peek`, set below from the config knob).
+          'md:[--gallery-slide:calc(var(--gallery-visible)*(1-var(--gallery-peek,0)))]',
+          'md:[--gallery-peek-strip:calc(var(--gallery-visible)-var(--gallery-slide))]',
           // Raises ONLY the stage — the rail beside it stays put — by that
           // offset, so the scroller can run up behind the header.
           underHeader && 'md:-mt-(--gallery-under-header-offset)',
         )}
-        style={NATIVE_ENGINE ? ({ '--gallery-peek': peek } as CSSProperties) : undefined}
+        style={{ '--gallery-peek': peek } as CSSProperties}
       >
         {/*
           One tree for both layouts: CSS (`md:`) owns the layout switch, not
-          React. Embla is built once and never unmounted, and the server-painted
-          hero `<img>` never unmounts with it. What changes across the
-          breakpoint is only who moves the slides.
-
-          Below `md`, and on desktop with the native engine, `active: false`
-          still builds Embla's engine but skips translate/drag/resize init —
-          real native scroll-snap owns the gesture instead, on the viewport
-          `CarouselContent` exposes via `viewportClassName` (horizontal on
-          mobile, vertical on desktop). The native engine never reactivates
-          Embla, so there is no breakpoint override. With the Embla desktop
-          engine, crossing the breakpoint runs Embla's own `reActivate` and it
-          takes over the same viewport as a transform.
+          React, and the server-painted hero `<img>` never unmounts across the
+          breakpoint. What changes is only which axis the one scroller below
+          moves along: horizontal scroll-snap on mobile, vertical on desktop.
         */}
-        <Carousel
-          orientation='vertical'
-          opts={
-            NATIVE_ENGINE
-              ? { duration: 20, active: false }
-              : {
-                  duration: 20,
-                  active: false,
-                  breakpoints: { [DESKTOP_QUERY]: { active: true } },
-                }
-          }
-          setApi={setApi}
+        <div
+          // The roles `ui/carousel` used to supply: a labelled carousel region
+          // whose children are slides.
+          role='region'
+          aria-roledescription='carousel'
           aria-label={`Galería de imágenes de ${title}`}
+          data-gallery-region
           className={cn(
-            'h-full w-full mx-auto *:data-[slot=carousel-content]:h-full',
-            'mask-b-from-98% md:max-w-220',
-            NATIVE_ENGINE
-              ? [
-                  // The viewport's `h-full` (above) follows this box. With the
-                  // header offset the box grows by exactly that much, so the
-                  // first photo still lands where it always did.
-                  underHeader
-                    ? 'md:h-[calc(var(--gallery-under-header-offset)+var(--gallery-visible))]'
-                    : 'md:h-(--gallery-visible)',
-                  // Top and bottom are separate properties because the fades
-                  // are independent here: each is on only while there is
-                  // content beyond that edge.
-                  'md:mask-t-from-(--gallery-mask-top,100%) md:mask-b-from-(--gallery-mask-bottom,100%)',
-                ]
-              : 'md:mask-y-from-(--gallery-mask-stop,100%)',
+            'relative h-full w-full mx-auto mask-b-from-98% md:max-w-220',
+            // The viewport's `h-full` (below) follows this box. With the
+            // header offset the box grows by exactly that much, so the
+            // first photo still lands where it always did.
+            underHeader
+              ? 'md:h-[calc(var(--gallery-under-header-offset)+var(--gallery-visible))]'
+              : 'md:h-(--gallery-visible)',
+            // Top and bottom are separate properties because the fades are
+            // independent: each is on only while there is content beyond
+            // that edge.
+            'md:mask-t-from-(--gallery-mask-top,100%) md:mask-b-from-(--gallery-mask-bottom,100%)',
             dimmed && 'opacity-40',
           )}
         >
-          <CarouselContent
-            // Below `md` this IS the mobile stage: Embla stays inactive, so
-            // nothing fights the browser's own scroll-snap physics.
-            viewportClassName={cn(
-              'overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden',
-              NATIVE_ENGINE
-                ? [
-                    // The viewport is the desktop scroller too. No
-                    // `overscroll-contain`, deliberately: default scroll
-                    // chaining hands the wheel to the page once the gallery
-                    // hits either end, so a reader heading for the size
-                    // selector is never trapped on the last photo.
-                    // `scroll-auto` turns off the mobile `scroll-smooth`
-                    // here, so an explicit `auto` alignment is instant and
-                    // only thumbnail jumps animate.
-                    'md:overflow-x-hidden md:overflow-y-auto md:scroll-auto',
-                    DESKTOP_SCROLL_SNAP
-                      ? 'md:snap-y md:snap-mandatory'
-                      : 'md:snap-none',
-                    // Room below the last slide equal to the strip the next
-                    // one peeks into. Without it the last slide could never
-                    // reach the top (max scrollTop would be n*S - visible, not
-                    // (n-1)*S), so its bottom fade would never clear and the
-                    // last thumbnail would never be selected.
-                    'md:pb-(--gallery-peek-strip)',
-                    // Padding lets the first photo start below the header
-                    // while scrolled content still runs up behind it.
-                    // `scroll-pt` is the snap half: without it a snapped
-                    // photo would park flush with the viewport top, under the
-                    // header, instead of in the stage.
-                    underHeader &&
-                      'md:pt-(--gallery-under-header-offset) md:scroll-pt-(--gallery-under-header-offset)',
-                  ]
-                : 'md:overflow-hidden md:snap-none',
+          <div
+            ref={scroller}
+            data-gallery-viewport
+            className={cn(
+              // Below `md` this IS the mobile stage: the browser's own
+              // scroll-snap physics, with nothing fighting them.
+              'h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden',
+              // The same element is the desktop scroller. No
+              // `overscroll-contain`, deliberately: default scroll chaining
+              // hands the wheel to the page once the gallery hits either end,
+              // so a reader heading for the size selector is never trapped on
+              // the last photo. `scroll-auto` turns off the mobile
+              // `scroll-smooth` here, so an explicit `auto` alignment is
+              // instant and only thumbnail jumps animate.
+              'md:overflow-x-hidden md:overflow-y-auto md:scroll-auto',
+              DESKTOP_SCROLL_SNAP ? 'md:snap-y md:snap-mandatory' : 'md:snap-none',
+              // Room below the last slide equal to the strip the next one
+              // peeks into. Without it the last slide could never reach the
+              // top (max scrollTop would be n*S - visible, not (n-1)*S), so
+              // its bottom fade would never clear and the last thumbnail
+              // would never be selected.
+              'md:pb-(--gallery-peek-strip)',
+              // Padding lets the first photo start below the header while
+              // scrolled content still runs up behind it. `scroll-pt` is the
+              // snap half: without it a snapped photo would park flush with
+              // the viewport top, under the header, instead of in the stage.
+              underHeader &&
+                'md:pt-(--gallery-under-header-offset) md:scroll-pt-(--gallery-under-header-offset)',
             )}
-            className={
-              NATIVE_ENGINE
-                ? // The gap eats into the peek strip — the next photo shows
-                  // `peek - gap` of itself — and needs no padding fix at the
-                  // end: the last slide still parks at (n-1) pitches.
-                  'mt-0 ml-0 h-full flex-row md:h-auto md:flex-col md:gap-6'
-                : 'mt-0 ml-0 h-full flex-row md:h-180.5 md:flex-col'
-            }
           >
-            {ordered.map((image, index) => (
-              <CarouselItem
-                key={image.id}
-                aria-label={`Imagen ${index + 1} de ${ordered.length}`}
-                className={cn(
-                  'min-w-full shrink-0 snap-center pt-0 pl-0 md:min-w-0',
-                  // Native slides size themselves: the track is `h-auto`, so
-                  // the default `basis-full` would resolve against nothing.
-                  // Each is `--gallery-slide` tall, which is what makes
-                  // `scrollTop / slideHeight` the fractional slide index.
-                  // `snap-start` over the base `snap-center`: a slide is now
-                  // shorter than the viewport, so centring it would park it
-                  // mid-window instead of under the header.
-                  NATIVE_ENGINE && 'md:h-(--gallery-slide) md:basis-auto md:snap-start',
-                )}
-              >
-                <div className='relative size-full'>{renderImage(image, index)}</div>
-              </CarouselItem>
-            ))}
-          </CarouselContent>
-        </Carousel>
+            {/* The gap eats into the peek strip — the next photo shows
+                `peek - gap` of itself — and needs no padding fix at the end:
+                the last slide still parks at (n-1) pitches. */}
+            <div className='flex h-full flex-row md:h-auto md:flex-col md:gap-6'>
+              {ordered.map((image, index) => (
+                <div
+                  key={image.id}
+                  role='group'
+                  aria-roledescription='slide'
+                  aria-label={`Imagen ${index + 1} de ${ordered.length}`}
+                  data-gallery-slide
+                  // Each is `--gallery-slide` tall on desktop, which is what
+                  // makes `scrollTop / pitch` the fractional slide index; the
+                  // track is `h-auto` there, so a flex basis would resolve
+                  // against nothing. `snap-start` over mobile's `snap-center`:
+                  // a slide is shorter than the viewport, so centring it would
+                  // park it mid-window instead of under the header.
+                  className='min-w-full shrink-0 grow-0 basis-full snap-center md:h-(--gallery-slide) md:min-w-0 md:basis-auto md:snap-start'
+                >
+                  <div className='relative size-full'>{renderImage(image, index)}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
 
         {badge && (
           <div

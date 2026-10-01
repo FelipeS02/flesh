@@ -1,100 +1,608 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ImageView } from "@/modules/catalog";
 import { setViewport } from "../../../../../test/fixtures/viewport";
 import { ProductGallery } from "../product-gallery";
 import { MAX_BLUR_PX } from "../slide-blur";
 
-// This file proves the Embla desktop engine, whatever the shipped default is.
-// The native engine has its own file beside this one.
+// A getter, not a value: the config is read at render time, so each test can
+// pick the snap flag without re-importing the module graph.
+const config = vi.hoisted(() => ({ snap: false, underHeader: false, peek: 0.2 }));
+
 vi.mock("../gallery-config", () => ({
-  DESKTOP_GALLERY_ENGINE: "embla",
-  DESKTOP_SCROLL_SNAP: false,
-  DESKTOP_GALLERY_UNDER_HEADER: false,
-  DESKTOP_NEXT_SLIDE_PEEK: 0,
+  // Not the depth the maths is tested with, so these assertions prove the
+  // component reads the tunable knob.
+  DESKTOP_EDGE_FADE_STOP: 96,
+  get DESKTOP_SCROLL_SNAP() {
+    return config.snap;
+  },
+  get DESKTOP_NEXT_SLIDE_PEEK() {
+    return config.peek;
+  },
+  get DESKTOP_GALLERY_UNDER_HEADER() {
+    return config.underHeader;
+  },
 }));
 
-const emblaHarness = vi.hoisted(() => ({
-  ready: true,
-  selected: 0,
-  viewport: null as HTMLElement | null,
-  slides: [] as HTMLElement[],
-  listeners: new Map<string, Set<(api: unknown) => void>>(),
-  renderers: new Set<() => void>(),
-  scrollTo: vi.fn(),
-  api: null as unknown,
-  apis: [] as Array<{
-    api: unknown;
-    listeners: Map<string, Set<(api: unknown) => void>>;
-    scrollTo: ReturnType<typeof vi.fn>;
-  }>,
+const IMAGES: ImageView[] = [1, 2, 3, 4, 5].map((id) => ({
+  id,
+  src: `/products/${id}.png`,
+  position: id,
 }));
 
-vi.mock("embla-carousel-react", async () => {
-  const React = await import("react");
+const TITLE = "Musculosa Demon Wash Black";
+const SLIDE_HEIGHT = 722;
 
-  function useEmblaCarousel() {
-    const [, render] = React.useReducer((value: number) => value + 1, 0);
-    const apiState = React.useMemo(() => {
-      const listeners = new Map<string, Set<(api: unknown) => void>>();
-      const scrollTo = vi.fn();
-      const api = {
-        canScrollPrev: () => emblaHarness.selected > 0,
-        canScrollNext: () => true,
-        off(event: string, listener: (api: unknown) => void) {
-          listeners.get(event)?.delete(listener);
-          return api;
-        },
-        on(event: string, listener: (api: unknown) => void) {
-          const eventListeners = listeners.get(event) ?? new Set();
-          eventListeners.add(listener);
-          listeners.set(event, eventListeners);
-          return api;
-        },
-        scrollNext: vi.fn(),
-        scrollPrev: vi.fn(),
-        scrollProgress: () => emblaHarness.selected,
-        scrollTo,
-        selectedScrollSnap: () => emblaHarness.selected,
-        slideNodes: () => emblaHarness.slides,
-        // The single-tree gallery reads this to find the node it hands
-        // native scroll behaviour to below `md` — see `product-gallery.tsx`.
-        rootNode: () => emblaHarness.viewport,
-      };
+const frames: FrameRequestCallback[] = [];
 
-      emblaHarness.api = api;
-      emblaHarness.listeners = listeners;
-      emblaHarness.scrollTo = scrollTo;
-      emblaHarness.apis.push({ api, listeners, scrollTo });
-      return api;
-    }, []);
-    const carouselRef = React.useCallback((node: HTMLElement | null) => {
-      emblaHarness.viewport = node;
-      if (node) {
-        emblaHarness.slides = Array.from(
-          node.firstElementChild?.children ?? [],
-        ) as HTMLElement[];
-      }
-    }, []);
+function viewport(container: HTMLElement): HTMLDivElement {
+  const node = container.querySelector<HTMLDivElement>('[data-gallery-viewport]');
 
-    React.useEffect(() => {
-      emblaHarness.renderers.add(render);
-      return () => {
-        emblaHarness.renderers.delete(render);
-      };
-    }, []);
+  if (!node) throw new Error("Expected the gallery scroller");
 
-    return [carouselRef, emblaHarness.ready ? apiState : undefined] as const;
+  return node;
+}
+
+function slides(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>('[data-gallery-slide]'));
+}
+
+function thumbnails(): HTMLElement[] {
+  return screen.getAllByRole("button", { name: /imagen \d+ de \d+/i });
+}
+
+function stageVar(container: HTMLElement, name: string): string {
+  return container
+    .querySelector<HTMLElement>("[data-gallery-stage]")!
+    .style.getPropertyValue(name);
+}
+
+/** Gives the viewport the geometry jsdom does not compute; returns its scrollTo spy. */
+function measure(node: HTMLElement, scrollTop = 0) {
+  const scrollTo = vi.fn();
+
+  Object.defineProperty(node, "clientHeight", { configurable: true, value: SLIDE_HEIGHT });
+  Object.defineProperty(node, "scrollTo", { configurable: true, value: scrollTo });
+  Object.defineProperty(node, "scrollTop", {
+    configurable: true,
+    writable: true,
+    value: scrollTop,
+  });
+
+  return scrollTo;
+}
+
+function scrollViewportTo(node: HTMLElement, top: number) {
+  act(() => {
+    node.scrollTop = top;
+    fireEvent.scroll(node);
+    frames.splice(0).forEach((frame) => frame(0));
+  });
+}
+
+beforeEach(() => {
+  config.snap = false;
+  config.underHeader = false;
+  config.peek = 0.2;
+  document.documentElement.style.removeProperty("--gallery-under-header-progress");
+  frames.length = 0;
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) =>
+    frames.push(callback),
+  );
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
+describe("ProductGallery desktop scroller", () => {
+  it("makes the viewport the vertical scroller on desktop, at a fixed stage height", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const classes = viewport(container).className;
+
+    expect(classes).toContain("md:overflow-y-auto");
+    expect(classes).toContain("md:overflow-x-hidden");
+    expect(classes).toContain("scrollbar-none");
+    // Without the header offset the box is just the visible stage, which
+    // runs to the bottom of the window.
+    expect(container.querySelector("[data-gallery-region]")?.className).toContain(
+      "md:h-(--gallery-visible)",
+    );
+  });
+
+  it("lays slides out as blocks of the slide height rather than flex-basis slots", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    for (const slide of slides(container)) {
+      expect(slide.className).toContain("md:h-(--gallery-slide)");
+      expect(slide.className).toContain("md:basis-auto");
+    }
+  });
+
+  it("fades the top and bottom edges through independent mask properties", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const classes = container.querySelector("[data-gallery-region]")?.className ?? "";
+
+    expect(classes).toContain("md:mask-t-from-(--gallery-mask-top,100%)");
+    expect(classes).toContain("md:mask-b-from-(--gallery-mask-bottom,100%)");
+    expect(classes).toContain("mask-b-from-98%");
+  });
+
+  it("snaps the desktop scroller only when the flag is on", () => {
+    const off = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(viewport(off.container).className).toContain("md:snap-none");
+    expect(viewport(off.container).className).not.toContain("md:snap-mandatory");
+    off.unmount();
+
+    config.snap = true;
+    const on = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(viewport(on.container).className).toContain("md:snap-y");
+    expect(viewport(on.container).className).toContain("md:snap-mandatory");
+    expect(viewport(on.container).className).not.toContain("md:snap-none");
+  });
+
+  it("scrolls the viewport vertically when a thumbnail is chosen on desktop", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const scrollTo = measure(viewport(container));
+
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 2 * SLIDE_HEIGHT, behavior: "smooth" });
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("confirms the selection from the vertical scroll position", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = viewport(container);
+    measure(node);
+
+    scrollViewportTo(node, 3 * SLIDE_HEIGHT - 40);
+
+    expect(thumbnails()[3]!.getAttribute("aria-pressed")).toBe("true");
+    expect(thumbnails()[3]!.getAttribute("aria-current")).toBe("true");
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("ignores the horizontal axis on desktop", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = viewport(container);
+    measure(node);
+    Object.defineProperty(node, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(node, "scrollLeft", {
+      configurable: true,
+      writable: true,
+      value: 300,
+    });
+
+    act(() => {
+      fireEvent.scroll(node);
+    });
+
+    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("blurs each slide by its distance from the scroll position, and masks both edges", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = viewport(container);
+    measure(node);
+
+    scrollViewportTo(node, SLIDE_HEIGHT / 2);
+
+    expect(slides(container).map((slide) => slide.style.filter)).toEqual([
+      `blur(${MAX_BLUR_PX / 2}px)`,
+      `blur(${MAX_BLUR_PX / 2}px)`,
+      `blur(${MAX_BLUR_PX}px)`,
+      `blur(${MAX_BLUR_PX}px)`,
+      `blur(${MAX_BLUR_PX}px)`,
+    ]);
+    expect(stageVar(container, "--gallery-mask-top")).toBe("98%");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
+  });
+
+  it("leaves a parked photo with no filter at all, and never scales or fades", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = viewport(container);
+    measure(node);
+
+    // A fractional resting offset, as a browser parks a snapped scroller.
+    scrollViewportTo(node, 2 * SLIDE_HEIGHT + 0.3);
+
+    const parked = slides(container)[2]!;
+    expect(parked.style.filter).toBe("");
+    expect(parked.style.transform).toBe("");
+    expect(parked.style.opacity).toBe("");
+    expect(stageVar(container, "--gallery-mask-top")).toBe("96%");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
+  });
+
+  it("has no top fade on the first slide, only the bottom one", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+
+    expect(stageVar(container, "--gallery-mask-top")).toBe("100%");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
+  });
+
+  it("coalesces a burst of scroll events into one paint per frame", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = viewport(container);
+    measure(node);
+    frames.length = 0;
+
+    fireEvent.scroll(node);
+    fireEvent.scroll(node);
+    fireEvent.scroll(node);
+
+    expect(frames).toHaveLength(1);
+  });
+
+  it("takes every painted style back off when the viewport narrows", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = viewport(container);
+    measure(node);
+    scrollViewportTo(node, SLIDE_HEIGHT / 2);
+
+    act(() => setViewport("mobile"));
+
+    expect(slides(container).map((slide) => slide.style.filter)).toEqual(
+      Array(5).fill(""),
+    );
+    expect(stageVar(container, "--gallery-mask-top")).toBe("100%");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("100%");
+  });
+
+  it("aligns the vertical scroller to the selection when entering desktop", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const node = viewport(container);
+    Object.defineProperty(node, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(node, "scrollLeft", {
+      configurable: true,
+      writable: true,
+      value: 200,
+    });
+    fireEvent.scroll(node);
+    const scrollTo = measure(node);
+
+    act(() => setViewport("desktop"));
+
+    expect(scrollTo).toHaveBeenLastCalledWith({
+      top: 2 * SLIDE_HEIGHT,
+      behavior: "auto",
+    });
+  });
+
+  it("still scrolls horizontally on mobile and never paints a blur there", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const node = viewport(container);
+    const scrollTo = vi.fn();
+    Object.defineProperty(node, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(node, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(node, "scrollLeft", {
+      configurable: true,
+      writable: true,
+      value: 0,
+    });
+
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: "smooth" });
+    expect(slides(container).map((slide) => slide.style.filter)).toEqual(
+      Array(5).fill(""),
+    );
+  });
+});
+
+describe("ProductGallery running under the sticky header", () => {
+  const OFFSET_VAR = "--gallery-under-header-offset";
+  const PROGRESS_VAR = "--gallery-under-header-progress";
+  // jsdom reports no layout, so the two heights that diverge under the header
+  // are stubbed: the viewport is taller than a slide by the header offset.
+  const VIEWPORT_HEIGHT = 942;
+
+  function measureUnderHeader(container: HTMLElement, scrollTop = 0) {
+    const node = viewport(container);
+    const scrollTo = measure(node, scrollTop);
+
+    Object.defineProperty(node, "clientHeight", {
+      configurable: true,
+      value: VIEWPORT_HEIGHT,
+    });
+    Object.defineProperty(slides(container)[0]!, "offsetHeight", {
+      configurable: true,
+      value: SLIDE_HEIGHT,
+    });
+
+    return { node, scrollTo };
   }
 
-  return { default: useEmblaCarousel };
+  function stage(container: HTMLElement) {
+    return container.querySelector<HTMLElement>("[data-gallery-stage]")!;
+  }
+
+  function progress() {
+    return document.documentElement.style.getPropertyValue(PROGRESS_VAR);
+  }
+
+  beforeEach(() => {
+    config.underHeader = true;
+  });
+
+  it("raises only the stage, and pads the scroller by the same offset", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(stage(container).className).toContain(`md:-mt-(${OFFSET_VAR})`);
+    expect(stage(container).className).toContain(OFFSET_VAR + ":calc(");
+    expect(viewport(container).className).toContain(`md:pt-(${OFFSET_VAR})`);
+    expect(viewport(container).className).toContain(`md:scroll-pt-(${OFFSET_VAR})`);
+    expect(
+      container.querySelector("[data-gallery-region]")?.className,
+    ).toContain(`md:h-[calc(var(${OFFSET_VAR})+var(--gallery-visible))]`);
+  });
+
+  it("keeps the badge where it was by offsetting it with the stage", () => {
+    const { container } = render(
+      <ProductGallery images={IMAGES} title={TITLE} badge={<span>NEW</span>} />,
+    );
+
+    expect(
+      container.querySelector("[data-gallery-badge]")?.className,
+    ).toContain(`md:top-[calc(--spacing(4)+var(${OFFSET_VAR}))]`);
+  });
+
+  it("measures slides by their own height, not by the padded viewport", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    // 3 slides down is 3 * 722; divided by the 942px viewport it would read
+    // as slide 2.3 and select the wrong thumbnail.
+    scrollViewportTo(node, 3 * SLIDE_HEIGHT);
+
+    expect(thumbnails()[3]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("scrolls a thumbnail jump by slide height", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { scrollTo } = measureUnderHeader(container);
+
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({
+      top: 2 * SLIDE_HEIGHT,
+      behavior: "smooth",
+    });
+  });
+
+  it("keeps the edge fade the same pixel depth on the taller viewport", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    scrollViewportTo(node, 2 * SLIDE_HEIGHT);
+
+    // 4% of a 722px stage is 29px; the same 29px of a 942px viewport is ~3.07%.
+    const depth = 100 - Number.parseFloat(stageVar(container, "--gallery-mask-bottom"));
+    expect(depth).toBeCloseTo((4 * SLIDE_HEIGHT) / VIEWPORT_HEIGHT, 3);
+  });
+
+  it("publishes how far the gallery has scrolled for the header backdrop", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    scrollViewportTo(node, 80);
+    expect(progress()).toBe("0.5");
+
+    scrollViewportTo(node, 400);
+    expect(progress()).toBe("1");
+
+    scrollViewportTo(node, 0);
+    expect(progress()).toBe("0");
+  });
+
+  it("clears the published progress on leaving desktop and on unmount", () => {
+    const { container, unmount } = render(
+      <ProductGallery images={IMAGES} title={TITLE} />,
+    );
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+    scrollViewportTo(node, 80);
+    expect(progress()).toBe("0.5");
+
+    act(() => setViewport("mobile"));
+    expect(progress()).toBe("");
+
+    act(() => setViewport("desktop"));
+    scrollViewportTo(node, 80);
+    expect(progress()).toBe("0.5");
+
+    unmount();
+    expect(progress()).toBe("");
+  });
+
+  it("does none of it with the flag off", () => {
+    config.underHeader = false;
+    const { container } = render(
+      <ProductGallery images={IMAGES} title={TITLE} badge={<span>NEW</span>} />,
+    );
+    act(() => setViewport("desktop"));
+    const { node } = measureUnderHeader(container);
+
+    scrollViewportTo(node, 80);
+
+    // The stage still DEFINES the offset (the visible height is measured
+    // from it); what is off is every consumer that raises or pads with it.
+    expect(stage(container).className).not.toContain("md:-mt-(");
+    expect(viewport(container).className).not.toContain("md:pt-(");
+    expect(viewport(container).className).not.toContain("md:scroll-pt-(");
+    expect(container.querySelector("[data-gallery-badge]")?.className).not.toContain(
+      OFFSET_VAR,
+    );
+    expect(container.querySelector("[data-gallery-region]")?.className).toContain(
+      "md:h-(--gallery-visible)",
+    );
+    expect(progress()).toBe("");
+  });
+});
+
+describe("ProductGallery peeking at the next slide", () => {
+  const SLIDE = 500;
+  const VIEWPORT = 900;
+
+  function measurePeek(container: HTMLElement) {
+    const node = viewport(container);
+    measure(node);
+    Object.defineProperty(node, "clientHeight", { configurable: true, value: VIEWPORT });
+    Object.defineProperty(slides(container)[0]!, "offsetHeight", {
+      configurable: true,
+      value: SLIDE,
+    });
+
+    return node;
+  }
+
+  function stageStyle(container: HTMLElement, name: string) {
+    return container
+      .querySelector<HTMLElement>("[data-gallery-stage]")!
+      .style.getPropertyValue(name);
+  }
+
+  it("publishes the peek fraction and sizes the stage down to the window bottom", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const classes = container.querySelector("[data-gallery-stage]")!.className;
+
+    expect(stageStyle(container, "--gallery-peek")).toBe("0.2");
+    // Never below today's 722px stage, so a short window cannot collapse it.
+    expect(classes).toContain(
+      "md:[--gallery-visible:max(--spacing(180.5),calc(100svh-var(--gallery-under-header-offset)))]",
+    );
+    expect(classes).toContain(
+      "md:[--gallery-slide:calc(var(--gallery-visible)*(1-var(--gallery-peek,0)))]",
+    );
+  });
+
+  it("snaps slides to their start, since they are shorter than the viewport", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    for (const slide of slides(container)) {
+      expect(slide.className).toContain("md:snap-start");
+    }
+  });
+
+  it("pads the scroller's bottom by the peek strip so the last slide can park", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(viewport(container).className).toContain("md:pb-(--gallery-peek-strip)");
+    expect(
+      container.querySelector("[data-gallery-stage]")!.className,
+    ).toContain(
+      "md:[--gallery-peek-strip:calc(var(--gallery-visible)-var(--gallery-slide))]",
+    );
+  });
+
+  it("collapses to one slide per stage when the peek is zero", () => {
+    config.peek = 0;
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(stageStyle(container, "--gallery-peek")).toBe("0");
+  });
+
+  it("keeps a nonsensical peek from making a slide vanish", () => {
+    config.peek = 5;
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(stageStyle(container, "--gallery-peek")).toBe("0.9");
+  });
+
+  it("reaches the last slide, and turns its bottom fade off, at the last parked offset", () => {
+    config.underHeader = true;
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = measurePeek(container);
+
+    scrollViewportTo(node, 4 * SLIDE);
+
+    expect(thumbnails()[4]!.getAttribute("aria-pressed")).toBe("true");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("100%");
+    expect(slides(container)[4]!.style.filter).toBe("");
+  });
+
+  it("leaves the next slide blurred in the strip below a parked one", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = measurePeek(container);
+
+    scrollViewportTo(node, 2 * SLIDE);
+
+    expect(slides(container)[3]!.style.filter).toBe(`blur(${MAX_BLUR_PX}px)`);
+    expect(slides(container)[2]!.style.filter).toBe("");
+  });
+});
+
+describe("ProductGallery with a gap between native slides", () => {
+  const SLIDE = 500;
+  const GAP = 24;
+
+  // jsdom lays nothing out, so the pitch is given the way a browser reports
+  // it: as the second slide's offset from the first.
+  function measureGap(container: HTMLElement) {
+    const node = viewport(container);
+    const scrollTo = measure(node);
+    const [first, second] = slides(container);
+    Object.defineProperty(first!, "offsetHeight", { configurable: true, value: SLIDE });
+    Object.defineProperty(first!, "offsetTop", { configurable: true, value: 0 });
+    Object.defineProperty(second!, "offsetTop", {
+      configurable: true,
+      value: SLIDE + GAP,
+    });
+
+    return { node, scrollTo };
+  }
+
+  it("spaces the desktop slides apart", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(slides(container)[0]!.parentElement!.className).toContain("md:gap-6");
+  });
+
+  it("scrolls a thumbnail jump by slide height plus the gap", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { scrollTo } = measureGap(container);
+
+    fireEvent.click(thumbnails()[3]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 3 * (SLIDE + GAP), behavior: "smooth" });
+  });
+
+  it("selects and unblurs a slide parked at a multiple of the pitch", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureGap(container);
+
+    scrollViewportTo(node, 4 * (SLIDE + GAP));
+
+    expect(thumbnails()[4]!.getAttribute("aria-pressed")).toBe("true");
+    expect(slides(container)[4]!.style.filter).toBe("");
+  });
 });
 
 /**
  * Deliberately shuffled: `position` is the wire's ordering field, and the
  * array order it happens to arrive in is not a contract.
  */
-const FIVE_IMAGES: ImageView[] = [
+const SHUFFLED_IMAGES: ImageView[] = [
   { id: 303, src: "/products/c.png", position: 3 },
   { id: 301, src: "/products/a.png", position: 1 },
   { id: 305, src: "/products/e.png", position: 5 },
@@ -102,11 +610,9 @@ const FIVE_IMAGES: ImageView[] = [
   { id: 304, src: "/products/d.png", position: 4 },
 ];
 
-const TITLE = "Musculosa Demon Wash Black";
-
 function slideImages(container: HTMLElement): HTMLImageElement[] {
   return Array.from(
-    container.querySelectorAll<HTMLImageElement>('[data-slot="carousel-item"] img'),
+    container.querySelectorAll<HTMLImageElement>("[data-gallery-slide] img"),
   );
 }
 
@@ -114,78 +620,31 @@ function slideLoading(container: HTMLElement): (string | null)[] {
   return slideImages(container).map((image) => image.getAttribute("loading"));
 }
 
-function thumbnails(): HTMLElement[] {
-  return screen.getAllByRole("button", { name: /imagen \d+ de \d+/i });
-}
-
 function slideFilters(container: HTMLElement): string[] {
-  return Array.from(
-    container.querySelectorAll<HTMLElement>('[data-slot="carousel-item"]'),
-  ).map((slide) => slide.style.filter);
+  return slides(container).map((slide) => slide.style.filter);
 }
 
-// The single tree has no mobile-only element any more: below `md` this same
-// node — Embla's own viewport, exposed as `data-slot="carousel-content"` —
-// IS the native scroll-snap container (see `viewportClassName`).
-function mobileStage(container: HTMLElement): HTMLDivElement {
-  const stage = container.querySelector<HTMLDivElement>('[data-slot="carousel-content"]');
+/** Puts the horizontal scroller at slide `index`, as a swipe would. */
+function swipeTo(container: HTMLElement, index: number): void {
+  const node = viewport(container);
 
-  if (!stage) throw new Error("Expected the carousel's viewport element");
-
-  return stage;
-}
-
-function observeMobileIndex(container: HTMLElement, index: number): void {
-  const stage = mobileStage(container);
-
-  Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
-  Object.defineProperty(stage, "scrollLeft", {
+  Object.defineProperty(node, "clientWidth", { configurable: true, value: 100 });
+  Object.defineProperty(node, "scrollLeft", {
     configurable: true,
     writable: true,
     value: index * 100,
   });
-  fireEvent.scroll(stage);
+  fireEvent.scroll(node);
 }
 
-function setEmblaReady(ready: boolean): void {
-  act(() => {
-    emblaHarness.ready = ready;
-    emblaHarness.renderers.forEach((render) => render());
-  });
-}
-
-function emitEmblaSelection(index: number): void {
-  act(() => {
-    emblaHarness.selected = index;
-    emblaHarness.listeners
-      .get("select")
-      ?.forEach((listener) => listener(emblaHarness.api));
-  });
-}
-
-const NO_BLUR = Array<string>(5).fill("");
-
-beforeEach(() => {
-  emblaHarness.ready = true;
-  emblaHarness.selected = 0;
-  emblaHarness.viewport = null;
-  emblaHarness.slides = [];
-  emblaHarness.listeners.clear();
-  emblaHarness.scrollTo.mockClear();
-  emblaHarness.apis = [];
-});
-
-describe("ProductGallery", () => {
+describe("ProductGallery markup and mobile scroller", () => {
   it("renders one slide per image, ordered by position", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container } = render(<ProductGallery images={SHUFFLED_IMAGES} title={TITLE} />);
 
     const sources = slideImages(container).map((image) =>
       decodeURIComponent(image.getAttribute("src") ?? ""),
     );
 
-    expect(sources).toHaveLength(5);
     expect(sources.map((src) => /\/([a-e])\.png/.exec(src)?.[1])).toEqual([
       "a",
       "b",
@@ -195,18 +654,22 @@ describe("ProductGallery", () => {
     ]);
   });
 
-  it("names the mobile carousel and its slide positions for assistive technology", () => {
-    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+  // The roles `ui/carousel` used to lend for free; written out by hand now.
+  it("names the carousel region and its slide positions for assistive technology", () => {
+    render(<ProductGallery images={IMAGES} title={TITLE} />);
 
+    const region = screen.getByRole("region", { name: `Galería de imágenes de ${TITLE}` });
+
+    expect(region.getAttribute("aria-roledescription")).toBe("carousel");
+    expect(screen.getAllByRole("group")).toHaveLength(5);
     expect(
-      screen.getByRole("region", { name: `Galería de imágenes de ${TITLE}` }),
-    ).not.toBeNull();
-    expect(screen.getByRole("group", { name: "Imagen 1 de 5" })).not.toBeNull();
+      screen.getByRole("group", { name: "Imagen 1 de 5" }).getAttribute("aria-roledescription"),
+    ).toBe("slide");
     expect(screen.getByRole("group", { name: "Imagen 5 de 5" })).not.toBeNull();
   });
 
   it("marks the first thumbnail active and dims the rest", () => {
-    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+    render(<ProductGallery images={IMAGES} title={TITLE} />);
 
     const [first, ...rest] = thumbnails();
 
@@ -220,50 +683,44 @@ describe("ProductGallery", () => {
   });
 
   it("lets native scroll geometry confirm a mobile thumbnail selection", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
-    const stage = mobileStage(container);
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const node = viewport(container);
     const scrollTo = vi.fn();
 
-    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
-    Object.defineProperty(stage, "scrollTo", { configurable: true, value: scrollTo });
-    Object.defineProperty(stage, "scrollLeft", { configurable: true, writable: true, value: 0 });
+    Object.defineProperty(node, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(node, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(node, "scrollLeft", { configurable: true, writable: true, value: 0 });
 
     fireEvent.click(thumbnails()[2]!);
 
     expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: "smooth" });
     expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
 
-    stage.scrollLeft = 200;
-    fireEvent.scroll(stage);
+    node.scrollLeft = 200;
+    fireEvent.scroll(node);
 
     expect(thumbnails()[2]!.getAttribute("aria-pressed")).toBe("true");
     expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
   });
 
   it("clamps a mobile scroll against the CURRENT image count after the gallery shrinks", () => {
-    const { container, rerender } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container, rerender } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
-    rerender(<ProductGallery images={FIVE_IMAGES.slice(0, 3)} title={TITLE} />);
-    observeMobileIndex(container, 4);
+    rerender(<ProductGallery images={IMAGES.slice(0, 3)} title={TITLE} />);
+    swipeTo(container, 4);
 
     const rail = thumbnails();
     expect(rail).toHaveLength(3);
     expect(rail[2]!.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("keeps one mobile scroll subscription when the image count changes", () => {
-    const { container, rerender } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
-    const stage = mobileStage(container);
-    const addEventListener = vi.spyOn(stage, "addEventListener");
-    const removeEventListener = vi.spyOn(stage, "removeEventListener");
+  it("keeps one scroll subscription when the image count changes", () => {
+    const { container, rerender } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const node = viewport(container);
+    const addEventListener = vi.spyOn(node, "addEventListener");
+    const removeEventListener = vi.spyOn(node, "removeEventListener");
 
-    rerender(<ProductGallery images={FIVE_IMAGES.slice(0, 3)} title={TITLE} />);
+    rerender(<ProductGallery images={IMAGES.slice(0, 3)} title={TITLE} />);
 
     const scrollCalls = (spy: typeof addEventListener) =>
       spy.mock.calls.filter(([type]) => type === "scroll");
@@ -272,7 +729,7 @@ describe("ProductGallery", () => {
   });
 
   it("renders thumbnails as native buttons without intercepting Enter", () => {
-    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
+    render(<ProductGallery images={IMAGES} title={TITLE} />);
 
     const third = thumbnails()[2]!;
     third.focus();
@@ -285,29 +742,74 @@ describe("ProductGallery", () => {
   });
 
   it("counts the selected image on mobile, and follows the selection", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
     expect(screen.getByText("1 / 5")).not.toBeNull();
 
-    observeMobileIndex(container, 3);
+    swipeTo(container, 3);
 
     expect(screen.getByText("4 / 5")).not.toBeNull();
   });
 
-  // Nothing re-renders the gallery on a resize in production, so this drives
-  // the viewport change alone: it proves the subscription, not a lucky
-  // re-read during some other render.
-  it("scrolls vertically on desktop and horizontally on mobile", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
+  it("observes the nearest native mobile slide without correcting a gesture", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const node = viewport(container);
+    const scrollTo = vi.fn();
+
+    Object.defineProperty(node, "clientWidth", { configurable: true, value: 100 });
+    Object.defineProperty(node, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(node, "scrollLeft", { configurable: true, writable: true, value: 160 });
+
+    fireEvent.scroll(node);
+
+    expect(screen.getByText("3 / 5")).not.toBeNull();
+    expect(thumbnails()[2]?.getAttribute("aria-current")).toBe("true");
+    expect(scrollTo).not.toHaveBeenCalled();
+  });
+
+  it("keeps a valid selection at zero width and scrolls only for thumbnail activation", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const node = viewport(container);
+    const scrollTo = vi.fn();
+
+    Object.defineProperty(node, "clientWidth", { configurable: true, value: 0 });
+    Object.defineProperty(node, "scrollTo", { configurable: true, value: scrollTo });
+    Object.defineProperty(node, "scrollLeft", { configurable: true, writable: true, value: 400 });
+
+    fireEvent.scroll(node);
+    expect(screen.getByText("1 / 5")).not.toBeNull();
+
+    Object.defineProperty(node, "clientWidth", { configurable: true, value: 100 });
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: "smooth" });
+    node.scrollLeft = 200;
+    fireEvent.scroll(node);
+    expect(thumbnails()[2]?.getAttribute("aria-current")).toBe("true");
+  });
+
+  it("resets selection when image identity or order changes", () => {
+    const { container, rerender } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    swipeTo(container, 3);
+    expect(screen.getByText("4 / 5")).not.toBeNull();
+
+    rerender(
+      <ProductGallery
+        images={[...IMAGES.slice(0, 4), { id: 5, src: "/products/replaced.png", position: 5 }]}
+        title={TITLE}
+      />,
     );
 
+    expect(screen.getByText("1 / 5")).not.toBeNull();
+    expect(viewport(container).scrollLeft).toBe(0);
+  });
+
+  it("scrolls vertically on desktop and horizontally on mobile", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
     const orientation = () =>
-      container
-        .querySelector("[data-gallery-stage]")
-        ?.getAttribute("data-orientation");
+      container.querySelector("[data-gallery-stage]")?.getAttribute("data-orientation");
 
     expect(orientation()).toBe("horizontal");
 
@@ -316,12 +818,10 @@ describe("ProductGallery", () => {
     expect(orientation()).toBe("vertical");
   });
 
-  it("preserves the shared selection through both responsive engine handoffs", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+  it("preserves the shared selection through both responsive handoffs", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
-    observeMobileIndex(container, 2);
+    swipeTo(container, 2);
     expect(screen.getByText("3 / 5")).not.toBeNull();
 
     act(() => setViewport("desktop"));
@@ -331,53 +831,12 @@ describe("ProductGallery", () => {
     expect(screen.getByText("3 / 5")).not.toBeNull();
   });
 
-  it("flushes a desktop selector command after Embla becomes ready and waits for confirmation", () => {
-    emblaHarness.ready = false;
-    act(() => setViewport("desktop"));
-    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
-
-    fireEvent.click(thumbnails()[2]!);
-    fireEvent.click(thumbnails()[3]!);
-
-    expect(emblaHarness.scrollTo).not.toHaveBeenCalled();
-    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
-
-    setEmblaReady(true);
-
-    expect(emblaHarness.scrollTo).toHaveBeenCalledTimes(1);
-    expect(emblaHarness.scrollTo).toHaveBeenCalledWith(3);
-    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
-
-    emitEmblaSelection(3);
-
-    expect(thumbnails()[3]!.getAttribute("aria-pressed")).toBe("true");
-    expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("false");
-  });
-
-  // The whole point of the single-tree rewrite: Embla used to unmount and
-  // remount across the breakpoint (a fresh instance each time), which is
-  // exactly what let a stale API from the OLD instance silently swallow a
-  // command meant for the new one. One persistent instance removes the class
-  // of bug rather than guarding around it.
-  it("keeps one Embla instance alive across a mobile-desktop-mobile round trip", () => {
-    render(<ProductGallery images={FIVE_IMAGES} title={TITLE} />);
-    expect(emblaHarness.apis).toHaveLength(1);
-
-    act(() => setViewport("desktop"));
-    act(() => setViewport("mobile"));
-    act(() => setViewport("desktop"));
-
-    expect(emblaHarness.apis).toHaveLength(1);
-  });
-
-  // This is the acceptance criterion the whole change exists for: the server
-  // paints the mobile branch (see `useMediaQuery`'s server snapshot), and
-  // hydration must not tear that tree down to mount a desktop one — the
-  // hero `<img>` a visitor's LCP is measured against has to survive the flip.
-  it("keeps the hero image as the same DOM node across the mobile-to-desktop hydration flip", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+  // The server paints the mobile branch (see `useMediaQuery`'s server
+  // snapshot), and hydration must not tear that tree down to mount a desktop
+  // one — the hero `<img>` a visitor's LCP is measured against has to survive
+  // the flip.
+  it("keeps the hero image as the same DOM node across the mobile-to-desktop flip", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
     const heroBefore = slideImages(container)[0];
 
     act(() => setViewport("desktop"));
@@ -385,84 +844,38 @@ describe("ProductGallery", () => {
     expect(slideImages(container)[0]).toBe(heroBefore);
   });
 
-  // How the blur behaves *between* snaps is `slide-blur.test.ts`'s job —
-  // jsdom has no layout for embla to scroll through. What this proves is the
-  // wiring: the effect found the slide nodes and wrote a filter onto them.
-  it("blurs every slide that is not the resting one, on desktop", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+  it("keeps the same scroller element across a mobile-desktop-mobile round trip", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const before = viewport(container);
 
     act(() => setViewport("desktop"));
+    act(() => setViewport("mobile"));
+    act(() => setViewport("desktop"));
 
-    // The resting slide carries NO filter at all — an empty string, not
-    // `blur(0px)`. A zero-radius filter still promotes the photo to its own
-    // composited layer, which is what left a parked slide looking soft.
-    expect(slideFilters(container)).toEqual([
-      "",
-      ...Array<string>(4).fill(`blur(${MAX_BLUR_PX}px)`),
-    ]);
+    expect(viewport(container)).toBe(before);
   });
 
   // A phone pays for `filter: blur()` on a full-bleed photograph in the one
-  // currency the gallery cannot spend: a swipe that stutters behind the thumb
-  // dragging it.
-  //
-  // The second half is the part worth proving. The effect CLEARS rather than
-  // merely skipping, so a window narrowed across the breakpoint takes the
-  // filter back off — skipping alone would leave whatever was painted last
-  // frozen onto the slides, with no listener still running to remove it.
+  // currency the gallery cannot spend: a swipe that stutters behind the thumb.
   it("draws no blur on mobile, and strips one left over from desktop", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
-    expect(slideFilters(container)).toEqual(NO_BLUR);
+    expect(slideFilters(container)).toEqual(Array(5).fill(""));
 
     act(() => setViewport("desktop"));
-    expect(slideFilters(container)).not.toEqual(NO_BLUR);
+    expect(slideFilters(container)).not.toEqual(Array(5).fill(""));
 
     act(() => setViewport("mobile"));
-    expect(slideFilters(container)).toEqual(NO_BLUR);
-  });
-
-  it("gates desktop slide interaction and clears all owned styles on mobile handoff", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
-
-    act(() => setViewport("desktop"));
-    const slides = Array.from(
-      container.querySelectorAll<HTMLElement>('[data-slot="carousel-item"]'),
-    );
-
-    expect(slides[0]?.style.transform).toBe("scale(1)");
-    expect(slides[0]?.style.pointerEvents).toBe("auto");
-    expect(slides[1]?.style.transform).toBe("scale(0.85)");
-    expect(slides[1]?.style.opacity).toBe("0.4");
-    expect(slides[1]?.style.pointerEvents).toBe("none");
-
-    act(() => setViewport("mobile"));
-
-    for (const slide of slides) {
-      expect(slide.style.transform).toBe("");
-      expect(slide.style.opacity).toBe("");
-      expect(slide.style.filter).toBe("");
-      expect(slide.style.pointerEvents).toBe("");
-    }
+    expect(slideFilters(container)).toEqual(Array(5).fill(""));
   });
 
   // The thumbnail rail is a SIBLING of the stage, so a viewport budget spent
-  // entirely on the photograph does not squeeze the rail — it pushes it BELOW
-  // the fold, under the fixed purchase widget, where it cannot be reached.
-  // The column owns the budget and the stage takes what is left of it.
-  //
-  // jsdom computes no layout, so the classes are the only observable thing
-  // here; what they pin is WHICH box carries the measurement.
+  // entirely on the photograph pushes it BELOW the fold. The column owns the
+  // budget and the stage takes what is left. jsdom computes no layout, so the
+  // classes are the only observable thing; what they pin is WHICH box carries
+  // the measurement.
   it("budgets the viewport on the column, not on the photograph", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
     const stage = container.querySelector("[data-gallery-stage]");
 
@@ -473,14 +886,10 @@ describe("ProductGallery", () => {
   });
 
   // The PDP wraps its content in a 16px gutter (`px-4`). The photos are
-  // full-bleed studio shots, so honouring that gutter left the page
-  // background showing as two strips down the sides and read as a crop.
-  // Both halves matter: the negative margin alone would shift the stage
-  // without widening it.
+  // full-bleed studio shots, so honouring it read as a crop. Both halves
+  // matter: the negative margin alone would shift the stage without widening it.
   it("breaks the stage out of the page gutter on mobile, and only on mobile", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
     const stage = container.querySelector("[data-gallery-stage]");
 
@@ -490,146 +899,70 @@ describe("ProductGallery", () => {
     expect(stage?.className).toContain("md:w-full");
   });
 
-  // The stage gave up the gutter; the overlays carry it instead, so neither
-  // ends up flush against the screen edge.
   it("keeps the badge and the counter clear of the screen edge on mobile", () => {
     const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} badge={<span>NEW</span>} />,
+      <ProductGallery images={IMAGES} title={TITLE} badge={<span>NEW</span>} />,
     );
 
-    expect(container.querySelector("[data-gallery-badge]")?.className).toContain(
-      "left-7",
-    );
+    expect(container.querySelector("[data-gallery-badge]")?.className).toContain("left-7");
     expect(screen.getByText("1 / 5").className).toContain("right-6");
   });
 
-  it("renders neither a rail nor a counter for a single-image product", () => {
-    const { container } = render(
-      <ProductGallery images={[FIVE_IMAGES[1]!]} title={TITLE} />,
+  it("dims the stage for a sold-out product", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} dimmed />);
+
+    expect(container.querySelector("[data-gallery-region]")?.className).toContain(
+      "opacity-40",
     );
+  });
+
+  it("renders neither a rail nor a counter for a single-image product", () => {
+    const { container } = render(<ProductGallery images={[IMAGES[1]!]} title={TITLE} />);
 
     expect(slideImages(container)).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /imagen \d+ de \d+/i })).toBeNull();
     expect(screen.queryByText(/^\d+ \/ \d+$/)).toBeNull();
   });
 
-  it("observes the nearest native mobile slide without correcting a gesture", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
-    const stage = mobileStage(container);
-    const scrollTo = vi.fn();
-
-    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
-    Object.defineProperty(stage, "scrollTo", { configurable: true, value: scrollTo });
-    Object.defineProperty(stage, "scrollLeft", { configurable: true, writable: true, value: 160 });
-
-    fireEvent.scroll(stage);
-
-    expect(screen.getByText("3 / 5")).not.toBeNull();
-    expect(thumbnails()[2]?.getAttribute("aria-current")).toBe("true");
-    expect(scrollTo).not.toHaveBeenCalled();
-  });
-
-  it("keeps a valid selection at zero width and scrolls only for thumbnail activation", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
-    const stage = mobileStage(container);
-    const scrollTo = vi.fn();
-
-    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 0 });
-    Object.defineProperty(stage, "scrollTo", { configurable: true, value: scrollTo });
-    Object.defineProperty(stage, "scrollLeft", { configurable: true, writable: true, value: 400 });
-
-    fireEvent.scroll(stage);
-    expect(screen.getByText("1 / 5")).not.toBeNull();
-
-    Object.defineProperty(stage, "clientWidth", { configurable: true, value: 100 });
-    fireEvent.click(thumbnails()[2]!);
-
-    expect(scrollTo).toHaveBeenCalledWith({ left: 200, behavior: "smooth" });
-    stage.scrollLeft = 200;
-    fireEvent.scroll(stage);
-    expect(thumbnails()[2]?.getAttribute("aria-current")).toBe("true");
-  });
-
-  it("resets selection when image identity or order changes", () => {
-    const { container, rerender } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
-
-    observeMobileIndex(container, 3);
-    expect(screen.getByText("4 / 5")).not.toBeNull();
-
-    rerender(
-      <ProductGallery
-        images={[
-          ...FIVE_IMAGES.slice(0, 4),
-          { id: 304, src: "/products/replaced.png", position: 4 },
-        ]}
-        title={TITLE}
-      />,
-    );
-
-    expect(screen.getByText("1 / 5")).not.toBeNull();
-    expect(mobileStage(container).scrollLeft).toBe(0);
-  });
-
   // The window is what keeps a photo from fading in mid-gesture: `lazy`
-  // inside a snap container commits far too late for a slide that is one
-  // swipe away. Both engines read the same selection, so both are proven.
+  // inside a snap container commits far too late for a slide one swipe away.
   it("commits the next slide ahead of the selection on mobile", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
-    expect(slideLoading(container)).toEqual([
-      "eager",
-      "eager",
-      "lazy",
-      "lazy",
-      "lazy",
-    ]);
+    expect(slideLoading(container)).toEqual(["eager", "eager", "lazy", "lazy", "lazy"]);
 
-    observeMobileIndex(container, 2);
+    swipeTo(container, 2);
 
-    expect(slideLoading(container)).toEqual([
-      "eager",
-      "eager",
-      "eager",
-      "eager",
-      "lazy",
-    ]);
+    expect(slideLoading(container)).toEqual(["eager", "eager", "eager", "eager", "lazy"]);
   });
 
   it("commits the next slide ahead of the selection on desktop", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
-
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
     act(() => setViewport("desktop"));
-    emitEmblaSelection(2);
+    const node = viewport(container);
+    measure(node);
 
-    expect(slideLoading(container)).toEqual([
-      "eager",
-      "eager",
-      "eager",
-      "eager",
-      "lazy",
-    ]);
+    scrollViewportTo(node, 2 * SLIDE_HEIGHT);
+
+    expect(slideLoading(container)).toEqual(["eager", "eager", "eager", "eager", "lazy"]);
   });
 
   // React's server renderer preloads every non-lazy <img> in the shell, so
-  // the eager window below was already emitting several equal-priority image
-  // preloads that the hero had to race. The lane is the part we own.
+  // the eager window was already emitting several equal-priority preloads that
+  // the hero had to race. The lane is the part we own.
   it("races the hero photo ahead of the speculative slides", () => {
-    const { container } = render(
-      <ProductGallery images={FIVE_IMAGES} title={TITLE} />,
-    );
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
     expect(
       slideImages(container).map((image) => image.getAttribute("fetchpriority")),
     ).toEqual(["high", "low", "low", "low", "low"]);
+  });
+
+  it("declares the inflated desktop width and the honest mobile one", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(slideImages(container)[0]!.getAttribute("sizes")).toBe(
+      "(min-width: 768px) 1120px, 100vw",
+    );
   });
 });
