@@ -39,11 +39,24 @@ const MASK_BOTTOM_PROPERTY = '--gallery-mask-bottom';
  * which would force a style recalculation on every scroll frame; slides are
  * all one size. `clientHeight` is the fallback for an unmeasured slide, and
  * is exactly right when there is no padding.
+ *
+ * With a gap between slides the unit is the PITCH, not the height: slide `i`
+ * starts at `i * (height + gap)`, and dividing by the height alone drifts by
+ * one gap per slide, so a parked photo would read as part-way to the next and
+ * keep a blur. The pitch is read as the second slide's offset from the first
+ * — the gap is whatever CSS says, never a number written down twice here.
  */
 export function scrollUnit(node: HTMLElement, vertical: boolean): number {
   if (!vertical) return node.clientWidth;
 
   const first = node.firstElementChild?.firstElementChild;
+  const second = first?.nextElementSibling;
+  const pitch =
+    first instanceof HTMLElement && second instanceof HTMLElement
+      ? second.offsetTop - first.offsetTop
+      : 0;
+  if (pitch > 0) return pitch;
+
   const height = first instanceof HTMLElement ? first.offsetHeight : 0;
 
   return height > 0 ? height : node.clientHeight;

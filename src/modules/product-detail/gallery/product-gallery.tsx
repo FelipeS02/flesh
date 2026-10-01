@@ -410,7 +410,10 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
             )}
             className={
               NATIVE_ENGINE
-                ? 'mt-0 ml-0 h-full flex-row md:h-auto md:flex-col'
+                ? // The gap eats into the peek strip — the next photo shows
+                  // `peek - gap` of itself — and needs no padding fix at the
+                  // end: the last slide still parks at (n-1) pitches.
+                  'mt-0 ml-0 h-full flex-row md:h-auto md:flex-col md:gap-6'
                 : 'mt-0 ml-0 h-full flex-row md:h-180.5 md:flex-col'
             }
           >

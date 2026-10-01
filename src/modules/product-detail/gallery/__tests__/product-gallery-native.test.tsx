@@ -595,3 +595,51 @@ describe("ProductGallery peeking at the next slide", () => {
     expect(slides(container)[2]!.style.filter).toBe("");
   });
 });
+
+describe("ProductGallery with a gap between native slides", () => {
+  const SLIDE = 500;
+  const GAP = 24;
+
+  // jsdom lays nothing out, so the pitch is given the way a browser reports
+  // it: as the second slide's offset from the first.
+  function measureGap(container: HTMLElement) {
+    const node = viewport(container);
+    const scrollTo = measure(node);
+    const [first, second] = slides(container);
+    Object.defineProperty(first!, "offsetHeight", { configurable: true, value: SLIDE });
+    Object.defineProperty(first!, "offsetTop", { configurable: true, value: 0 });
+    Object.defineProperty(second!, "offsetTop", {
+      configurable: true,
+      value: SLIDE + GAP,
+    });
+
+    return { node, scrollTo };
+  }
+
+  it("spaces the desktop slides apart", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(slides(container)[0]!.parentElement!.className).toContain("md:gap-6");
+  });
+
+  it("scrolls a thumbnail jump by slide height plus the gap", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { scrollTo } = measureGap(container);
+
+    fireEvent.click(thumbnails()[3]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: 3 * (SLIDE + GAP), behavior: "smooth" });
+  });
+
+  it("selects and unblurs a slide parked at a multiple of the pitch", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureGap(container);
+
+    scrollViewportTo(node, 4 * (SLIDE + GAP));
+
+    expect(thumbnails()[4]!.getAttribute("aria-pressed")).toBe("true");
+    expect(slides(container)[4]!.style.filter).toBe("");
+  });
+});
