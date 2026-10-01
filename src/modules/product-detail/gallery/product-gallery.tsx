@@ -19,9 +19,10 @@ import {
   DESKTOP_NEXT_SLIDE_PEEK,
   DESKTOP_SCROLL_SNAP,
 } from './gallery-config';
+import { nativeScrollPosition } from './slide-blur';
 import {
   scrollToSlide,
-  scrollUnit,
+  slideTops,
   useNativeDesktopScroll,
 } from './use-native-desktop-scroll';
 
@@ -143,19 +144,26 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   // click handler, and an Effect Event may only be called from inside an
   // effect.
   //
-  // One observation for both layouts, generalised by axis: the selection is
-  // the nearest whole slide, whichever way the scroller moves.
+  // One observation for both layouts: the selection is the nearest whole
+  // slide, whichever way the scroller moves. Mobile slides are one viewport
+  // wide each; desktop slides take their photo's height, so there it is the
+  // nearest slide TOP rather than a multiple of one size.
   const observeScroll = useEffectEvent(() => {
     const node = scroller.current;
     if (!node) return;
 
-    const size = scrollUnit(node, isDesktop);
-    if (size <= 0) return;
-
     // Observation only: correcting a touch gesture fights the browser's
     // momentum and snap physics. Explicit thumbnail navigation is below.
-    const offset = isDesktop ? node.scrollTop : node.scrollLeft;
-    setSelectedIndex(clampIndex(Math.round(offset / size), ordered.length));
+    if (isDesktop) {
+      const position = nativeScrollPosition(node.scrollTop, slideTops(node));
+      setSelectedIndex(clampIndex(Math.round(position), ordered.length));
+      return;
+    }
+
+    if (node.clientWidth <= 0) return;
+    setSelectedIndex(
+      clampIndex(Math.round(node.scrollLeft / node.clientWidth), ordered.length),
+    );
   });
 
   // Attached once for the element's life, on both axes: the browser only
@@ -265,8 +273,10 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
           // the window so no page shows under it. Never under 722px, so a
           // short window cannot squash the photo.
           'md:[--gallery-visible:max(--spacing(180.5),calc(100svh-var(--gallery-under-header-offset)))]',
-          // One slide is the visible stage minus the strip the NEXT slide
-          // peeks into (`--gallery-peek`, set below from the config knob).
+          // The tallest a slide may be: the visible stage minus the strip the
+          // NEXT slide is guaranteed to peek into (`--gallery-peek`, set below
+          // from the config knob). It is also the whole height of a photo
+          // that could not be measured.
           'md:[--gallery-slide:calc(var(--gallery-visible)*(1-var(--gallery-peek,0)))]',
           'md:[--gallery-peek-strip:calc(var(--gallery-visible)-var(--gallery-slide))]',
           // Raises ONLY the stage — the rail beside it stays put — by that
@@ -307,6 +317,10 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
             ref={scroller}
             data-gallery-viewport
             className={cn(
+              // Positioned so it is the `offsetParent` of the slides: their
+              // `offsetTop` is then measured from the scroller itself, which
+              // is what the position maths reads.
+              'relative',
               // Below `md` this IS the mobile stage: the browser's own
               // scroll-snap physics, with nothing fighting them.
               'h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory scroll-smooth scrollbar-none [&::-webkit-scrollbar]:hidden',
@@ -319,11 +333,11 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
               // instant and only thumbnail jumps animate.
               'md:overflow-x-hidden md:overflow-y-auto md:scroll-auto',
               DESKTOP_SCROLL_SNAP ? 'md:snap-y md:snap-mandatory' : 'md:snap-none',
-              // Room below the last slide equal to the strip the next one
-              // peeks into. Without it the last slide could never reach the
-              // top (max scrollTop would be n*S - visible, not (n-1)*S), so
-              // its bottom fade would never clear and the last thumbnail
-              // would never be selected.
+              // Room below the last slide: the visible stage less that slide.
+              // Without it the last slide could never reach the top, so its
+              // bottom fade would never clear and the last thumbnail would
+              // never be selected. The stylesheet gives a default; the paint
+              // overrides it with the last photo's real height.
               'md:pb-(--gallery-peek-strip)',
               // Padding lets the first photo start below the header while
               // scrolled content still runs up behind it. `scroll-pt` is the
@@ -333,28 +347,55 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
                 'md:pt-(--gallery-under-header-offset) md:scroll-pt-(--gallery-under-header-offset)',
             )}
           >
-            {/* The gap eats into the peek strip — the next photo shows
-                `peek - gap` of itself — and needs no padding fix at the end:
-                the last slide still parks at (n-1) pitches. */}
+            {/* The gap sits between slides, so each photo's top is the one
+                before it plus its height plus the gap. */}
             <div className='flex h-full flex-row md:h-auto md:flex-col md:gap-6'>
-              {ordered.map((image, index) => (
-                <div
-                  key={image.id}
-                  role='group'
-                  aria-roledescription='slide'
-                  aria-label={`Imagen ${index + 1} de ${ordered.length}`}
-                  data-gallery-slide
-                  // Each is `--gallery-slide` tall on desktop, which is what
-                  // makes `scrollTop / pitch` the fractional slide index; the
-                  // track is `h-auto` there, so a flex basis would resolve
-                  // against nothing. `snap-start` over mobile's `snap-center`:
-                  // a slide is shorter than the viewport, so centring it would
-                  // park it mid-window instead of under the header.
-                  className='min-w-full shrink-0 grow-0 basis-full snap-center md:h-(--gallery-slide) md:min-w-0 md:basis-auto md:snap-start'
-                >
-                  <div className='relative size-full'>{renderImage(image, index)}</div>
-                </div>
-              ))}
+              {ordered.map((image, index) => {
+                // Both or neither, from the catalogue's measurement. Absent
+                // means the photo could not be measured.
+                const ratio =
+                  image.width && image.height ? `${image.width} / ${image.height}` : null;
+
+                return (
+                  <div
+                    key={image.id}
+                    role='group'
+                    aria-roledescription='slide'
+                    aria-label={`Imagen ${index + 1} de ${ordered.length}`}
+                    data-gallery-slide
+                    style={ratio ? ({ '--slide-ratio': ratio } as CSSProperties) : undefined}
+                    // On desktop only the WIDTH decides how big a slide is: the
+                    // photo's own aspect ratio sets its height, so narrowing the
+                    // window shrinks photo and slide together instead of
+                    // leaving empty bands around an `object-contain` photo.
+                    // `--gallery-slide` (the visible stage less the peek) is the
+                    // CAP: a very tall photo cannot outgrow the stage, and the
+                    // next slide always keeps its peek. Only in that extreme
+                    // does the photo letterbox. An unmeasured photo has no
+                    // ratio to follow and takes that height outright.
+                    //
+                    // Mobile is untouched: every sizing class here is `md:`,
+                    // so below it a slide is one screenful whatever the photo.
+                    // The track is `h-auto` on desktop, so a flex basis would
+                    // resolve against nothing; `md:w-full` makes the width
+                    // definite for the ratio. `snap-start` over mobile's
+                    // `snap-center`: slides are shorter than the viewport, so
+                    // centring one would park it mid-window, not under the
+                    // header.
+                    className={cn(
+                      'relative min-w-full shrink-0 grow-0 basis-full snap-center md:w-full md:min-w-0 md:basis-auto md:snap-start',
+                      ratio
+                        ? 'md:aspect-(--slide-ratio) md:max-h-(--gallery-slide)'
+                        : 'md:h-(--gallery-slide)',
+                    )}
+                  >
+                    {/* Absolute rather than `size-full`: on desktop the slide's height
+                      comes from its aspect ratio, and a percentage height is not
+                      reliably resolved against one. */}
+                    <div className='absolute inset-0'>{renderImage(image, index)}</div>
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>

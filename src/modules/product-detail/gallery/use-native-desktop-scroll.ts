@@ -25,48 +25,48 @@ const EDGE_FADE_REFERENCE_PX = 722;
  * custom properties inherit, and the stage is the node the gallery already
  * holds a ref to.
  */
+/**
+ * The room under the last slide. The stylesheet defines a default for it
+ * (visible stage minus the fallback slide height); this overrides it with the
+ * real one once the last photo's height is known.
+ */
+const PEEK_STRIP_PROPERTY = '--gallery-peek-strip';
+
 const MASK_TOP_PROPERTY = '--gallery-mask-top';
 const MASK_BOTTOM_PROPERTY = '--gallery-mask-bottom';
 
 /**
- * The distance one slide occupies along the scroll axis.
+ * Where each slide's top is, in scroll offsets: the `scrollTop` that parks
+ * that slide, so the first is always 0.
  *
- * Horizontally that is the viewport's width. Vertically it cannot be
- * `clientHeight`: under the header the viewport is taller than a slide by the
- * header offset (it carries that much padding), so the slide's OWN height is
- * the unit. Read from the first slide's layout box rather than computed style,
- * which would force a style recalculation on every scroll frame; slides are
- * all one size. `clientHeight` is the fallback for an unmeasured slide, and
- * is exactly right when there is no padding.
+ * Read per slide from its layout box (`offsetTop`, which is relative to the
+ * scroller because the scroller is positioned), never from computed style,
+ * which would force a style recalculation on every scroll frame. Slides take
+ * their own photo's height now, so there is no single pitch to multiply by,
+ * and the gap between them is whatever CSS says, never a number written down
+ * twice here. Subtracting the first slide's top removes the header padding the
+ * content starts below.
  *
- * With a gap between slides the unit is the PITCH, not the height: slide `i`
- * starts at `i * (height + gap)`, and dividing by the height alone drifts by
- * one gap per slide, so a parked photo would read as part-way to the next and
- * keep a blur. The pitch is read as the second slide's offset from the first
- * — the gap is whatever CSS says, never a number written down twice here.
+ * Unmeasured slides (display:none, jsdom) all report the same top, and then
+ * the tops fall back to one viewport apart, which is exactly right when there
+ * is no padding and every slide fills the viewport.
  */
-export function scrollUnit(node: HTMLElement, vertical: boolean): number {
-  if (!vertical) return node.clientWidth;
+export function slideTops(node: HTMLElement): number[] {
+  const slides = slideNodes(node);
+  const first = slides[0]?.offsetTop ?? 0;
+  const tops = slides.map((slide) => slide.offsetTop - first);
 
-  const first = node.firstElementChild?.firstElementChild;
-  const second = first?.nextElementSibling;
-  const pitch =
-    first instanceof HTMLElement && second instanceof HTMLElement
-      ? second.offsetTop - first.offsetTop
-      : 0;
-  if (pitch > 0) return pitch;
-
-  const height = first instanceof HTMLElement ? first.offsetHeight : 0;
-
-  return height > 0 ? height : node.clientHeight;
+  return tops.length > 1 && tops[1]! > 0
+    ? tops
+    : slides.map((_, index) => index * node.clientHeight);
 }
 
 /**
- * Scrolls a native scroller so slide `index` fills it, along the given axis.
+ * Scrolls a native scroller so slide `index` is parked, along the given axis.
  *
- * Both layouts need this — mobile scrolls horizontally, desktop vertically —
- * and in both the offset of slide `index` is `index * scrollUnit`. `scrollTo`
- * is missing in some environments, hence the direct assignment fallback.
+ * Mobile scrolls horizontally, one viewport width per slide. Desktop scrolls
+ * vertically to that slide's own top. `scrollTo` is missing in some
+ * environments, hence the direct assignment fallback.
  */
 export function scrollToSlide(
   node: HTMLElement | null,
@@ -76,7 +76,9 @@ export function scrollToSlide(
 ): void {
   if (!node) return;
 
-  const offset = index * scrollUnit(node, vertical);
+  const offset = vertical
+    ? (slideTops(node)[index] ?? 0)
+    : index * node.clientWidth;
   if (typeof node.scrollTo === 'function') {
     node.scrollTo(vertical ? { top: offset, behavior } : { left: offset, behavior });
   } else if (vertical) {
@@ -94,6 +96,32 @@ function slideNodes(viewport: HTMLElement): HTMLElement[] {
 function paintMasks(stage: HTMLElement | null, top: number, bottom: number): void {
   stage?.style.setProperty(MASK_TOP_PROPERTY, `${top}%`);
   stage?.style.setProperty(MASK_BOTTOM_PROPERTY, `${bottom}%`);
+}
+
+/**
+ * Sizes the room under the last slide so that it can park at the top like the
+ * others: the visible stage (the viewport minus the header padding above the
+ * first slide) minus that slide's own height, never negative.
+ *
+ * It cannot be a CSS `calc`: it depends on the last photo's height, which is
+ * its aspect ratio times the stage width. An unmeasured last slide leaves the
+ * stylesheet's default in place instead.
+ */
+function paintPeekStrip(
+  stage: HTMLElement | null,
+  viewport: HTMLElement,
+  slides: HTMLElement[],
+): void {
+  const first = slides[0];
+  const last = slides.at(-1);
+
+  if (!stage || !first || !last || last.offsetHeight <= 0) {
+    stage?.style.removeProperty(PEEK_STRIP_PROPERTY);
+    return;
+  }
+
+  const visible = viewport.clientHeight - first.offsetTop;
+  stage.style.setProperty(PEEK_STRIP_PROPERTY, `${Math.max(visible - last.offsetHeight, 0)}px`);
 }
 
 type NativeDesktopScrollOptions = {
@@ -140,8 +168,7 @@ export function useNativeDesktopScroll({
       frame = 0;
 
       const nodes = slideNodes(node);
-      const unit = scrollUnit(node, true);
-      const position = nativeScrollPosition(node.scrollTop, unit);
+      const position = nativeScrollPosition(node.scrollTop, slideTops(node));
       const blurs = nativeSlideBlurs(position, nodes.length);
       // The mask is a percentage of the carousel box, which is taller than the
       // stage the depth was tuned against (the header offset) and grows with
@@ -159,6 +186,7 @@ export function useNativeDesktopScroll({
         slide.style.filter = blur === 0 ? '' : `blur(${blur}px)`;
       });
       paintMasks(stage.current, stops.top, stops.bottom);
+      paintPeekStrip(stage.current, node, nodes);
 
       // Only the backdrop follows the gallery; the logotype scale and marquee
       // collapse stay page-scroll, so the header does not shrink while the
@@ -195,6 +223,7 @@ export function useNativeDesktopScroll({
         slide.style.filter = '';
       });
       paintMasks(stageNode, MASK_STOP_AT_REST, MASK_STOP_AT_REST);
+      stageNode?.style.removeProperty(PEEK_STRIP_PROPERTY);
       // A stale value would leave the header backdrop showing over a page the
       // gallery no longer scrolls behind.
       document.documentElement.style.removeProperty(UNDER_HEADER_PROGRESS_PROPERTY);

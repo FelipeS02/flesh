@@ -8,25 +8,50 @@ import {
 } from "../slide-blur";
 
 describe("nativeScrollPosition", () => {
+  // Slide tops, relative to the first. Slides need not be the same height:
+  // each photo's height follows its own aspect ratio.
+  const UNIFORM = [0, 722, 1444, 2166];
+  const UNEVEN = [0, 400, 1000, 1500];
+
   it("turns scrollTop into a fractional slide index", () => {
-    expect(nativeScrollPosition(0, 722)).toBe(0);
-    expect(nativeScrollPosition(361, 722)).toBeCloseTo(0.5);
-    expect(nativeScrollPosition(1444, 722)).toBe(2);
+    expect(nativeScrollPosition(0, UNIFORM)).toBe(0);
+    expect(nativeScrollPosition(361, UNIFORM)).toBeCloseTo(0.5);
+    expect(nativeScrollPosition(1444, UNIFORM)).toBe(2);
+  });
+
+  it("interpolates within the slide the scroller is over, whatever its height", () => {
+    expect(nativeScrollPosition(200, UNEVEN)).toBeCloseTo(0.5);
+    expect(nativeScrollPosition(700, UNEVEN)).toBeCloseTo(1.5);
+    expect(nativeScrollPosition(1000, UNEVEN)).toBe(2);
+    expect(nativeScrollPosition(1250, UNEVEN)).toBeCloseTo(2.5);
   });
 
   // Browsers park a snapped scroller on a fractional scrollTop, and a parked
   // photo must read as exactly zero blur, not a sliver of a slide away.
-  it("rounds a position within half a pixel of a snap onto that snap", () => {
-    expect(nativeScrollPosition(1443.6, 722)).toBe(2);
-    expect(nativeScrollPosition(1444.4, 722)).toBe(2);
-    expect(nativeScrollPosition(1443.4, 722)).not.toBe(2);
+  it("rounds a position within half a pixel of a slide top onto that slide", () => {
+    expect(nativeScrollPosition(1443.6, UNIFORM)).toBe(2);
+    expect(nativeScrollPosition(1444.4, UNIFORM)).toBe(2);
+    expect(nativeScrollPosition(1443.4, UNIFORM)).not.toBe(2);
+    expect(nativeScrollPosition(999.7, UNEVEN)).toBe(2);
+  });
+
+  it("holds at the ends instead of running past them", () => {
+    expect(nativeScrollPosition(-30, UNEVEN)).toBe(0);
+    expect(nativeScrollPosition(1500, UNEVEN)).toBe(3);
+    expect(nativeScrollPosition(9000, UNEVEN)).toBe(3);
   });
 
   it("reports the start for an unmeasured scroller", () => {
-    expect(nativeScrollPosition(120, 0)).toBe(0);
-    expect(nativeScrollPosition(Number.NaN, 722)).toBe(0);
-    expect(nativeScrollPosition(120, Number.NaN)).toBe(0);
-    expect(nativeScrollPosition(120, -5)).toBe(0);
+    expect(nativeScrollPosition(120, [])).toBe(0);
+    expect(nativeScrollPosition(120, [0])).toBe(0);
+    expect(nativeScrollPosition(Number.NaN, UNIFORM)).toBe(0);
+    expect(nativeScrollPosition(120, [0, Number.NaN, 20])).toBe(0);
+  });
+
+  // A zero-height slide has the same top as the next one; dividing by that
+  // gap would be a NaN position and an invalid filter string.
+  it("is not thrown by two slides sharing a top", () => {
+    expect(Number.isFinite(nativeScrollPosition(250, [0, 0, 500]))).toBe(true);
   });
 });
 

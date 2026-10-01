@@ -29,37 +29,57 @@ function blursFromPosition(position: number, slideCount: number): number[] {
 export const MASK_STOP_AT_REST = 100;
 
 /**
- * How close, in pixels, a native scroller has to be to a slide boundary
- * before it counts as sitting exactly on it.
+ * How close, in pixels, a native scroller has to be to a slide's top before it
+ * counts as sitting exactly on it.
  */
 const NATIVE_REST_TOLERANCE_PX = 0.5;
 
 /**
- * The fractional slide index a native vertical scroller is at: 1.5 is halfway
- * from the second slide to the third.
+ * The fractional slide index a native vertical scroller is at, given where
+ * each slide's top is: 1.5 is halfway from the second slide's top to the
+ * third's.
  *
- * Slides are exactly one viewport tall, so `scrollTop / slideHeight` IS the
- * index, with no snap list to consult. The snap-rounding is the same concern
- * `restingBlurValues` documents: a parked scroller sits on a fractional
- * `scrollTop` (subpixel layout, device-pixel rounding), and dividing it back
- * leaves the parked photo 0.0005 of a slide away, which keeps a sliver of
- * blur on the one photo that must be sharp. Within half a pixel of a boundary
- * the answer is the integer.
+ * `slideTops` are measured from the first slide, so `scrollTop` 0 is the
+ * first slide parked. They are an array, not one pitch, because slides take
+ * their own photo's height and are no longer all the same: the position is
+ * interpolated inside whichever slide the scroller is over.
  *
- * An unmeasured scroller (display:none, jsdom, a zero-height slide) reports
- * the start rather than `NaN`, which would make every filter string invalid.
+ * Snap-rounding is the concern `nativeSlideBlurs` depends on: a parked
+ * scroller sits on a fractional `scrollTop` (subpixel layout, device-pixel
+ * rounding), which would leave the parked photo a sliver of a slide away and
+ * keep a trace of blur on the one photo that must be sharp. Within half a
+ * pixel of a top the answer is that slide's integer.
+ *
+ * An unmeasured scroller (display:none, jsdom, fewer than two slides)
+ * reports the start rather than `NaN`, which would make every filter string
+ * invalid. The ends hold: past the last top the position stays on the last
+ * slide.
  */
-export function nativeScrollPosition(scrollTop: number, slideHeight: number): number {
-  if (!Number.isFinite(scrollTop) || !Number.isFinite(slideHeight) || slideHeight <= 0) {
-    return 0;
+export function nativeScrollPosition(
+  scrollTop: number,
+  slideTops: readonly number[],
+): number {
+  if (!Number.isFinite(scrollTop) || slideTops.length < 2) return 0;
+  if (slideTops.some((top) => !Number.isFinite(top))) return 0;
+
+  const last = slideTops.length - 1;
+  if (scrollTop <= slideTops[0]!) return 0;
+  if (scrollTop >= slideTops[last]! - NATIVE_REST_TOLERANCE_PX) return last;
+
+  for (let index = 0; index < last; index += 1) {
+    const top = slideTops[index]!;
+    const nextTop = slideTops[index + 1]!;
+
+    if (scrollTop < top - NATIVE_REST_TOLERANCE_PX || scrollTop >= nextTop) continue;
+    if (Math.abs(scrollTop - top) < NATIVE_REST_TOLERANCE_PX) return index;
+    if (Math.abs(nextTop - scrollTop) < NATIVE_REST_TOLERANCE_PX) return index + 1;
+
+    // Two slides sharing a top (a zero-height one) leave no span to
+    // interpolate across.
+    return nextTop > top ? index + (scrollTop - top) / (nextTop - top) : index;
   }
 
-  const position = scrollTop / slideHeight;
-  const nearest = Math.round(position);
-
-  return Math.abs(position - nearest) * slideHeight < NATIVE_REST_TOLERANCE_PX
-    ? nearest
-    : position;
+  return last;
 }
 
 /**

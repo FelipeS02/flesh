@@ -32,12 +32,17 @@ export const DESKTOP_EDGE_FADE_STOP = 96;
 export const DESKTOP_GALLERY_UNDER_HEADER = true;
 
 /**
- * How much of the visible stage the NEXT slide occupies while one is parked, as
- * a fraction: 0.2 shows the next photo (blurred) across the bottom fifth. It is
- * an invitation to scroll, and what lets the gallery run to the bottom of the
- * window without a photo's letterboxing leaving that area empty.
+ * How much of the visible stage the NEXT slide is guaranteed, as a fraction:
+ * 0.2 keeps at least the bottom fifth for the next photo (blurred), an
+ * invitation to scroll.
  *
- * 0 is one slide per stage, as before. Kept below 1 by the component, because a
- * slide has to keep some height of its own.
+ * Slides take their height from their own photo now, so this is no longer
+ * "one slide's height". It is the CAP: a slide is at most
+ * `visible * (1 - peek)` tall, so even a very tall photo leaves that strip.
+ * A normal, shorter photo leaves more of the next one showing. It is also the
+ * whole height of a slide whose photo could not be measured.
+ *
+ * 0 lets a slide fill the whole stage. Kept below 1 by the component, because
+ * a slide has to keep some height of its own.
  */
 export const DESKTOP_NEXT_SLIDE_PEEK = 0.2;

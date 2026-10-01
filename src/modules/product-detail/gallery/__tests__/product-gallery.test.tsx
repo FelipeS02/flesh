@@ -57,6 +57,30 @@ function stageVar(container: HTMLElement, name: string): string {
     .style.getPropertyValue(name);
 }
 
+/**
+ * jsdom lays nothing out, so this gives every slide the geometry a browser
+ * would report: the top (in scroll-content coordinates, so past any header
+ * padding) and the height. Returns each slide's top relative to the first,
+ * which is the scrollTop that parks it.
+ */
+function layoutSlides(
+  container: HTMLElement,
+  heights: number[],
+  { gap = 0, padTop = 0 }: { gap?: number; padTop?: number } = {},
+): number[] {
+  let top = padTop;
+
+  return slides(container).map((slide, index) => {
+    const height = heights[index] ?? heights.at(-1)!;
+    Object.defineProperty(slide, "offsetTop", { configurable: true, value: top });
+    Object.defineProperty(slide, "offsetHeight", { configurable: true, value: height });
+    const parked = top - padTop;
+    top += height + gap;
+
+    return parked;
+  });
+}
+
 /** Gives the viewport the geometry jsdom does not compute; returns its scrollTo spy. */
 function measure(node: HTMLElement, scrollTop = 0) {
   const scrollTo = vi.fn();
@@ -317,10 +341,7 @@ describe("ProductGallery running under the sticky header", () => {
       configurable: true,
       value: VIEWPORT_HEIGHT,
     });
-    Object.defineProperty(slides(container)[0]!, "offsetHeight", {
-      configurable: true,
-      value: SLIDE_HEIGHT,
-    });
+    layoutSlides(container, [SLIDE_HEIGHT], { padTop: VIEWPORT_HEIGHT - SLIDE_HEIGHT });
 
     return { node, scrollTo };
   }
@@ -464,10 +485,7 @@ describe("ProductGallery peeking at the next slide", () => {
     const node = viewport(container);
     measure(node);
     Object.defineProperty(node, "clientHeight", { configurable: true, value: VIEWPORT });
-    Object.defineProperty(slides(container)[0]!, "offsetHeight", {
-      configurable: true,
-      value: SLIDE,
-    });
+    layoutSlides(container, [SLIDE]);
 
     return node;
   }
@@ -554,18 +572,10 @@ describe("ProductGallery with a gap between native slides", () => {
   const SLIDE = 500;
   const GAP = 24;
 
-  // jsdom lays nothing out, so the pitch is given the way a browser reports
-  // it: as the second slide's offset from the first.
   function measureGap(container: HTMLElement) {
     const node = viewport(container);
     const scrollTo = measure(node);
-    const [first, second] = slides(container);
-    Object.defineProperty(first!, "offsetHeight", { configurable: true, value: SLIDE });
-    Object.defineProperty(first!, "offsetTop", { configurable: true, value: 0 });
-    Object.defineProperty(second!, "offsetTop", {
-      configurable: true,
-      value: SLIDE + GAP,
-    });
+    layoutSlides(container, [SLIDE], { gap: GAP });
 
     return { node, scrollTo };
   }
@@ -595,6 +605,154 @@ describe("ProductGallery with a gap between native slides", () => {
 
     expect(thumbnails()[4]!.getAttribute("aria-pressed")).toBe("true");
     expect(slides(container)[4]!.style.filter).toBe("");
+  });
+});
+
+describe("ProductGallery slides sized by their photos", () => {
+  const MEASURED: ImageView[] = [
+    { id: 1, src: "/products/1.png", position: 1, width: 1000, height: 1250 },
+    { id: 2, src: "/products/2.png", position: 2, width: 1600, height: 900 },
+    { id: 3, src: "/products/3.png", position: 3 },
+    { id: 4, src: "/products/4.png", position: 4, width: 800, height: 800 },
+  ];
+  const HEIGHTS = [500, 360, 420, 300];
+  const GAP = 24;
+
+  function measureUneven(container: HTMLElement, clientHeight = 900) {
+    const node = viewport(container);
+    const scrollTo = measure(node);
+    Object.defineProperty(node, "clientHeight", { configurable: true, value: clientHeight });
+    const tops = layoutSlides(container, HEIGHTS, { gap: GAP, padTop: 100 });
+
+    return { node, scrollTo, tops };
+  }
+
+  it("binds a measured slide's height to its photo's aspect ratio on desktop", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    const [portrait, landscape] = slides(container);
+
+    expect(portrait!.style.getPropertyValue("--slide-ratio")).toBe("1000 / 1250");
+    expect(landscape!.style.getPropertyValue("--slide-ratio")).toBe("1600 / 900");
+    for (const slide of [portrait!, landscape!]) {
+      expect(slide.className).toContain("md:aspect-(--slide-ratio)");
+      // A very tall photo may not outgrow the stage; the cap is the old slide height.
+      expect(slide.className).toContain("md:max-h-(--gallery-slide)");
+      expect(slide.className).not.toContain("md:h-(--gallery-slide)");
+    }
+  });
+
+  it("gives an unmeasured slide the fixed slide height it always had", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    const unmeasured = slides(container)[2]!;
+
+    expect(unmeasured.className).toContain("md:h-(--gallery-slide)");
+    expect(unmeasured.className).not.toContain("aspect");
+    expect(unmeasured.style.getPropertyValue("--slide-ratio")).toBe("");
+  });
+
+  // Mobile is one screenful per slide, whatever the photo. Every sizing class
+  // a slide carries for the photo is `md:`-scoped, so nothing below the
+  // breakpoint can read the ratio.
+  it("scopes every photo-driven size to md, leaving mobile slides one screenful", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+
+    for (const slide of slides(container)) {
+      const sizing = slide.className
+        .split(/\s+/)
+        .filter((token) => /(^|:)(aspect|h|max-h)-/.test(token));
+
+      expect(sizing.length).toBeGreaterThan(0);
+      for (const token of sizing) expect(token.startsWith("md:")).toBe(true);
+      expect(slide.className).toContain("basis-full");
+    }
+  });
+
+  it("keeps mobile selection and thumbnail scrolling on the horizontal axis", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    const node = viewport(container);
+    const scrollTo = vi.fn();
+    Object.defineProperty(node, "scrollTo", { configurable: true, value: scrollTo });
+    layoutSlides(container, HEIGHTS, { gap: GAP });
+
+    swipeTo(container, 2);
+    expect(thumbnails()[2]!.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(thumbnails()[3]!);
+    expect(scrollTo).toHaveBeenCalledWith({ left: 300, behavior: "smooth" });
+  });
+
+  it("selects the slide whose own top the scroller reaches", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node, tops } = measureUneven(container);
+
+    // Tops are 0, 384, 768, 1212: nothing like a multiple of one pitch.
+    scrollViewportTo(node, tops[3]!);
+    expect(thumbnails()[3]!.getAttribute("aria-pressed")).toBe("true");
+
+    scrollViewportTo(node, tops[1]!);
+    expect(thumbnails()[1]!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("scrolls a thumbnail jump to that slide's own top", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { scrollTo, tops } = measureUneven(container);
+
+    fireEvent.click(thumbnails()[2]!);
+
+    expect(scrollTo).toHaveBeenCalledWith({ top: tops[2], behavior: "smooth" });
+  });
+
+  it("blurs exactly zero on a parked slide and by distance in between", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node, tops } = measureUneven(container);
+
+    scrollViewportTo(node, tops[2]! + 0.3);
+    expect(slides(container)[2]!.style.filter).toBe("");
+    expect(slides(container)[3]!.style.filter).toBe(`blur(${MAX_BLUR_PX}px)`);
+
+    // Halfway down the second slide, whatever its height.
+    scrollViewportTo(node, tops[1]! + (tops[2]! - tops[1]!) / 2);
+    expect(slides(container)[1]!.style.filter).toBe(`blur(${MAX_BLUR_PX / 2}px)`);
+    expect(slides(container)[2]!.style.filter).toBe(`blur(${MAX_BLUR_PX / 2}px)`);
+  });
+
+  // The last slide can only park if there is room under it: visible height
+  // minus the slide itself. It depends on the LAST photo, so it is measured.
+  it("sizes the bottom room so the last slide can park, from the last slide's own height", () => {
+    config.underHeader = true;
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    // padTop 100, so the visible stage is 900 - 100 = 800 and the last slide 300.
+    const { node } = measureUneven(container);
+
+    scrollViewportTo(node, 0);
+
+    expect(stageVar(container, "--gallery-peek-strip")).toBe("500px");
+  });
+
+  it("asks for no bottom room when the last slide already fills the stage", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUneven(container, 350);
+
+    scrollViewportTo(node, 0);
+
+    expect(stageVar(container, "--gallery-peek-strip")).toBe("0px");
+  });
+
+  it("gives the bottom room back to the stylesheet when leaving desktop", () => {
+    const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const { node } = measureUneven(container);
+    scrollViewportTo(node, 0);
+    expect(stageVar(container, "--gallery-peek-strip")).not.toBe("");
+
+    act(() => setViewport("mobile"));
+
+    expect(stageVar(container, "--gallery-peek-strip")).toBe("");
   });
 });
 
