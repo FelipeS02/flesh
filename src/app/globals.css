@@ -168,31 +168,6 @@
   }
 }
 
-/* The last-unit glyph's frame cycle (product-detail/purchase/stock-note.tsx).
-
-   Each of the four frames runs this on a 560ms loop, a quarter-loop apart. A
-   frame owns 0–25% of the loop; its fade-out (25–41%) is the SAME wall-clock
-   span as the next frame's fade-in (0–16%), so the swap is a crossfade with
-   no empty instant between skulls. 16% of 560ms is the 90ms the spec board
-   asks for, and the 6px blur is what makes it read as a flicker rather than
-   a slideshow. */
-@keyframes stock-glyph-frame {
-  0% {
-    opacity: 0;
-    filter: blur(6px);
-  }
-  16%,
-  25% {
-    opacity: 1;
-    filter: blur(0);
-  }
-  41%,
-  100% {
-    opacity: 0;
-    filter: blur(6px);
-  }
-}
-
 @layer base {
   * {
     @apply border-border outline-ring/50;
