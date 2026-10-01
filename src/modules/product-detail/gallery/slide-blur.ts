@@ -13,21 +13,30 @@ export const MAX_BLUR_PX = 7;
  */
 export const BLUR_ONSET = 0.3;
 
-function noBlur(slideCount: number): number[] {
-  return Array.from({ length: Math.max(slideCount, 0) }, () => 0);
-}
+/**
+ * How opaque a slide sitting fully off-stage is. It fades on the blur's own
+ * ramp, so the page behind shows through only as far as the photo is soft.
+ */
+export const MIN_OPACITY = 0.8;
 
-/** `position` is a fractional slide index: 1.5 is halfway from slide 2 to 3. */
-function blursFromPosition(position: number, slideCount: number): number[] {
+/**
+ * How far each slide is into its blur and fade, from 0 (in focus) to 1 (fully
+ * off-stage). `position` is a fractional slide index: 1.5 is halfway from
+ * slide 2 to 3. Fewer than two slides, or an unusable position, leave every
+ * slide at 0.
+ */
+function rampsFromPosition(position: number, slideCount: number): number[] {
+  if (slideCount < 2) return Array.from({ length: Math.max(slideCount, 0) }, () => 0);
+
+  const from = Number.isFinite(position) ? position : 0;
+
   return Array.from({ length: slideCount }, (_, index) => {
     // Capped at one slide of distance: the second slide away is already
     // fully off-stage, and blurring it harder would only cost paint time
     // for something nobody can see.
-    const distance = Math.min(Math.abs(index - position), 1);
+    const distance = Math.min(Math.abs(index - from), 1);
 
-    const ramp = Math.max(distance - BLUR_ONSET, 0) / (1 - BLUR_ONSET);
-
-    return ramp * MAX_BLUR_PX;
+    return Math.max(distance - BLUR_ONSET, 0) / (1 - BLUR_ONSET);
   });
 }
 
@@ -89,13 +98,17 @@ export function nativeScrollPosition(
  * The blur radius for every slide, from the fractional position
  * `nativeScrollPosition` returns.
  *
- * Blur ONLY. The previous carousel also scaled and faded the off-stage slides,
- * and that is dropped on purpose: with free scrolling a scaled slide is
- * shorter than its slot, which opens a visible gap between two photos
- * mid-scroll, and opacity would show the page behind them.
+ * No scale. The previous carousel also shrank the off-stage slides, and that
+ * is dropped on purpose: with free scrolling a scaled slide is shorter than
+ * its slot, which opens a visible gap between two photos mid-scroll.
  */
 export function nativeSlideBlurs(position: number, slideCount: number): number[] {
-  if (slideCount < 2) return noBlur(slideCount);
+  return rampsFromPosition(position, slideCount).map((ramp) => ramp * MAX_BLUR_PX);
+}
 
-  return blursFromPosition(Number.isFinite(position) ? position : 0, slideCount);
+/** The opacity for every slide, on the same curve as `nativeSlideBlurs`. */
+export function nativeSlideOpacities(position: number, slideCount: number): number[] {
+  return rampsFromPosition(position, slideCount).map(
+    (ramp) => 1 - ramp * (1 - MIN_OPACITY),
+  );
 }

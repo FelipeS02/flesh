@@ -3,11 +3,17 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ImageView } from "@/modules/catalog";
 import { setViewport } from "../../../../../test/fixtures/viewport";
 import { ProductGallery } from "../product-gallery";
-import { MAX_BLUR_PX, nativeSlideBlurs } from "../slide-blur";
+import {
+  MAX_BLUR_PX,
+  MIN_OPACITY,
+  nativeSlideBlurs,
+  nativeSlideOpacities,
+} from "../slide-blur";
 
-// Where the blur curve puts a slide half a slide away: the gallery tests
-// check the wiring, the curve itself is pinned in slide-blur.test.ts.
+// Where the curves put a slide half a slide away: the gallery tests check the
+// wiring, the curves themselves are pinned in slide-blur.test.ts.
 const HALFWAY_BLUR_PX = nativeSlideBlurs(0.5, 2)[0]!;
+const HALFWAY_OPACITY = nativeSlideOpacities(0.5, 2)[0]!;
 
 // A getter, not a value: the config is read at render time, so each test can
 // pick the snap flag without re-importing the module graph.
@@ -233,7 +239,24 @@ describe("ProductGallery desktop scroller", () => {
     ]);
   });
 
-  it("leaves a parked photo with no filter at all, and never scales or fades", () => {
+  it("fades each slide by its distance from the scroll position", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = viewport(container);
+    measure(node);
+
+    scrollViewportTo(node, SLIDE_HEIGHT / 2);
+
+    expect(slides(container).map((slide) => slide.style.opacity)).toEqual([
+      String(HALFWAY_OPACITY),
+      String(HALFWAY_OPACITY),
+      String(MIN_OPACITY),
+      String(MIN_OPACITY),
+      String(MIN_OPACITY),
+    ]);
+  });
+
+  it("leaves a parked photo with no filter or fade at all, and never scales", () => {
     const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
     act(() => setViewport("desktop"));
     const node = viewport(container);
@@ -272,6 +295,9 @@ describe("ProductGallery desktop scroller", () => {
     act(() => setViewport("mobile"));
 
     expect(slides(container).map((slide) => slide.style.filter)).toEqual(
+      Array(5).fill(""),
+    );
+    expect(slides(container).map((slide) => slide.style.opacity)).toEqual(
       Array(5).fill(""),
     );
   });
@@ -698,18 +724,21 @@ describe("ProductGallery slides sized by their photos", () => {
   });
 
   // The bottom room depends on the LAST photo, so it is measured. A short one
-  // (a banner) ends centred in the stage rather than parked at the top over a
-  // tall empty band.
-  it("sizes the bottom room so a short last slide ends centred in the stage", () => {
+  // (a banner) ends centred in the window rather than parked at the top over
+  // a tall empty band. The window, not the stage under the header: the
+  // scroller runs up behind the header, and centring below its offset
+  // reads as sitting low.
+  it("sizes the bottom room so a short last slide ends centred in the window", () => {
     config.underHeader = true;
     const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
     act(() => setViewport("desktop"));
-    // padTop 100, so the visible stage is 900 - 100 = 800 and the last slide 300.
+    // A 900 scroller with 100 of header padding, and the last slide 300:
+    // (900 - 300) / 2 above it and below it.
     const { node } = measureUneven(container);
 
     scrollViewportTo(node, 0);
 
-    expect(stageVar(container, "--gallery-peek-strip")).toBe("250px");
+    expect(stageVar(container, "--gallery-peek-strip")).toBe("300px");
   });
 
   // Centring a nearly full-height photo would drop it below where every
@@ -734,7 +763,7 @@ describe("ProductGallery slides sized by their photos", () => {
     const { container } = render(<ProductGallery images={MEASURED} title={TITLE} />);
     act(() => setViewport("desktop"));
     const { node, scrollTo, tops } = measureUneven(container);
-    const end = tops[3]! - 250;
+    const end = tops[3]! - 300;
     Object.defineProperty(node, "scrollHeight", { configurable: true, value: end + 900 });
 
     scrollViewportTo(node, end);

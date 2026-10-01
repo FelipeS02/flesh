@@ -347,7 +347,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
           >
             {/* The gap sits between slides, so each photo's top is the one
                 before it plus its height plus the gap. */}
-            <div className='flex h-full flex-row md:h-auto md:flex-col md:gap-14'>
+            <div className='flex h-full flex-row md:h-auto md:flex-col md:gap-24'>
               {ordered.map((image, index) => {
                 // Both or neither, from the catalogue's measurement. Absent
                 // means the photo could not be measured.

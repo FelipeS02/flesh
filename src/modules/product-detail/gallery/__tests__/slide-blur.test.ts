@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   BLUR_ONSET,
   MAX_BLUR_PX,
+  MIN_OPACITY,
   nativeScrollPosition,
   nativeSlideBlurs,
+  nativeSlideOpacities,
 } from "../slide-blur";
 
 describe("nativeScrollPosition", () => {
@@ -94,6 +96,41 @@ describe("nativeSlideBlurs", () => {
     for (const value of nativeSlideBlurs(-2, 3).concat(nativeSlideBlurs(9, 3))) {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(MAX_BLUR_PX);
+    }
+  });
+});
+
+describe("nativeSlideOpacities", () => {
+  it("leaves the parked slide fully opaque and fades the rest to the floor", () => {
+    expect(nativeSlideOpacities(2, 5)).toEqual([
+      MIN_OPACITY,
+      MIN_OPACITY,
+      1,
+      MIN_OPACITY,
+      MIN_OPACITY,
+    ]);
+  });
+
+  // The fade rides the blur's curve, so a slide never softens without
+  // dimming or the other way round.
+  it("fades on the same onset as the blur", () => {
+    expect(nativeSlideOpacities(BLUR_ONSET, 3)[0]).toBe(1);
+    expect(nativeSlideOpacities(BLUR_ONSET + 0.1, 3)[0]).toBeLessThan(1);
+    expect(nativeSlideOpacities(0.5, 3)[0]).toBeCloseTo(nativeSlideOpacities(0.5, 3)[1]!);
+    expect(nativeSlideOpacities(1, 3)[0]).toBe(MIN_OPACITY);
+  });
+
+  it("fades nothing for a single slide and survives an empty gallery", () => {
+    expect(nativeSlideOpacities(0, 1)).toEqual([1]);
+    expect(nativeSlideOpacities(0, 0)).toEqual([]);
+  });
+
+  it("stays between the floor and fully opaque", () => {
+    expect(nativeSlideOpacities(Number.NaN, 3)).toEqual(nativeSlideOpacities(0, 3));
+
+    for (const value of nativeSlideOpacities(-2, 3).concat(nativeSlideOpacities(9, 3))) {
+      expect(value).toBeGreaterThanOrEqual(MIN_OPACITY);
+      expect(value).toBeLessThanOrEqual(1);
     }
   });
 });

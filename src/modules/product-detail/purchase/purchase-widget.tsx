@@ -15,6 +15,7 @@ import { transferPrice } from '@/modules/storefront/pricing';
 import { AxisSelector } from './axis-selector';
 import { ColourwaySwatches } from './colourway-swatches';
 import { widgetVisible } from './widget-visibility';
+import { StockNote } from './stock-note';
 import Image from 'next/image';
 import { SHEET_BACKGROUND_SIZES, SheetBackground } from '@/components/ui/sheet-background';
 import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
@@ -49,6 +50,8 @@ type PurchaseWidgetProps = {
   priced: VariantView | undefined;
   canAddToCart: boolean;
   ctaLabel: string;
+  /** Whether the chosen variant is the last unit — decided by the panel, like `ctaLabel`. */
+  lastUnit?: boolean;
   onSelect: (axisIndex: number, value: string) => void;
   onAdd?: () => void;
   /** See `PurchasePanelProps.sizeChart` — same optional pass-through, same reason it is not part of `VariantMatrix`. */
@@ -75,6 +78,7 @@ export function PurchaseWidget({
   priced,
   canAddToCart,
   ctaLabel,
+  lastUnit = false,
   onSelect,
   onAdd,
   sizeChart,
@@ -138,6 +142,8 @@ export function PurchaseWidget({
           </div>
         )}
       </div>
+
+      {lastUnit && <StockNote />}
 
       <button
         type='button'

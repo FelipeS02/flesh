@@ -6,7 +6,7 @@ import {
   UNDER_HEADER_PROGRESS_PROPERTY,
 } from '@/components/shared/header-scroll';
 import { DESKTOP_GALLERY_UNDER_HEADER } from './gallery-config';
-import { nativeScrollPosition, nativeSlideBlurs } from './slide-blur';
+import { nativeScrollPosition, nativeSlideBlurs, nativeSlideOpacities } from './slide-blur';
 
 /**
  * The room under the last slide. The stylesheet defines a default for it
@@ -88,10 +88,12 @@ function slideNodes(viewport: HTMLElement): HTMLElement[] {
  * minus the header padding above the first slide) and that slide's height.
  *
  * Parking a short last photo (a banner) at the top like the others left a
- * tall empty band under it, so it ends centred instead: half the spare room.
+ * tall empty band under it, so it ends centred instead. Centred in the whole
+ * scroller, which is the window: it runs up behind the header, and centring
+ * only in the stage below the header offset left the photo sitting low.
  * Never less than the peek strip, though, or a nearly full-height photo would
  * end lower than every other slide parks; and never more than parking at the
- * top needs, nor negative.
+ * top needs, which also keeps a photo from ending under the header.
  *
  * It cannot be a CSS `calc`: it depends on the last photo's height, which is
  * its aspect ratio times the stage width. An unmeasured last slide leaves the
@@ -113,7 +115,8 @@ function paintPeekStrip(
 
   const visible = viewport.clientHeight - first.offsetTop;
   const spare = visible - last.offsetHeight;
-  const room = Math.min(spare, Math.max(spare / 2, visible * peek));
+  const centred = (viewport.clientHeight - last.offsetHeight) / 2;
+  const room = Math.min(spare, Math.max(centred, visible * peek));
   stage.style.setProperty(PEEK_STRIP_PROPERTY, `${Math.max(room, 0)}px`);
 }
 
@@ -129,16 +132,16 @@ type NativeDesktopScrollOptions = {
 };
 
 /**
- * Paints the desktop gallery's per-slide blur, the room under its last slide
+ * Paints the desktop gallery's per-slide blur and fade, the room under its last slide
  * and the header backdrop's progress from the viewport's scroll position.
  *
  * This stays outside React: scroll events only write styles onto nodes and
  * never re-render the gallery. Writes are coalesced to one per animation frame, because a wheel or trackpad fires scroll events
  * faster than the display can show the result.
  *
- * Only blur is painted. The previous carousel also scaled and faded the
- * off-stage slides, which was dropped on purpose: with free scrolling a scaled
- * slide is shorter than its slot and opens a gap between two photos.
+ * No scale is painted. The previous carousel also shrank the off-stage
+ * slides, which was dropped on purpose: with free scrolling a scaled slide is
+ * shorter than its slot and opens a gap between two photos.
  *
  * Selection is NOT handled here. It is the same observation the mobile
  * scroller makes, only on the other axis, so the gallery does both in one
@@ -165,12 +168,17 @@ export function useNativeDesktopScroll({
       const nodes = slideNodes(node);
       const position = nativeScrollPosition(node.scrollTop, slideTops(node));
       const blurs = nativeSlideBlurs(position, nodes.length);
+      const opacities = nativeSlideOpacities(position, nodes.length);
 
       nodes.forEach((slide, index) => {
         const blur = blurs[index] ?? 0;
+        const opacity = opacities[index] ?? 1;
         // Empty rather than `blur(0px)`: a zero-radius filter still promotes
         // the photo to its own layer, which leaves a parked slide soft.
         slide.style.filter = blur === 0 ? '' : `blur(${blur}px)`;
+        // Empty at full opacity so a parked slide carries no inline style
+        // the stylesheet would have to fight.
+        slide.style.opacity = opacity === 1 ? '' : String(opacity);
       });
       paintPeekStrip(stage.current, node, nodes, peek);
 
@@ -207,6 +215,7 @@ export function useNativeDesktopScroll({
       if (frame) cancelAnimationFrame(frame);
       slideNodes(node).forEach((slide) => {
         slide.style.filter = '';
+        slide.style.opacity = '';
       });
       stageNode?.style.removeProperty(PEEK_STRIP_PROPERTY);
       // A stale value would leave the header backdrop showing over a page the
