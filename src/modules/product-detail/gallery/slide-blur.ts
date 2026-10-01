@@ -22,13 +22,6 @@ function blursFromPosition(position: number, slideCount: number): number[] {
 }
 
 /**
- * Where an edge fade starts when it is off: at the very edge, which is to say
- * nowhere. A mask is plain CSS and cannot know whether there is content
- * beyond an edge, so the gallery paints this value there instead.
- */
-export const MASK_STOP_AT_REST = 100;
-
-/**
  * How close, in pixels, a native scroller has to be to a slide's top before it
  * counts as sitting exactly on it.
  */
@@ -95,38 +88,4 @@ export function nativeSlideBlurs(position: number, slideCount: number): number[]
   if (slideCount < 2) return noBlur(slideCount);
 
   return blursFromPosition(Number.isFinite(position) ? position : 0, slideCount);
-}
-
-function clampUnit(value: number): number {
-  return Number.isFinite(value) ? Math.min(Math.max(value, 0), 1) : 0;
-}
-
-/**
- * Where the top and bottom edge fades start, as percentages.
- *
- * Each edge is independent and ON while there is content beyond it, fading
- * out as the scroller nears that end: the top fade grows over the first slide's travel
- * (position 0 to 1) and the bottom one shrinks over the last slide's. So the
- * first photo parked has a clean top edge and the last a clean bottom edge,
- * and everything between is softened at both.
- *
- * `fullStop` is where a fully-on edge fade starts, and it is the caller's to
- * pick (`DESKTOP_EDGE_FADE_STOP` in `gallery-config`): this module stays pure
- * maths with no opinion on depth.
- */
-export function edgeMaskStops(
-  position: number,
-  slideCount: number,
-  fullStop: number,
-): { top: number; bottom: number } {
-  if (slideCount < 2) return { top: MASK_STOP_AT_REST, bottom: MASK_STOP_AT_REST };
-
-  const finite = Number.isFinite(position) ? position : 0;
-  const stopFor = (intensity: number) =>
-    MASK_STOP_AT_REST - intensity * (MASK_STOP_AT_REST - fullStop);
-
-  return {
-    top: stopFor(clampUnit(finite)),
-    bottom: stopFor(clampUnit(slideCount - 1 - finite)),
-  };
 }

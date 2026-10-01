@@ -12,18 +12,6 @@
 export const DESKTOP_SCROLL_SNAP = false;
 
 /**
- * Where the gallery's edge fade starts when it is fully on, as a
- * percentage of the stage height: 96 fades the outer 4% (~29px of a 722px
- * stage). The engine holds the PIXEL depth, not the percentage, as the stage
- * grows with the window. A hand-tuned knob.
- *
- * Shallow on purpose: this fade is on while the shopper is looking at the
- * photo, and at 88 it ate the lower 12% of the garment. Lower numbers fade
- * deeper, 100 turns it off.
- */
-export const DESKTOP_EDGE_FADE_STOP = 96;
-
-/**
  * Whether the native desktop scroller runs UP BEHIND the sticky header, so a
  * photo scrolling up passes under the promo marquee and logotype instead of
  * being cut at the stage's top edge — the way the PDP's right-hand panel

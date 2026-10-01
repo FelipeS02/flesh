@@ -5,35 +5,15 @@ import {
   HEADER_SCROLL_RANGE,
   UNDER_HEADER_PROGRESS_PROPERTY,
 } from '@/components/shared/header-scroll';
-import { DESKTOP_EDGE_FADE_STOP, DESKTOP_GALLERY_UNDER_HEADER } from './gallery-config';
-import {
-  MASK_STOP_AT_REST,
-  edgeMaskStops,
-  nativeScrollPosition,
-  nativeSlideBlurs,
-} from './slide-blur';
+import { DESKTOP_GALLERY_UNDER_HEADER } from './gallery-config';
+import { nativeScrollPosition, nativeSlideBlurs } from './slide-blur';
 
-/**
- * The stage height `DESKTOP_EDGE_FADE_STOP` was tuned against (`45.125rem`, the
- * minimum visible stage). Its fade depth in pixels is what stays constant.
- */
-const EDGE_FADE_REFERENCE_PX = 722;
-
-/**
- * The custom properties the gallery region's independent `mask-t-from-*` /
- * `mask-b-from-*` read. Set on the stage rather than on the region because
- * custom properties inherit, and the stage is the node the gallery already
- * holds a ref to.
- */
 /**
  * The room under the last slide. The stylesheet defines a default for it
  * (visible stage minus the fallback slide height); this overrides it with the
  * real one once the last photo's height is known.
  */
 const PEEK_STRIP_PROPERTY = '--gallery-peek-strip';
-
-const MASK_TOP_PROPERTY = '--gallery-mask-top';
-const MASK_BOTTOM_PROPERTY = '--gallery-mask-bottom';
 
 /**
  * Where each slide's top is, in scroll offsets: the `scrollTop` that parks
@@ -93,11 +73,6 @@ function slideNodes(viewport: HTMLElement): HTMLElement[] {
   return Array.from((viewport.firstElementChild?.children ?? []) as Iterable<HTMLElement>);
 }
 
-function paintMasks(stage: HTMLElement | null, top: number, bottom: number): void {
-  stage?.style.setProperty(MASK_TOP_PROPERTY, `${top}%`);
-  stage?.style.setProperty(MASK_BOTTOM_PROPERTY, `${bottom}%`);
-}
-
 /**
  * Sizes the room under the last slide so that it can park at the top like the
  * others: the visible stage (the viewport minus the header padding above the
@@ -134,12 +109,11 @@ type NativeDesktopScrollOptions = {
 };
 
 /**
- * Paints the desktop gallery's per-slide blur and its two edge fades from the
- * viewport's scroll position.
+ * Paints the desktop gallery's per-slide blur, the room under its last slide
+ * and the header backdrop's progress from the viewport's scroll position.
  *
  * This stays outside React: scroll events only write styles onto nodes and
- * never re-render the gallery. Writes are coalesced to
- * one per animation frame, because a wheel or trackpad fires scroll events
+ * never re-render the gallery. Writes are coalesced to one per animation frame, because a wheel or trackpad fires scroll events
  * faster than the display can show the result.
  *
  * Only blur is painted. The previous carousel also scaled and faded the
@@ -170,14 +144,6 @@ export function useNativeDesktopScroll({
       const nodes = slideNodes(node);
       const position = nativeScrollPosition(node.scrollTop, slideTops(node));
       const blurs = nativeSlideBlurs(position, nodes.length);
-      // The mask is a percentage of the carousel box, which is taller than the
-      // stage the depth was tuned against (the header offset) and grows with
-      // the window. Scaling by that fixed reference holds the fade at the same
-      // PIXEL depth at the bottom edge instead of deepening with the box.
-      const scale =
-        node.clientHeight > 0 ? Math.min(EDGE_FADE_REFERENCE_PX / node.clientHeight, 1) : 1;
-      const fullStop = MASK_STOP_AT_REST - (MASK_STOP_AT_REST - DESKTOP_EDGE_FADE_STOP) * scale;
-      const stops = edgeMaskStops(position, nodes.length, fullStop);
 
       nodes.forEach((slide, index) => {
         const blur = blurs[index] ?? 0;
@@ -185,7 +151,6 @@ export function useNativeDesktopScroll({
         // the photo to its own layer, which leaves a parked slide soft.
         slide.style.filter = blur === 0 ? '' : `blur(${blur}px)`;
       });
-      paintMasks(stage.current, stops.top, stops.bottom);
       paintPeekStrip(stage.current, node, nodes);
 
       // Only the backdrop follows the gallery; the logotype scale and marquee
@@ -222,7 +187,6 @@ export function useNativeDesktopScroll({
       slideNodes(node).forEach((slide) => {
         slide.style.filter = '';
       });
-      paintMasks(stageNode, MASK_STOP_AT_REST, MASK_STOP_AT_REST);
       stageNode?.style.removeProperty(PEEK_STRIP_PROPERTY);
       // A stale value would leave the header backdrop showing over a page the
       // gallery no longer scrolls behind.

@@ -299,17 +299,15 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
           aria-label={`Galería de imágenes de ${title}`}
           data-gallery-region
           className={cn(
-            'relative h-full w-full mx-auto mask-b-from-98% md:max-w-220',
+            // The bottom fade is mobile-only: on desktop the photo has no mask at
+            // all, so it must not leak up from the base class.
+            'relative h-full w-full mx-auto max-md:mask-b-from-98% md:max-w-220',
             // The viewport's `h-full` (below) follows this box. With the
             // header offset the box grows by exactly that much, so the
             // first photo still lands where it always did.
             underHeader
               ? 'md:h-[calc(var(--gallery-under-header-offset)+var(--gallery-visible))]'
               : 'md:h-(--gallery-visible)',
-            // Top and bottom are separate properties because the fades are
-            // independent: each is on only while there is content beyond
-            // that edge.
-            'md:mask-t-from-(--gallery-mask-top,100%) md:mask-b-from-(--gallery-mask-bottom,100%)',
             dimmed && 'opacity-40',
           )}
         >
@@ -334,9 +332,8 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
               'md:overflow-x-hidden md:overflow-y-auto md:scroll-auto',
               DESKTOP_SCROLL_SNAP ? 'md:snap-y md:snap-mandatory' : 'md:snap-none',
               // Room below the last slide: the visible stage less that slide.
-              // Without it the last slide could never reach the top, so its
-              // bottom fade would never clear and the last thumbnail would
-              // never be selected. The stylesheet gives a default; the paint
+              // Without it the last slide could never reach the top, so the
+              // last thumbnail would never be selected. The stylesheet gives a default; the paint
               // overrides it with the last photo's real height.
               'md:pb-(--gallery-peek-strip)',
               // Padding lets the first photo start below the header while

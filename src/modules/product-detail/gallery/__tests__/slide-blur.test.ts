@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  MASK_STOP_AT_REST,
   MAX_BLUR_PX,
-  edgeMaskStops,
   nativeScrollPosition,
   nativeSlideBlurs,
 } from "../slide-blur";
@@ -86,58 +84,5 @@ describe("nativeSlideBlurs", () => {
       expect(value).toBeGreaterThanOrEqual(0);
       expect(value).toBeLessThanOrEqual(MAX_BLUR_PX);
     }
-  });
-});
-
-describe("edgeMaskStops", () => {
-  // The full-fade stop is the caller's: the maths has no opinion on depth.
-  const FULL = 88;
-
-  it("has no top fade on the first slide, but fades the bottom edge", () => {
-    expect(edgeMaskStops(0, 5, FULL)).toEqual({ top: MASK_STOP_AT_REST, bottom: FULL });
-  });
-
-  it("has no bottom fade on the last slide, but fades the top edge", () => {
-    expect(edgeMaskStops(4, 5, FULL)).toEqual({ top: FULL, bottom: MASK_STOP_AT_REST });
-  });
-
-  it("fades both edges fully in the middle of a long gallery", () => {
-    expect(edgeMaskStops(2, 5, FULL)).toEqual({ top: FULL, bottom: FULL });
-  });
-
-  it("grows the top fade linearly over the first slide's travel", () => {
-    expect(edgeMaskStops(0.5, 5, FULL).top).toBe(94);
-    expect(edgeMaskStops(1, 5, FULL).top).toBe(FULL);
-  });
-
-  it("shrinks the bottom fade over the last slide's travel", () => {
-    expect(edgeMaskStops(3.5, 5, FULL).bottom).toBe(94);
-    expect(edgeMaskStops(4, 5, FULL).bottom).toBe(MASK_STOP_AT_REST);
-  });
-
-  it("fades only the edge with content beyond it in a two-slide gallery", () => {
-    expect(edgeMaskStops(0, 2, FULL)).toEqual({ top: MASK_STOP_AT_REST, bottom: FULL });
-    expect(edgeMaskStops(1, 2, FULL)).toEqual({ top: FULL, bottom: MASK_STOP_AT_REST });
-    expect(edgeMaskStops(0.5, 2, FULL)).toEqual({ top: 94, bottom: 94 });
-  });
-
-  it("leaves a single slide and an empty gallery unmasked", () => {
-    const none = { top: MASK_STOP_AT_REST, bottom: MASK_STOP_AT_REST };
-
-    expect(edgeMaskStops(0, 1, FULL)).toEqual(none);
-    expect(edgeMaskStops(0, 0, FULL)).toEqual(none);
-  });
-
-  it("fades to a caller-chosen depth", () => {
-    expect(edgeMaskStops(2, 5, 96)).toEqual({ top: 96, bottom: 96 });
-    expect(edgeMaskStops(0.5, 5, 96).top).toBe(98);
-    expect(edgeMaskStops(0, 5, 96).top).toBe(MASK_STOP_AT_REST);
-  });
-
-  it("survives overshoot and unmeasured positions", () => {
-    expect(edgeMaskStops(-0.4, 5, FULL)).toEqual(edgeMaskStops(0, 5, FULL));
-    expect(edgeMaskStops(6, 5, FULL)).toEqual(edgeMaskStops(4, 5, FULL));
-    expect(edgeMaskStops(Number.NaN, 5, FULL)).toEqual(edgeMaskStops(0, 5, FULL));
-    expect(edgeMaskStops(Number.POSITIVE_INFINITY, 5, FULL)).toEqual(edgeMaskStops(0, 5, FULL));
   });
 });

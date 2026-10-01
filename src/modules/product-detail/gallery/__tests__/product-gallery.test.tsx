@@ -10,9 +10,6 @@ import { MAX_BLUR_PX } from "../slide-blur";
 const config = vi.hoisted(() => ({ snap: false, underHeader: false, peek: 0.2 }));
 
 vi.mock("../gallery-config", () => ({
-  // Not the depth the maths is tested with, so these assertions prove the
-  // component reads the tunable knob.
-  DESKTOP_EDGE_FADE_STOP: 96,
   get DESKTOP_SCROLL_SNAP() {
     return config.snap;
   },
@@ -144,13 +141,17 @@ describe("ProductGallery desktop scroller", () => {
     }
   });
 
-  it("fades the top and bottom edges through independent mask properties", () => {
+  // The photo is the page's hero, so desktop has no edge fade at all. The
+  // mobile bottom fade is the one mask left, and it must not leak upward.
+  it("fades only the bottom of the mobile stage and carries no mask on desktop", () => {
     const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
-    const classes = container.querySelector("[data-gallery-region]")?.className ?? "";
+    const tokens = (
+      container.querySelector("[data-gallery-region]")?.className ?? ""
+    ).split(/\s+/);
 
-    expect(classes).toContain("md:mask-t-from-(--gallery-mask-top,100%)");
-    expect(classes).toContain("md:mask-b-from-(--gallery-mask-bottom,100%)");
-    expect(classes).toContain("mask-b-from-98%");
+    expect(tokens.filter((token) => token.includes("mask"))).toEqual([
+      "max-md:mask-b-from-98%",
+    ]);
   });
 
   it("snaps the desktop scroller only when the flag is on", () => {
@@ -211,7 +212,7 @@ describe("ProductGallery desktop scroller", () => {
     expect(thumbnails()[0]!.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("blurs each slide by its distance from the scroll position, and masks both edges", () => {
+  it("blurs each slide by its distance from the scroll position", () => {
     const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
     act(() => setViewport("desktop"));
     const node = viewport(container);
@@ -226,8 +227,6 @@ describe("ProductGallery desktop scroller", () => {
       `blur(${MAX_BLUR_PX}px)`,
       `blur(${MAX_BLUR_PX}px)`,
     ]);
-    expect(stageVar(container, "--gallery-mask-top")).toBe("98%");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
   });
 
   it("leaves a parked photo with no filter at all, and never scales or fades", () => {
@@ -243,16 +242,6 @@ describe("ProductGallery desktop scroller", () => {
     expect(parked.style.filter).toBe("");
     expect(parked.style.transform).toBe("");
     expect(parked.style.opacity).toBe("");
-    expect(stageVar(container, "--gallery-mask-top")).toBe("96%");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
-  });
-
-  it("has no top fade on the first slide, only the bottom one", () => {
-    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
-    act(() => setViewport("desktop"));
-
-    expect(stageVar(container, "--gallery-mask-top")).toBe("100%");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("96%");
   });
 
   it("coalesces a burst of scroll events into one paint per frame", () => {
@@ -281,8 +270,6 @@ describe("ProductGallery desktop scroller", () => {
     expect(slides(container).map((slide) => slide.style.filter)).toEqual(
       Array(5).fill(""),
     );
-    expect(stageVar(container, "--gallery-mask-top")).toBe("100%");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("100%");
   });
 
   it("aligns the vertical scroller to the selection when entering desktop", () => {
@@ -403,18 +390,6 @@ describe("ProductGallery running under the sticky header", () => {
       top: 2 * SLIDE_HEIGHT,
       behavior: "smooth",
     });
-  });
-
-  it("keeps the edge fade the same pixel depth on the taller viewport", () => {
-    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
-    act(() => setViewport("desktop"));
-    const { node } = measureUnderHeader(container);
-
-    scrollViewportTo(node, 2 * SLIDE_HEIGHT);
-
-    // 4% of a 722px stage is 29px; the same 29px of a 942px viewport is ~3.07%.
-    const depth = 100 - Number.parseFloat(stageVar(container, "--gallery-mask-bottom"));
-    expect(depth).toBeCloseTo((4 * SLIDE_HEIGHT) / VIEWPORT_HEIGHT, 3);
   });
 
   it("publishes how far the gallery has scrolled for the header backdrop", () => {
@@ -543,7 +518,7 @@ describe("ProductGallery peeking at the next slide", () => {
     expect(stageStyle(container, "--gallery-peek")).toBe("0.9");
   });
 
-  it("reaches the last slide, and turns its bottom fade off, at the last parked offset", () => {
+  it("reaches the last slide at the last parked offset", () => {
     config.underHeader = true;
     const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
     act(() => setViewport("desktop"));
@@ -552,7 +527,6 @@ describe("ProductGallery peeking at the next slide", () => {
     scrollViewportTo(node, 4 * SLIDE);
 
     expect(thumbnails()[4]!.getAttribute("aria-pressed")).toBe("true");
-    expect(stageVar(container, "--gallery-mask-bottom")).toBe("100%");
     expect(slides(container)[4]!.style.filter).toBe("");
   });
 
