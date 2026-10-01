@@ -20,6 +20,12 @@ import {
  * carousel for the same reason the Embla engine does it: custom properties
  * inherit, and the stage is the node the gallery already holds a ref to.
  */
+/**
+ * The stage height `DESKTOP_EDGE_FADE_STOP` was tuned against (`45.125rem`, the
+ * minimum visible stage). Its fade depth in pixels is what stays constant.
+ */
+const EDGE_FADE_REFERENCE_PX = 722;
+
 const MASK_TOP_PROPERTY = '--gallery-mask-top';
 const MASK_BOTTOM_PROPERTY = '--gallery-mask-bottom';
 
@@ -131,11 +137,12 @@ export function useNativeDesktopScroll({
       const unit = scrollUnit(node, true);
       const position = nativeScrollPosition(node.scrollTop, unit);
       const blurs = nativeSlideBlurs(position, nodes.length);
-      // The mask is a percentage of the carousel box, and under the header
-      // that box is taller than the stage the depth was tuned against. Scaling
-      // the depth by slide-over-viewport keeps the fade the same pixels deep
-      // at the bottom edge instead of deepening with the header offset.
-      const scale = node.clientHeight > 0 ? Math.min(unit / node.clientHeight, 1) : 1;
+      // The mask is a percentage of the carousel box, which is taller than the
+      // stage the depth was tuned against (the header offset) and grows with
+      // the window. Scaling by that fixed reference holds the fade at the same
+      // PIXEL depth at the bottom edge instead of deepening with the box.
+      const scale =
+        node.clientHeight > 0 ? Math.min(EDGE_FADE_REFERENCE_PX / node.clientHeight, 1) : 1;
       const fullStop = MASK_STOP_AT_REST - (MASK_STOP_AT_REST - DESKTOP_EDGE_FADE_STOP) * scale;
       const stops = edgeMaskStops(position, nodes.length, fullStop);
 

@@ -6,6 +6,7 @@ import {
   useEffectEvent,
   useRef,
   useState,
+  type CSSProperties,
   type ReactNode,
 } from 'react';
 import Image from 'next/image';
@@ -22,6 +23,7 @@ import { type ImageView, mediaSource } from '@/modules/catalog/client';
 import {
   DESKTOP_GALLERY_ENGINE,
   DESKTOP_GALLERY_UNDER_HEADER,
+  DESKTOP_NEXT_SLIDE_PEEK,
   DESKTOP_SCROLL_SNAP,
 } from './gallery-config';
 import { useEmblaDesktop } from './use-embla-desktop';
@@ -89,6 +91,13 @@ type DesktopApi = NonNullable<CarouselApi>;
 
 const NATIVE_ENGINE = DESKTOP_GALLERY_ENGINE === 'native-scroll';
 
+/**
+ * The most of the stage the next slide may take. A peek of 1 or more would
+ * leave the parked slide no height at all, so a typo in the knob is clamped
+ * rather than collapsing the gallery.
+ */
+const MAX_NEXT_SLIDE_PEEK = 0.9;
+
 function clampIndex(index: number, imageCount: number): number {
   if (imageCount < 1) return 0;
 
@@ -118,6 +127,7 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
   // meaningful with the native engine; the Embla one moves by transform inside
   // a clipped viewport and has nothing to scroll under anything.
   const underHeader = NATIVE_ENGINE && DESKTOP_GALLERY_UNDER_HEADER;
+  const peek = Math.min(Math.max(DESKTOP_NEXT_SLIDE_PEEK, 0), MAX_NEXT_SLIDE_PEEK);
 
   // `position` is the wire's ordering field. The incoming array is incidental.
   const ordered = [...images].toSorted((a, b) => a.position - b.position);
@@ -292,15 +302,28 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
         data-orientation={isDesktop ? 'vertical' : 'horizontal'}
         className={cn(
           'relative -mx-4 min-h-0 w-[calc(100%+2rem)] flex-1 md:mx-0 md:w-full md:min-w-0',
-          // Raises ONLY the stage — the rail beside it stays put — by the
-          // distance the sticky column sits below the top of the page: the
-          // header band plus the 40px `md:mt-10` above the gallery (the same
-          // sum `page.tsx` uses for its `top`). Defined once, as a property,
-          // so the margin, the viewport padding, the height and the badge all
-          // read one number instead of four copies of the calc.
-          underHeader &&
-            'md:[--gallery-under-header-offset:calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))] md:-mt-(--gallery-under-header-offset)',
+          NATIVE_ENGINE && [
+            // How far the sticky column sits below the top of the page: the
+            // header band plus the 40px `md:mt-10` above the gallery (the same
+            // sum `page.tsx` uses for its `top`). Defined once, as a property,
+            // so every consumer below reads one number instead of its own
+            // copy of the calc. Named for what it is used for under the
+            // header; with that off it still sizes the stage.
+            'md:[--gallery-under-header-offset:calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))]',
+            // The part of the stage below the header, running to the BOTTOM of
+            // the window so no page shows under it. Never under 722px (the
+            // old fixed stage), so a short window cannot squash the photo.
+            'md:[--gallery-visible:max(--spacing(180.5),calc(100svh-var(--gallery-under-header-offset)))]',
+            // One slide is the visible stage minus the strip the NEXT slide
+            // peeks into (`--gallery-peek`, set below from the config knob).
+            'md:[--gallery-slide:calc(var(--gallery-visible)*(1-var(--gallery-peek,0)))]',
+            'md:[--gallery-peek-strip:calc(var(--gallery-visible)-var(--gallery-slide))]',
+          ],
+          // Raises ONLY the stage — the rail beside it stays put — by that
+          // offset, so the scroller can run up behind the header.
+          underHeader && 'md:-mt-(--gallery-under-header-offset)',
         )}
+        style={NATIVE_ENGINE ? ({ '--gallery-peek': peek } as CSSProperties) : undefined}
       >
         {/*
           One tree for both layouts: CSS (`md:`) owns the layout switch, not
@@ -339,8 +362,8 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
                   // header offset the box grows by exactly that much, so the
                   // first photo still lands where it always did.
                   underHeader
-                    ? 'md:h-[calc(--spacing(180.5)+var(--gallery-under-header-offset))]'
-                    : 'md:h-180.5',
+                    ? 'md:h-[calc(var(--gallery-under-header-offset)+var(--gallery-visible))]'
+                    : 'md:h-(--gallery-visible)',
                   // Top and bottom are separate properties because the fades
                   // are independent here: each is on only while there is
                   // content beyond that edge.
@@ -369,6 +392,12 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
                     DESKTOP_SCROLL_SNAP
                       ? 'md:snap-y md:snap-mandatory'
                       : 'md:snap-none',
+                    // Room below the last slide equal to the strip the next
+                    // one peeks into. Without it the last slide could never
+                    // reach the top (max scrollTop would be n*S - visible, not
+                    // (n-1)*S), so its bottom fade would never clear and the
+                    // last thumbnail would never be selected.
+                    'md:pb-(--gallery-peek-strip)',
                     // Padding lets the first photo start below the header
                     // while scrolled content still runs up behind it.
                     // `scroll-pt` is the snap half: without it a snapped
@@ -393,9 +422,12 @@ export function ProductGallery({ images, title, badge, dimmed }: ProductGalleryP
                   'min-w-full shrink-0 snap-center pt-0 pl-0 md:min-w-0',
                   // Native slides size themselves: the track is `h-auto`, so
                   // the default `basis-full` would resolve against nothing.
-                  // Each is exactly one stage tall, which is what makes
-                  // `scrollTop / clientHeight` the fractional slide index.
-                  NATIVE_ENGINE && 'md:h-180.5 md:basis-auto',
+                  // Each is `--gallery-slide` tall, which is what makes
+                  // `scrollTop / slideHeight` the fractional slide index.
+                  // `snap-start` over the base `snap-center`: a slide is now
+                  // shorter than the viewport, so centring it would park it
+                  // mid-window instead of under the header.
+                  NATIVE_ENGINE && 'md:h-(--gallery-slide) md:basis-auto md:snap-start',
                 )}
               >
                 <div className='relative size-full'>{renderImage(image, index)}</div>

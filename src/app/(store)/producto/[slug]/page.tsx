@@ -166,7 +166,9 @@ export default async function ProductPage({
             `ProductGallery` raises its own stage by this same sum (band plus
             the 40px `md:mt-10`) so its scroller can run up behind the header.
             If this `top` changes, change `--gallery-under-header-offset`
-            there with it.
+            there with it. The stage there also runs from this `top` to the
+            bottom of the window (`100svh` minus this offset), so the gallery
+            fills what is left of the screen below the header.
 
             Mobile stacks the two columns, so there is nothing to stay beside. */}
         <div className='md:sticky md:top-[calc(var(--pdp-band-height,11.25rem)+(--spacing(10)))] md:min-w-0 md:flex-1 md:self-start md:basis-160'>
@@ -182,9 +184,9 @@ export default async function ProductPage({
         </div>
 
         {/* The 40px nudge lines the panel up with the GARMENT rather than with
-            the gallery box. The stage is a fixed 722px tall and the photo is
-            `object-contain`, so a portrait shot letterboxes and its visible top
-            edge sits about that far below the box it lives in. */}
+            the gallery box. The photo is `object-contain` in a slide at least
+            722px tall, so a portrait shot letterboxes and its visible top edge
+            sits about that far below the box it lives in. */}
         <div className='relative flex w-full flex-col gap-3 pt-6 md:min-w-0 md:basis-150 md:pt-10'>
           {/* The marker the fixed widget watches, and nothing else. It is
               ABSOLUTE so it stays outside this column's flex flow — as a

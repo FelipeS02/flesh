@@ -11,6 +11,7 @@ vi.mock("../gallery-config", () => ({
   DESKTOP_GALLERY_ENGINE: "embla",
   DESKTOP_SCROLL_SNAP: false,
   DESKTOP_GALLERY_UNDER_HEADER: false,
+  DESKTOP_NEXT_SLIDE_PEEK: 0,
 }));
 
 const emblaHarness = vi.hoisted(() => ({

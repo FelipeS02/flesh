@@ -7,7 +7,7 @@ import { MAX_BLUR_PX } from "../slide-blur";
 
 // A getter, not a value: the config is read at render time, so each test can
 // pick the snap flag without re-importing the module graph.
-const config = vi.hoisted(() => ({ snap: false, underHeader: false }));
+const config = vi.hoisted(() => ({ snap: false, underHeader: false, peek: 0.2 }));
 
 vi.mock("../gallery-config", () => ({
   DESKTOP_GALLERY_ENGINE: "native-scroll",
@@ -16,6 +16,9 @@ vi.mock("../gallery-config", () => ({
   DESKTOP_EDGE_FADE_STOP: 96,
   get DESKTOP_SCROLL_SNAP() {
     return config.snap;
+  },
+  get DESKTOP_NEXT_SLIDE_PEEK() {
+    return config.peek;
   },
   get DESKTOP_GALLERY_UNDER_HEADER() {
     return config.underHeader;
@@ -115,6 +118,7 @@ function scrollViewportTo(node: HTMLElement, top: number) {
 beforeEach(() => {
   config.snap = false;
   config.underHeader = false;
+  config.peek = 0.2;
   document.documentElement.style.removeProperty("--gallery-under-header-progress");
   embla.viewport = null;
   embla.options = [];
@@ -146,16 +150,18 @@ describe("ProductGallery with the native-scroll desktop engine", () => {
     expect(classes).toContain("md:overflow-y-auto");
     expect(classes).toContain("md:overflow-x-hidden");
     expect(classes).toContain("scrollbar-none");
+    // Without the header offset the box is just the visible stage, which
+    // runs to the bottom of the window.
     expect(container.querySelector("[data-slot=carousel]")?.className).toContain(
-      "md:h-180.5",
+      "md:h-(--gallery-visible)",
     );
   });
 
-  it("lays slides out as full-height blocks rather than flex-basis slots", () => {
+  it("lays slides out as blocks of the slide height rather than flex-basis slots", () => {
     const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
     for (const slide of slides(container)) {
-      expect(slide.className).toContain("md:h-180.5");
+      expect(slide.className).toContain("md:h-(--gallery-slide)");
       expect(slide.className).toContain("md:basis-auto");
     }
   });
@@ -386,7 +392,7 @@ describe("ProductGallery running under the sticky header", () => {
     expect(viewport(container).className).toContain(`md:scroll-pt-(${OFFSET_VAR})`);
     expect(
       container.querySelector("[data-slot=carousel]")?.className,
-    ).toContain(`md:h-[calc(--spacing(180.5)+var(${OFFSET_VAR}))]`);
+    ).toContain(`md:h-[calc(var(${OFFSET_VAR})+var(--gallery-visible))]`);
   });
 
   it("keeps the badge where it was by offsetting it with the stage", () => {
@@ -481,14 +487,111 @@ describe("ProductGallery running under the sticky header", () => {
 
     scrollViewportTo(node, 80);
 
-    expect(stage(container).className).not.toContain(OFFSET_VAR);
-    expect(viewport(container).className).not.toContain(OFFSET_VAR);
+    // The stage still DEFINES the offset (the visible height is measured
+    // from it); what is off is every consumer that raises or pads with it.
+    expect(stage(container).className).not.toContain("md:-mt-(");
+    expect(viewport(container).className).not.toContain("md:pt-(");
+    expect(viewport(container).className).not.toContain("md:scroll-pt-(");
     expect(container.querySelector("[data-gallery-badge]")?.className).not.toContain(
       OFFSET_VAR,
     );
     expect(container.querySelector("[data-slot=carousel]")?.className).toContain(
-      "md:h-180.5",
+      "md:h-(--gallery-visible)",
     );
     expect(progress()).toBe("");
+  });
+});
+
+describe("ProductGallery peeking at the next slide", () => {
+  const SLIDE = 500;
+  const VIEWPORT = 900;
+
+  function measurePeek(container: HTMLElement) {
+    const node = viewport(container);
+    measure(node);
+    Object.defineProperty(node, "clientHeight", { configurable: true, value: VIEWPORT });
+    Object.defineProperty(slides(container)[0]!, "offsetHeight", {
+      configurable: true,
+      value: SLIDE,
+    });
+
+    return node;
+  }
+
+  function stageStyle(container: HTMLElement, name: string) {
+    return container
+      .querySelector<HTMLElement>("[data-gallery-stage]")!
+      .style.getPropertyValue(name);
+  }
+
+  it("publishes the peek fraction and sizes the stage down to the window bottom", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    const classes = container.querySelector("[data-gallery-stage]")!.className;
+
+    expect(stageStyle(container, "--gallery-peek")).toBe("0.2");
+    // Never below today's 722px stage, so a short window cannot collapse it.
+    expect(classes).toContain(
+      "md:[--gallery-visible:max(--spacing(180.5),calc(100svh-var(--gallery-under-header-offset)))]",
+    );
+    expect(classes).toContain(
+      "md:[--gallery-slide:calc(var(--gallery-visible)*(1-var(--gallery-peek,0)))]",
+    );
+  });
+
+  it("snaps slides to their start, since they are shorter than the viewport", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    for (const slide of slides(container)) {
+      expect(slide.className).toContain("md:snap-start");
+    }
+  });
+
+  it("pads the scroller's bottom by the peek strip so the last slide can park", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(viewport(container).className).toContain("md:pb-(--gallery-peek-strip)");
+    expect(
+      container.querySelector("[data-gallery-stage]")!.className,
+    ).toContain(
+      "md:[--gallery-peek-strip:calc(var(--gallery-visible)-var(--gallery-slide))]",
+    );
+  });
+
+  it("collapses to one slide per stage when the peek is zero", () => {
+    config.peek = 0;
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(stageStyle(container, "--gallery-peek")).toBe("0");
+  });
+
+  it("keeps a nonsensical peek from making a slide vanish", () => {
+    config.peek = 5;
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+
+    expect(stageStyle(container, "--gallery-peek")).toBe("0.9");
+  });
+
+  it("reaches the last slide, and turns its bottom fade off, at the last parked offset", () => {
+    config.underHeader = true;
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = measurePeek(container);
+
+    scrollViewportTo(node, 4 * SLIDE);
+
+    expect(thumbnails()[4]!.getAttribute("aria-pressed")).toBe("true");
+    expect(stageVar(container, "--gallery-mask-bottom")).toBe("100%");
+    expect(slides(container)[4]!.style.filter).toBe("");
+  });
+
+  it("leaves the next slide blurred in the strip below a parked one", () => {
+    const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
+    act(() => setViewport("desktop"));
+    const node = measurePeek(container);
+
+    scrollViewportTo(node, 2 * SLIDE);
+
+    expect(slides(container)[3]!.style.filter).toBe(`blur(${MAX_BLUR_PX}px)`);
+    expect(slides(container)[2]!.style.filter).toBe("");
   });
 });

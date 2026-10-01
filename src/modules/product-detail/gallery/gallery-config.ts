@@ -23,8 +23,9 @@ export const DESKTOP_GALLERY_ENGINE: DesktopGalleryEngine = "native-scroll";
  * Whether the native desktop scroller snaps each photo into place
  * (`snap-y snap-mandatory`). A hand-toggled switch for testing the feel: free
  * scrolling shows the per-slide blur sweeping continuously, while snapping
- * parks every photo exactly on the stage. Slides are one stage tall, so their
- * centre and their start coincide and `snap-center` is correct for both.
+ * parks every photo exactly on the stage. Slides snap by their START, which
+ * sits just below the header (`scroll-padding-top`), so a parked photo is the
+ * one under the header and the next one peeks below it.
  *
  * Only read by the `native-scroll` engine; Embla does its own snapping.
  */
@@ -32,8 +33,9 @@ export const DESKTOP_SCROLL_SNAP = false;
 
 /**
  * Where the native engine's edge fade starts when it is fully on, as a
- * percentage of the stage height: 96 fades the outer 4% (~29px of the 722px
- * stage). A hand-tuned knob like the two above.
+ * percentage of the stage height: 96 fades the outer 4% (~29px of a 722px
+ * stage). The engine holds the PIXEL depth, not the percentage, as the stage
+ * grows with the window. A hand-tuned knob like the two above.
  *
  * Shallower than Embla's 88 on purpose. That fade only existed for the
  * midpoint of a transition; this one is on while the shopper is looking at the
@@ -53,3 +55,15 @@ export const DESKTOP_EDGE_FADE_STOP = 96;
  * the scroller ends exactly at the stage.
  */
 export const DESKTOP_GALLERY_UNDER_HEADER = true;
+
+/**
+ * How much of the visible stage the NEXT slide occupies while one is parked, as
+ * a fraction: 0.2 shows the next photo (blurred) across the bottom fifth. It is
+ * an invitation to scroll, and what lets the gallery run to the bottom of the
+ * window without a photo's letterboxing leaving that area empty.
+ *
+ * 0 is one slide per stage, as before. Kept below 1 by the component, because a
+ * slide has to keep some height of its own. Only read by the `native-scroll`
+ * engine.
+ */
+export const DESKTOP_NEXT_SLIDE_PEEK = 0.2;
