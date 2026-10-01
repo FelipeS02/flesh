@@ -2,7 +2,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import react from "@vitejs/plugin-react";
 import tsconfigPaths from "vite-tsconfig-paths";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 const dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -19,5 +19,8 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: ["./test/setup.ts"],
+    // The archived Embla-era gallery carries its own tests; they must not run.
+    // Spread the defaults so node_modules and friends stay excluded.
+    exclude: [...configDefaults.exclude, "src/modules/product-detail/gallery/product-gallery.old/**"],
   },
 });
