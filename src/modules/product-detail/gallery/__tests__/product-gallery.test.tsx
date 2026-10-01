@@ -3,7 +3,11 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { ImageView } from "@/modules/catalog";
 import { setViewport } from "../../../../../test/fixtures/viewport";
 import { ProductGallery } from "../product-gallery";
-import { MAX_BLUR_PX } from "../slide-blur";
+import { MAX_BLUR_PX, nativeSlideBlurs } from "../slide-blur";
+
+// Where the blur curve puts a slide half a slide away: the gallery tests
+// check the wiring, the curve itself is pinned in slide-blur.test.ts.
+const HALFWAY_BLUR_PX = nativeSlideBlurs(0.5, 2)[0]!;
 
 // A getter, not a value: the config is read at render time, so each test can
 // pick the snap flag without re-importing the module graph.
@@ -221,8 +225,8 @@ describe("ProductGallery desktop scroller", () => {
     scrollViewportTo(node, SLIDE_HEIGHT / 2);
 
     expect(slides(container).map((slide) => slide.style.filter)).toEqual([
-      `blur(${MAX_BLUR_PX / 2}px)`,
-      `blur(${MAX_BLUR_PX / 2}px)`,
+      `blur(${HALFWAY_BLUR_PX}px)`,
+      `blur(${HALFWAY_BLUR_PX}px)`,
       `blur(${MAX_BLUR_PX}px)`,
       `blur(${MAX_BLUR_PX}px)`,
       `blur(${MAX_BLUR_PX}px)`,
@@ -689,8 +693,8 @@ describe("ProductGallery slides sized by their photos", () => {
 
     // Halfway down the second slide, whatever its height.
     scrollViewportTo(node, tops[1]! + (tops[2]! - tops[1]!) / 2);
-    expect(slides(container)[1]!.style.filter).toBe(`blur(${MAX_BLUR_PX / 2}px)`);
-    expect(slides(container)[2]!.style.filter).toBe(`blur(${MAX_BLUR_PX / 2}px)`);
+    expect(slides(container)[1]!.style.filter).toBe(`blur(${HALFWAY_BLUR_PX}px)`);
+    expect(slides(container)[2]!.style.filter).toBe(`blur(${HALFWAY_BLUR_PX}px)`);
   });
 
   // The last slide can only park if there is room under it: visible height

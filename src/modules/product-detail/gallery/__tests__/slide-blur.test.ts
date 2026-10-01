@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  BLUR_ONSET,
   MAX_BLUR_PX,
   nativeScrollPosition,
   nativeSlideBlurs,
@@ -67,9 +68,19 @@ describe("nativeSlideBlurs", () => {
   it("splits the blur between the two slides a scroll is between", () => {
     const values = nativeSlideBlurs(0.5, 3);
 
-    expect(values[0]).toBeCloseTo(MAX_BLUR_PX / 2);
-    expect(values[1]).toBeCloseTo(MAX_BLUR_PX / 2);
+    expect(values[0]).toBeCloseTo(values[1]!);
+    expect(values[0]).toBeGreaterThan(0);
+    expect(values[0]).toBeLessThan(MAX_BLUR_PX / 2);
     expect(values[2]).toBe(MAX_BLUR_PX);
+  });
+
+  // A tall photo is still mostly in view a good way into the scroll; blurring
+  // it from the first pixel softened a photo the shopper was looking at.
+  it("keeps a slide sharp until the scroll is well past it", () => {
+    expect(nativeSlideBlurs(BLUR_ONSET, 3)[0]).toBe(0);
+    expect(nativeSlideBlurs(BLUR_ONSET / 2, 3)[0]).toBe(0);
+    expect(nativeSlideBlurs(BLUR_ONSET + 0.1, 3)[0]).toBeGreaterThan(0);
+    expect(nativeSlideBlurs(1, 3)[0]).toBe(MAX_BLUR_PX);
   });
 
   it("blurs nothing for a single slide and survives an empty gallery", () => {
