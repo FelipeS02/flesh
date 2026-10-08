@@ -1,39 +1,82 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<p align="center">
+  <img src="src/app/opengraph-image.png" alt="FLESH — Stronger than death" width="720" />
+</p>
 
-## Getting Started
+# FLESH
 
-First, run the development server:
+The storefront for FLESH, an Argentinian clothing brand. Products, stock and
+checkout live in Tiendanube; this app is the shop window in front of them —
+catalog, product pages, cart and the handoff to Tiendanube's hosted checkout.
+
+Built with Next.js 16 (App Router), React 19, Tailwind CSS 4 and shadcn on
+Base UI. Tested with Vitest and Testing Library.
+
+## Getting started
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000). The catalog needs the
+Tiendanube variables below; without them there is nothing to render.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm test` | Vitest, single run |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Layout
 
-## Learn More
+```
+src/
+  app/          Routes, metadata, fonts and global styles
+  components/ui shadcn design system — use it before writing a primitive
+  modules/      One folder per feature, split into layers
+    access-gate/     Optional password gate in front of the store
+    analytics/       GA4 and Meta Pixel / Conversions API
+    cart/            Cart state, storage and the checkout handoff
+    catalog/         Tiendanube product fetching and mapping
+    legal/           Cookie notice and returns policy
+    product-detail/  Product page: gallery, purchase, accordions, SEO
+    storefront/      Landing drop sections and product cards
+  lib/          Cross-cutting helpers (brand, site URL, utils)
+scripts/        Tiendanube maintenance scripts
+test/           Shared fixtures and the test harness
+```
 
-To learn more about Next.js, take a look at the following resources:
+Tests sit in a `__tests__/` folder beside the layer they cover. See
+[`AGENTS.md`](AGENTS.md) for the project conventions — the design system,
+square corners, Spanish copy, comments and test placement.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Environment variables
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| Variable | Scope | Purpose |
+| --- | --- | --- |
+| `TIENDANUBE_STORE_ID` | Server | Store the catalog is read from |
+| `TIENDANUBE_ACCESS_TOKEN` | Server | Tiendanube API token |
+| `TIENDANUBE_USER_AGENT` | Server | User agent Tiendanube requires on every API call |
+| `TIENDANUBE_APP_CLIENT_SECRET` | Server | Verifies Tiendanube webhook signatures |
+| `TIENDANUBE_CHECKOUT_HOST` | Server | Exact checkout hostname redirects may go to (see below) |
+| `SITE_URL` | Server | Canonical origin; falls back to Vercel's production URL, then localhost |
+| `ACCESS_GATE_PASSWORD` | Server | Enables the password gate; omit to leave the store open |
+| `ACCESS_GATE_SECRET` | Server | Signs the gate's access cookie; required when the password is set |
+| `ACCESS_GATE_MESSAGE` | Server | Optional message shown on the gate |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Client | Enables GA4; omit to disable analytics |
+| `NEXT_PUBLIC_META_PIXEL_ID` | Client | Enables the Meta Pixel |
+| `META_CAPI_ACCESS_TOKEN` | Server | Meta Conversions API token |
+| `META_GRAPH_API_VERSION` | Server | Graph API version for Conversions API calls; has a default |
 
-## Deploy on Vercel
+Changing any of them requires a new build and deployment.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Product custom fields
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`colourway`, `fit` and `size_chart` are Tiendanube custom fields the admin
+cannot edit. [`scripts/custom-fields.mjs`](scripts/custom-fields.mjs) is the
+only writer; the `product-fields` skill in `.claude/skills/` drives it.
 
 ## Analytics rollout
 
@@ -41,16 +84,12 @@ The storefront sends pre-checkout ecommerce events directly to GA4. Tiendanube
 owns the hosted checkout and purchase funnel, so this app MUST NOT emit
 `begin_checkout`, shipping, payment, or `purchase` events.
 
-### Environment variables
-
-| Variable | Scope | Required | Purpose |
-| --- | --- | --- | --- |
-| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Client | No | Enables the Google tag when it matches `G-...`. Omit it to disable analytics, including local development. |
-| `TIENDANUBE_CHECKOUT_HOST` | Server | Yes | Exact bare hostname accepted for draft-order checkout redirects, for example `checkout.example.com`. URLs, paths, wildcard domains, and ports are rejected. |
+`NEXT_PUBLIC_GA_MEASUREMENT_ID` enables the Google tag when it matches
+`G-...`. `TIENDANUBE_CHECKOUT_HOST` takes a bare hostname, for example
+`checkout.example.com`; URLs, paths, wildcard domains, and ports are rejected.
 
 Use a separate GA4 web data stream and measurement ID for every deployed
 environment. Never reuse the production ID in preview deployments.
-Changing either variable requires a new build and deployment.
 
 ### Cross-domain continuity
 
