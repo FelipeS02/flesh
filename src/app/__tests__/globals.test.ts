@@ -32,14 +32,14 @@ describe("globals.css — single theme", () => {
 });
 
 describe("globals.css — body font", () => {
-  it("binds --font-sans to the local Copperplate face, not to a generic stack", () => {
-    // Copperplate Gothic Std 30 AB IS the body voice — the all-caps glyphic
-    // face the descriptions are set in. Falling back to a system sans would
-    // not degrade gracefully, it would silently render a different design.
+  it("binds --font-sans to Special Elite, not to a generic stack", () => {
+    // Special Elite IS the body voice — the face the descriptions are set in.
+    // Falling back to a system sans would not degrade gracefully, it would
+    // silently render a different design.
     const match = globalsCss.match(/--font-sans:\s*([^;]+);/);
 
     expect(match).not.toBeNull();
-    expect(match![1]).toContain("var(--font-copperplate)");
+    expect(match![1]).toContain("var(--font-special-elite)");
   });
 });
 

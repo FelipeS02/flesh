@@ -148,7 +148,7 @@ function AccordionSection({
 function Description({ html }: { html: ProductView["descriptionHtml"] }) {
   return (
     <div
-      className="flex flex-col gap-4 font-sans tracking-wide text-xs leading-relaxed text-muted-foreground md:text-[13px] [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-1.5 [&_li]:relative [&_li]:pl-[1.75em] [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:top-[calc((1lh-1.25em)/2)] [&_li]:before:size-[1.25em] [&_li]:before:bg-current [&_li]:before:mask-[url(/skull-bullet.svg)] [&_li]:before:mask-contain [&_li]:before:mask-no-repeat [&_li]:before:mask-center"
+      className="flex flex-col gap-4 font-sans tracking-wider text-xs leading-relaxed text-muted-foreground md:text-[13px] [&_ul]:flex [&_ul]:flex-col [&_ul]:gap-1.5 [&_li]:relative [&_li]:pl-[1.75em] [&_li]:before:absolute [&_li]:before:left-0 [&_li]:before:top-[calc((1lh-1.25em)/2)] [&_li]:before:size-[1.25em] [&_li]:before:bg-current [&_li]:before:mask-[url(/skull-bullet.svg)] [&_li]:before:mask-contain [&_li]:before:mask-no-repeat [&_li]:before:mask-center"
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

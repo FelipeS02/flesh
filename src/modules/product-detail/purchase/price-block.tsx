@@ -1,6 +1,6 @@
-import { formatMoney, type VariantView } from "@/modules/catalog/client";
-import { DiscountBadge } from "@/modules/storefront/discount-badge";
-import { discountPercent, transferPrice } from "@/modules/storefront/pricing";
+import { formatMoney, type VariantView } from '@/modules/catalog/client';
+import { DiscountBadge } from '@/modules/storefront/discount-badge';
+import { discountPercent, transferPrice } from '@/modules/storefront/pricing';
 
 type PriceBlockProps = {
   variant: VariantView;
@@ -19,26 +19,26 @@ export function PriceBlock({ variant }: PriceBlockProps) {
   const promo = discountPercent(variant.price, variant.compareAt);
 
   return (
-    <div className="flex flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="font-display tabular-nums text-3xl text-foreground md:text-[38px]">
+    <div className='flex flex-col'>
+      <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1'>
+        <span className='font-display tabular-nums text-3xl text-foreground md:text-[38px]'>
           {formatMoney(transferPrice(variant.price))}
         </span>
-        {/* Copperplate Gothic is an all-caps face, so the artboard's uppercase
-            is the FONT — not a text-transform to add here. */}
-        <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
+        {/* The `font-sans` utility carries the artboard's uppercase — not a
+            text-transform to add here. */}
+        <span className='font-sans  tracking-control text-muted-foreground text-xs'>
           Con transferencia
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="flex items-baseline gap-2 font-display text-base text-muted-foreground tabular-nums md:text-[21px]">
+      <div className='flex flex-wrap items-center justify-between gap-x-4 gap-y-1'>
+        <span className='flex items-baseline gap-2 font-display text-base text-muted-foreground tabular-nums md:text-[21px]'>
           {formatMoney(variant.price)}
           {/* `<s>` and not a strikethrough class: the original price is
               factually no longer correct, which is exactly what the element
               means, and assistive tech announces it as such. */}
           {variant.compareAt && (
-            <s className="text-[13px] text-muted-foreground md:text-[18px]">
+            <s className='text-[13px] text-muted-foreground md:text-[18px]'>
               {formatMoney(variant.compareAt)}
             </s>
           )}
@@ -47,9 +47,11 @@ export function PriceBlock({ variant }: PriceBlockProps) {
               the transfer discount is a labelled price two lines up, never a
               percentage, because one red badge cannot mean two things and
               still be read correctly. */}
-          {promo !== null && <DiscountBadge percent={promo} className="self-center" />}
+          {promo !== null && (
+            <DiscountBadge percent={promo} className='self-center' />
+          )}
         </span>
-        <span className="font-sans text-[9px] tracking-control text-muted-foreground md:text-[10px]">
+        <span className='font-sans text-xs tracking-control text-muted-foreground'>
           3 y 6 cuotas
         </span>
       </div>

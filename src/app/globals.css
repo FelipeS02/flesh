@@ -102,15 +102,11 @@
   --font-display: var(--font-kraut), Georgia, 'Times New Roman', serif;
 
   /* `--font-sans` carries controls and dense information: field labels, size
-     buttons, spec lists, shipping copy. Copperplate Gothic Std 30 AB is an
-     all-caps glyphic face, so the uppercase look is the FONT, not a
-     text-transform; the tracking token below is the letterspacing half of
-     that voice, applied per component.
-
-     Unlike --font-display this does NOT need a rescue family for accents:
-     the face was measured at U+0020-007E plus U+00A0-00FF, which covers the
-     whole Spanish set. The generic tail is a load-failure fallback only. */
-  --font-sans: var(--font-copperplate), ui-serif, Georgia, serif;
+     buttons, spec lists, shipping copy. Special Elite has lowercase glyphs,
+     so the uppercase half of the voice is the `font-sans` utility below, not
+     the face; the tracking token is the letterspacing half, applied per
+     component. The generic tail is a load-failure fallback only. */
+  --font-sans: var(--font-special-elite), ui-serif, Georgia, serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-display);
 
@@ -152,6 +148,33 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+}
+
+/* The body voice is all caps, and copy is written in ordinary case. These
+   extend the theme's font utilities rather than replace them: Copperplate drew
+   caps on its own, Special Elite does not, so the caps travel with the token
+   and every `font-sans` call site keeps its look without a class of its own.
+
+   `html` applies `font-sans`, so the uppercase INHERITS into everything. The
+   display utilities undo it, or Kraut titles would silently turn all caps.
+
+   All caps also means no descenders, yet the face still reserves room for
+   them under the baseline — it reads as bottom padding on every label and
+   pill. `text-box` trims the box to cap height and baseline so the caps fill
+   it. Browsers without support (Firefox today) keep the old box, nothing
+   breaks. */
+
+
+@utility font-display {
+  text-transform: none;
+}
+
+@utility font-heading {
+  text-transform: none;
+}
+
+@utility font-sans {
+  text-transform: uppercase
 }
 
 /* The promo band's drift.
