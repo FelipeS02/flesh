@@ -10,30 +10,34 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-// Both faces ship as WOFF2, converted from the TTFs they were licensed as.
+// Both faces ship as WOFF2, converted from their TTF sources.
 //
 // `next/font/local` PRELOADS what it is given, so the format is not a
-// packaging detail: as TTF these two put 172 KB of uncompressed font in the
-// head, competing for bandwidth with the image the page is measured on. The
-// same glyphs as WOFF2 are 74 KB. Nothing else changed — WOFF2 is a lossless
-// container around the same outlines, which is why the charsets measured
-// below still hold. The TTFs are not in the repo; re-run those commands
-// against the original files if the faces are ever replaced.
+// packaging detail: TTF puts uncompressed font in the head, competing for
+// bandwidth with the image the page is measured on — Special Elite alone is
+// 152 KB as TTF and 62 KB as WOFF2. WOFF2 is a lossless container around the
+// same outlines, which is why the charsets measured below still hold.
 
-// Copperplate Gothic Std 30 AB (Adobe), the body voice: the all-caps glyphic
-// face the product descriptions, spec lists and size labels are set in.
+// Special Elite (Astigmatic, OFL), the body voice — a MODIFIED build. Served
+// locally rather than from `next/font/google`, which would ship the upstream
+// outlines and silently drop the edits.
 //
-// No unicode-range is declared here, and that is a measurement, not an
-// oversight:
+// The WOFF2 is the only copy of those edits: the TTF it was converted from is
+// not kept. Edit THIS file in FontForge (it opens WOFF2) and generate a WOFF2
+// back over it — starting again from the upstream TTF would lose them.
 //
-//   fc-query --format='%{charset}\n' copperplate-gothic-30ab.ttf   # the upstream binary
-//   -> 20-7e a0-ff 131 141-142 152-153 ... (Latin-1 Supplement and beyond)
+// Measured from the WOFF2's cmap:
 //
-// `a0-ff` covers á é í ó ú ñ ¿ ¡, so unlike Kraut this face renders the whole
-// Spanish copy on its own and needs no fallback family to patch accents.
-const copperplate = localFont({
-  src: './fonts/copperplate-gothic-30ab.woff2',
-  variable: '--font-copperplate',
+//   -> 20-7e a0-17e ...
+//
+// `a0-ff` covers á é í ó ú ñ ¿ ¡, so this face renders the whole Spanish copy
+// on its own and needs no fallback family to patch accents.
+//
+// The previous face, `./fonts/copperplate-gothic-30ab.woff2`, is kept in the
+// repo on purpose so it can be restored without re-converting the TTF.
+const specialElite = localFont({
+  src: './fonts/special-elite.woff2',
+  variable: '--font-special-elite',
   display: 'swap',
 });
 
@@ -75,7 +79,7 @@ export const metadata: Metadata = {
     // why a `default` is required alongside it: the landing renders the
     // default, and the PDP's own title renders through the template.
     default: BRAND,
-    template: `♱ %s ♱ ${BRAND}`,
+    template: `✠ %s ✠ ${BRAND}`,
   },
   description: TAGLINE,
   openGraph: {
@@ -91,7 +95,7 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
     <html
       lang='es'
-      className={`${copperplate.variable} ${geistMono.variable} ${kraut.variable} h-full max-w-svw antialiased overflow-x-hidden`}
+      className={`${specialElite.variable} ${geistMono.variable} ${kraut.variable} h-full max-w-svw antialiased overflow-x-hidden`}
     >
       <body className='min-h-full flex flex-col '>{children}</body>
     </html>

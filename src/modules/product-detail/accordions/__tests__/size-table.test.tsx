@@ -36,7 +36,8 @@ describe("SizeTable", () => {
 
   it("hides its own caption when the caller already prints one", () => {
     render(<SizeTable sizeChart={chart} hideCaption />);
-    expect(screen.queryByText("Medidas en centímetros")).toBeNull();
+    expect(screen.queryByText(/Medidas en CM/)).toBeNull();
+    expect(screen.queryByText(/recomendamos el más grande/)).toBeNull();
   });
 
   it("sizes header, row-header and caption text to the artboard's 11px mobile / 13px desktop", () => {
@@ -50,6 +51,19 @@ describe("SizeTable", () => {
     expect(rowHeader.className).toContain("text-[11px]");
     expect(rowHeader.className).toContain("md:text-[13px]");
 
-    expect(screen.getByText("Medidas en centímetros").className).toContain("text-[11px]");
+    expect(screen.getByText(/Medidas en CM/).closest("p")!.className).toContain("text-[11px]");
+  });
+
+  it("prints the measurement disclaimer and the sizing advice as its caption", () => {
+    render(<SizeTable sizeChart={chart} />);
+    expect(screen.getByText("Medidas en CM. Los talles pueden variar 1/2 cm.")).toBeTruthy();
+    expect(screen.getByText("Si estás entre dos talles, recomendamos el más grande.")).toBeTruthy();
+  });
+
+  it("centres each size header on the same axis as its values", () => {
+    render(<SizeTable sizeChart={chart} />);
+    const header = screen.getAllByRole("columnheader").find((cell) => cell.textContent === "M")!;
+    expect(header.className).toContain("text-center");
+    for (const cell of screen.getAllByRole("cell")) expect(cell.className).toContain("text-center");
   });
 });

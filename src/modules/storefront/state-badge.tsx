@@ -15,9 +15,9 @@ type StateBadgeProps = {
  * marks over a photo, and only the meaning changes. `new` is the loud one.
  */
 const TREATMENT: Record<ProductState, { label: string; className: string }> = {
-  // Labels in ordinary case. Copperplate Gothic is an all-caps face, so the
-  // artboard's uppercase is the FONT — adding `uppercase` here would be a
-  // second mechanism doing the same job, visible only when the font fails.
+  // Labels in ordinary case. The `font-sans` utility carries the artboard's
+  // uppercase — adding `uppercase` here would be a second mechanism doing the
+  // same job.
   new: { label: "Nuevo", className: "bg-secondary text-secondary-foreground" },
   featured: {
     label: "Destacado",
@@ -26,6 +26,12 @@ const TREATMENT: Record<ProductState, { label: string; className: string }> = {
   soldOut: {
     label: "Agotado",
     className: "border border-muted-foreground bg-black/80 text-muted-foreground",
+  },
+  // Featured's treatment: a quiet mark over the photo, kept apart from
+  // sold-out's muted grey so "almost gone" never reads as "gone".
+  lowStock: {
+    label: "Últimas unidades",
+    className: "border border-foreground bg-black/80 text-foreground",
   },
 };
 

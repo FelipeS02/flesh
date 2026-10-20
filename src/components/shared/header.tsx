@@ -104,9 +104,13 @@ export function Header() {
             {count !== null && (
               <span
                 aria-label={`${count} productos en el carrito`}
-                className='absolute -right-2 -top-1 md:-right-1 md:top-0 grid size-4 place-items-center rounded-full bg-primary font-sans text-[9px] text-primary-foreground'
+                className='absolute -right-2 -top-1 md:-right-1 md:top-0 grid size-4 place-items-center rounded-full bg-primary font-sans text-[9px] leading-none text-primary-foreground'
               >
-                {count}
+                {/* `place-items-center` centres the line box, not the digit:
+                    Special Elite reserves descender room under the baseline,
+                    so the number sits high. Nudged by eye rather than with
+                    `text-box`, which Firefox does not support. */}
+                <span className='translate-y-px'>{count}</span>
               </span>
             )}
           </button>

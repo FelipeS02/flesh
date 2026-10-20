@@ -21,7 +21,7 @@ import {
 import { useMediaQuery } from '@/hooks/use-media-query';
 import { cn } from '@/lib/utils';
 import type { GarmentSize } from '@/modules/catalog/client';
-import { SizeTable } from '../accordions/size-table';
+import { SizeChartNote, SizeTable } from '../accordions/size-table';
 
 // Matches the gallery's own breakpoint (`product-gallery.tsx`): both decide a
 // layout CSS alone cannot express — there the carousel's scroll axis, here
@@ -85,10 +85,10 @@ export function SizeGuide({
     </Button>
   );
 
-  // `SizeTable` prints "Medidas en centímetros" as its own footer; the modal
-  // already says that as its description, immediately above the table, so
-  // `hideCaption` is what keeps the sentence from appearing twice on the
-  // same screen.
+  // `SizeTable` prints `SizeChartNote` as its own footer; the modal already
+  // says that as its description, immediately above the table, so
+  // `hideCaption` is what keeps the note from appearing twice on the same
+  // screen.
   const table = (
     <SizeTable
       sizeChart={sizeChart}
@@ -104,7 +104,9 @@ export function SizeGuide({
         <DialogContent styledBackground className='sm:max-w-140'>
           <DialogHeader>
             <DialogTitle>Guía de talles</DialogTitle>
-            <DialogDescription>Medidas en centímetros</DialogDescription>
+            <DialogDescription>
+              <SizeChartNote />
+            </DialogDescription>
           </DialogHeader>
           {table}
         </DialogContent>
@@ -121,7 +123,7 @@ export function SizeGuide({
             Guía de talles
           </SheetTitle>
           <SheetDescription>
-            Medidas en centímetros
+            <SizeChartNote />
           </SheetDescription>
         </SheetHeader>
         <div className='px-4 pb-4'>{table}</div>

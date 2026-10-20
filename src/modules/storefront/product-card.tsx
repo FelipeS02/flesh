@@ -138,8 +138,8 @@ export function ProductCard({
               <span className='font-display text-[22px] leading-tight text-foreground md:text-3xl'>
                 {formatMoney(transferPrice(variant.price))}
               </span>
-              {/* Copperplate Gothic is an all-caps face, so the artboard's
-                  uppercase is the FONT — not a text-transform to add here. */}
+              {/* The `font-sans` utility carries the artboard's uppercase —
+                  not a text-transform to add here. */}
               <span className='font-sans text-[10px] tracking-control text-muted-foreground md:text-xs'>
                 Con transferencia
               </span>
