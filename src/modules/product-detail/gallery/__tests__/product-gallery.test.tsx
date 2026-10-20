@@ -574,7 +574,7 @@ describe("ProductGallery peeking at the next slide", () => {
 
 describe("ProductGallery with a gap between native slides", () => {
   const SLIDE = 500;
-  const GAP = 56;
+  const GAP = 96;
 
   function measureGap(container: HTMLElement) {
     const node = viewport(container);
@@ -587,7 +587,7 @@ describe("ProductGallery with a gap between native slides", () => {
   it("spaces the desktop slides apart", () => {
     const { container } = render(<ProductGallery images={IMAGES} title={TITLE} />);
 
-    expect(slides(container)[0]!.parentElement!.className).toContain("md:gap-14");
+    expect(slides(container)[0]!.parentElement!.className).toContain("md:gap-24");
   });
 
   it("scrolls a thumbnail jump by slide height plus the gap", () => {
@@ -620,7 +620,7 @@ describe("ProductGallery slides sized by their photos", () => {
     { id: 4, src: "/products/4.png", position: 4, width: 800, height: 800 },
   ];
   const HEIGHTS = [500, 360, 420, 300];
-  const GAP = 56;
+  const GAP = 96;
 
   function measureUneven(container: HTMLElement, clientHeight = 900) {
     const node = viewport(container);
