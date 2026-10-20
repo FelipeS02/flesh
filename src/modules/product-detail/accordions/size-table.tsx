@@ -11,14 +11,32 @@ type SizeTableProps = {
   /** The shopper's current pick on the matching axis; highlights that column. */
   highlightSize?: string;
   /**
-   * The size-guide modal already prints "Medidas en centímetros" as its own
+   * The size-guide modal already prints `sizeChartNote` as its own
    * description, right above this table — repeating it in the table's own
-   * footer would put the same sentence on screen twice. The accordion, which
+   * footer would put the same copy on screen twice. The accordion, which
    * has no description slot of its own, keeps the footer by leaving this
    * unset.
    */
   hideCaption?: boolean;
 };
+
+/**
+ * Shared by this table's footer and the size-guide modal's description so the
+ * two surfaces cannot drift apart. One line each: the second is advice, not
+ * part of the measurement disclaimer.
+ */
+export const sizeChartNote = [
+  "Medidas en CM. Los talles pueden variar 1/2 cm.",
+  "Si estás entre dos talles, recomendamos el más grande.",
+] as const;
+
+export function SizeChartNote() {
+  return sizeChartNote.map((line) => (
+    <span key={line} className="block">
+      {line}
+    </span>
+  ));
+}
 
 const measurementLabels: Record<MeasurementKey, string> = {
   back_width: "Ancho de espalda",
@@ -52,8 +70,11 @@ export function SizeTable({ sizeChart, highlightSize, hideCaption }: SizeTablePr
                 key={size}
                 scope="col"
                 aria-current={isCurrent ? true : undefined}
+                // Centred, as are the value cells below: left-aligned, a
+                // one-letter "M" and a two-digit "56" start on the same edge
+                // but never share an axis, so the size reads as off its column.
                 className={cn(
-                  "pb-3 text-[11px] font-normal tracking-control md:text-[13px]",
+                  "pb-3 text-center text-[11px] font-normal tracking-control md:text-[13px]",
                   isCurrent ? "text-primary" : "text-muted-foreground",
                 )}
               >
@@ -65,12 +86,12 @@ export function SizeTable({ sizeChart, highlightSize, hideCaption }: SizeTablePr
         <tbody>
           {rows.map((key) => <tr key={key} className="border-t border-border">
             <th scope="row" className="py-3.5 text-[11px] font-normal tracking-control text-muted-foreground md:text-[13px]">{measurementLabels[key]}</th>
-            {sizeChart.map(({ size, measurements }) => <td key={size} className="py-3.5 text-xs tracking-control text-foreground md:text-[13px]">{measurements[key] ?? "—"}</td>)}
+            {sizeChart.map(({ size, measurements }) => <td key={size} className="py-3.5 text-center text-xs tracking-control text-foreground md:text-[13px]">{measurements[key] ?? "—"}</td>)}
           </tr>)}
         </tbody>
       </table>
       {!hideCaption && (
-        <p className="font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]">Medidas en centímetros</p>
+        <p className="font-sans text-[11px] tracking-control text-muted-foreground md:text-[13px]"><SizeChartNote /></p>
       )}
     </div>
   );
