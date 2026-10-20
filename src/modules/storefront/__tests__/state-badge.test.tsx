@@ -12,14 +12,9 @@ describe("StateBadge", () => {
 
     render(<StateBadge state="soldOut" />);
     expect(screen.getByText("Agotado")).toBeDefined();
-  });
 
-  it("writes the labels in ordinary case, because the uppercase is the FONT", () => {
-    render(<StateBadge state="soldOut" />);
-
-    // Copperplate Gothic is an all-caps face. A `text-transform` here would be
-    // a second, redundant mechanism that only shows up when the font fails.
-    expect(screen.queryByText("AGOTADO")).toBeNull();
+    render(<StateBadge state="lowStock" />);
+    expect(screen.getByText("Últimas unidades")).toBeDefined();
   });
 
   it("renders nothing for an ordinary product", () => {

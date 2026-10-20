@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { cardBadge, productState } from "../product-state";
 
-const product = (tags: string[], inStock = true) => ({ tags, inStock });
+type Units = { stockManagement: boolean; stock: number | null };
+
+const product = (tags: string[], inStock = true, variants: Units[] = []) => ({
+  tags,
+  inStock,
+  variants: variants.map((units) => ({ ...units, inStock: units.stock !== 0 })),
+});
+
+const tracked = (stock: number): Units => ({ stockManagement: true, stock });
+const untracked: Units = { stockManagement: false, stock: null };
 
 const ars = (amount: number) => ({ amount, currency: "ARS" });
 const priced = (amount: number, was: number | null = null) => ({
@@ -81,6 +90,35 @@ describe("cardBadge", () => {
     expect(cardBadge(product(["nuevo"]), undefined)).toEqual({
       kind: "state",
       state: "new",
+    });
+  });
+
+  it("badges the last units when the whole product is down to six", () => {
+    // Summed across sizes: one size at 1 among well-stocked others is not the
+    // garment running out.
+    expect(cardBadge(product([], true, [tracked(1), tracked(5), tracked(0)]), priced(2_700_000))).toEqual({
+      kind: "state",
+      state: "lowStock",
+    });
+    expect(cardBadge(product([], true, [tracked(1), tracked(6)]), priced(2_700_000))).toBeNull();
+  });
+
+  it("never calls an untracked variant low, since its stock is unlimited", () => {
+    expect(cardBadge(product([], true, [tracked(1), untracked]), priced(2_700_000))).toBeNull();
+  });
+
+  it("puts the last units over a markdown and over the merchant's tags", () => {
+    // Scarcity is a fact that expires; the markdown still shows as the
+    // struck-through price beside it.
+    expect(
+      cardBadge(product(["destacado"], true, [tracked(2)]), priced(1_890_000, 2_700_000)),
+    ).toEqual({ kind: "state", state: "lowStock" });
+  });
+
+  it("still calls a product with nothing left sold out, not low", () => {
+    expect(cardBadge(product([], false, [tracked(0)]), priced(2_700_000))).toEqual({
+      kind: "state",
+      state: "soldOut",
     });
   });
 });

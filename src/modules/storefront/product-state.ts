@@ -11,7 +11,7 @@ import { discountPercent } from "./pricing";
  * so the choice has to be made somewhere, and making it here means every
  * surface makes it the same way.
  */
-export type ProductState = "soldOut" | "featured" | "new";
+export type ProductState = "soldOut" | "lowStock" | "featured" | "new";
 
 /**
  * Tag → state, in the order the badge is decided.
@@ -48,6 +48,29 @@ export function productState(
   return TAGGED_STATES.find(([tag]) => tags.has(tag))?.[1] ?? null;
 }
 
+/** At or under this many units left across every size, a card says so. */
+const LOW_STOCK_UNITS = 6;
+
+/**
+ * Whether the GARMENT is running out, not one size of it.
+ *
+ * Summed across variants because a card stands for the whole product: a single
+ * size at 1 among well-stocked others is not scarcity, and badging it would
+ * light up nearly every multi-size card in the grid. A variant the merchant
+ * never tracks (`stockManagement: false`) is unlimited, so one such variant in
+ * stock means the product cannot run out at all.
+ */
+function isLowStock(variants: readonly Pick<VariantView, "inStock" | "stockManagement" | "stock">[]): boolean {
+  let units = 0;
+  for (const variant of variants) {
+    if (!variant.inStock) continue;
+    if (!variant.stockManagement || variant.stock === null) return false;
+    units += variant.stock;
+  }
+  // Zero means nothing tracked is left; that is `soldOut`'s call, not this one.
+  return units > 0 && units <= LOW_STOCK_UNITS;
+}
+
 /** What a catalogue card puts in its ONE badge slot over the photo. */
 export type CardBadge =
   | { kind: "state"; state: ProductState }
@@ -62,22 +85,31 @@ export type CardBadge =
  *
  * 1. **Gone beats everything.** A discount on a garment you cannot buy is not
  *    an offer.
- * 2. **A markdown beats being featured.** A card competes in a grid, and how
+ * 2. **Almost gone beats a markdown.** Scarcity expires and the markdown does
+ *    not; the card still shows the struck-through price beside it.
+ * 3. **A markdown beats being featured.** A card competes in a grid, and how
  *    much less you would pay is a fact about the price; `destacado` is the
  *    brand's opinion about the garment.
- * 3. Otherwise, whatever state there is.
+ * 4. Otherwise, whatever state there is.
  *
  * The PDP does not need this function: it has room to show both, in the two
- * different places each one belongs.
+ * different places each one belongs — and its scarcity is per size, in
+ * `StockNote`, since there the shopper has already picked one.
  */
 export function cardBadge(
-  product: Pick<ProductView, "tags" | "inStock">,
+  product: Pick<ProductView, "tags" | "inStock"> & {
+    variants: readonly Pick<VariantView, "inStock" | "stockManagement" | "stock">[];
+  },
   variant: Pick<VariantView, "price" | "compareAt"> | undefined,
 ): CardBadge | null {
   const state = productState(product);
 
   if (state === "soldOut") {
     return { kind: "state", state };
+  }
+
+  if (isLowStock(product.variants)) {
+    return { kind: "state", state: "lowStock" };
   }
 
   const percent = variant ? discountPercent(variant.price, variant.compareAt) : null;
