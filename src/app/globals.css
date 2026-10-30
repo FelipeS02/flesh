@@ -259,24 +259,30 @@ details[data-accordion][open]::details-content {
   block-size: auto;
 }
 
-/* Route changes animate browser snapshots instead of live layout. The blur is
-   deliberately bounded on mobile because it is substantially more expensive
-   than opacity and transform across a full-viewport snapshot. */
+/* Route changes animate browser snapshots instead of live layout, on desktop
+   only: a full-viewport snapshot animated on a phone costs more than the
+   motion is worth, so mobile swaps pages instantly. Without `animation: none`
+   the UA's default crossfade would still run there. */
 ::view-transition {
   pointer-events: none;
 }
 
-::view-transition-old(.route-page-exit),
-::view-transition-new(.route-page-enter) {
-  --route-page-blur: 8px;
+@media (max-width: 767px) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation: none;
+  }
 }
 
-::view-transition-old(.route-page-exit) {
-  animation: route-page-out 140ms ease-in both;
-}
+@media (min-width: 768px) {
+  ::view-transition-old(.route-page-exit) {
+    animation: route-page-out 140ms ease-in both;
+  }
 
-::view-transition-new(.route-page-enter) {
-  animation: route-page-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  ::view-transition-new(.route-page-enter) {
+    animation: route-page-in 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
 }
 
 /* The header is the shopper's spatial anchor. Naming it pairs the old and new
@@ -298,7 +304,7 @@ details[data-accordion][open]::details-content {
   to {
     opacity: 0;
     transform: translate3d(-20px, 0px, 0);
-    filter: blur(var(--route-page-blur));
+    filter: blur(12px);
   }
 }
 
@@ -306,14 +312,7 @@ details[data-accordion][open]::details-content {
   from {
     opacity: 0;
     transform: translate3d(20px, 0px, 0);
-    filter: blur(var(--route-page-blur));
-  }
-}
-
-@media (min-width: 768px) {
-  ::view-transition-old(.route-page-exit),
-  ::view-transition-new(.route-page-enter) {
-    --route-page-blur: 12px;
+    filter: blur(12px);
   }
 }
 
