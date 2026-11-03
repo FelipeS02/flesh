@@ -10,7 +10,7 @@ import { CookieNotice } from '@/modules/legal/cookie-notice';
 import {
   NewsletterBanner,
   NewsletterBannerPreload,
-} from '@/modules/newsletter/ui/newsletter-banner';
+} from '@/modules/newsletter/client';
 import {
   googleTagBootstrap,
   googleTagSource,

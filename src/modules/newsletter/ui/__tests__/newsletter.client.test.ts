@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createSubscribePort } from "../newsletter.client";
+import { createRestockPort, createSubscribePort } from "../newsletter.client";
 
 describe("createSubscribePort", () => {
   it("sends the address and hands back the action's outcome untouched", async () => {
@@ -28,6 +28,28 @@ describe("createSubscribePort", () => {
     const action = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
 
     expect(await createSubscribePort(action).subscribe("a@b.co")).toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+  });
+});
+
+describe("createRestockPort", () => {
+  const request = { email: "a@b.co", productId: 7, variantId: 42, newsletter: true };
+
+  it("sends the whole request as the action's input", async () => {
+    const action = vi.fn().mockResolvedValue({ ok: true, status: "created" });
+
+    const outcome = await createRestockPort(action).request(request);
+
+    expect(action).toHaveBeenCalledWith(request);
+    expect(outcome).toEqual({ ok: true, status: "created" });
+  });
+
+  it("turns a rejected request into the unavailable outcome", async () => {
+    const action = vi.fn().mockRejectedValue(new TypeError("Failed to fetch"));
+
+    expect(await createRestockPort(action).request(request)).toEqual({
       ok: false,
       error: "unavailable",
     });

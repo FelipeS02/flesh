@@ -22,6 +22,8 @@ import { AxisSelector } from "./axis-selector";
 import { axisParamKeys, paramValue, selectionFromQuery } from "./axis-params";
 import { PriceBlock } from "./price-block";
 import { PurchaseWidget } from "./purchase-widget";
+import { RestockForm } from "@/modules/newsletter/client";
+import { restockVariantLine } from "./restock-variant-line";
 import { StockNote } from "./stock-note";
 import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
 
@@ -189,6 +191,7 @@ type PanelViewProps = PurchasePanelProps & {
 /** Everything the panel draws, given a selection somebody else read. */
 function PanelView({
   product,
+  productId,
   defaultVariantId,
   colourwaySelector,
   colourways,
@@ -226,6 +229,22 @@ function PanelView({
   // the third. And once the cart holds the one there is, the button already
   // says "Máximo disponible"; urging the shopper on would be pointless.
   const lastUnit = limit === 1 && !atLimit;
+
+  // Only for a variant that EXISTS and is sold out: a combination that was
+  // never offered will never be restocked, so promising an email for it would
+  // be a lie. The colourway is a separate product here, so it is read off the
+  // links rather than the combination.
+  const restock =
+    selected && !selected.inStock
+      ? {
+          productId,
+          variantId: selected.id,
+          variantLine: restockVariantLine(
+            colourways.find((colourway) => colourway.slug === currentSlug)?.name ?? null,
+            selected.combination,
+          ),
+        }
+      : undefined;
 
   // Four different facts deserve four different sentences. A dead button
   // reading "Agregar al carrito" tells you the site is broken; "Sin stock"
@@ -293,6 +312,10 @@ function PanelView({
       </button>
       </div>
 
+      {/* Keyed by variant: a confirmation for one size must not survive a
+          switch to another. */}
+      {restock && <RestockForm key={restock.variantId} {...restock} />}
+
       </div>
 
       {/* The mobile shortcut. It renders from THIS component, which already
@@ -319,6 +342,7 @@ function PanelView({
         onSelect={onSelect}
         onAdd={() => selected && onAdd?.(selected)}
         sizeChart={sizeChart}
+        restock={restock}
       />
     </>
   );

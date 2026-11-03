@@ -1,4 +1,5 @@
-import type { SubscribeOutcome } from "../api/newsletter.service";
+import type { RestockOutcome, SubscribeOutcome } from "../api/newsletter.service";
+import { requestRestockNotice } from "../api/restock.action";
 import { subscribeToNewsletter } from "../api/subscribe.action";
 
 // Imported from the action files and NOT from `../index`: the index also
@@ -13,7 +14,8 @@ export type SubscribePort = {
   subscribe(email: string): Promise<SubscribeOutcome>;
 };
 
-const UNAVAILABLE: SubscribeOutcome = { ok: false, error: "unavailable" };
+// Assignable to both outcome types, so the two ports share it.
+const UNAVAILABLE = { ok: false, error: "unavailable" } as const;
 
 /**
  * The browser-side face of the subscribe Server Action. Injectable so a
@@ -28,6 +30,33 @@ export function createSubscribePort(action: SubscribeAction = subscribeToNewslet
       } catch {
         // Offline, or a stale tab calling an action id the new deploy no
         // longer has. The form can only say "try again".
+        return UNAVAILABLE;
+      }
+    },
+  };
+}
+
+type RestockAction = (input: unknown) => Promise<RestockOutcome>;
+
+export type RestockRequest = {
+  email: string;
+  productId: number;
+  variantId: number;
+  /** The unchecked-by-default consent box: also join the newsletter. */
+  newsletter: boolean;
+};
+
+export type RestockPort = {
+  request(input: RestockRequest): Promise<RestockOutcome>;
+};
+
+/** Same contract as `createSubscribePort`, for the per-variant restock request. */
+export function createRestockPort(action: RestockAction = requestRestockNotice): RestockPort {
+  return {
+    async request(input) {
+      try {
+        return await action(input);
+      } catch {
         return UNAVAILABLE;
       }
     },

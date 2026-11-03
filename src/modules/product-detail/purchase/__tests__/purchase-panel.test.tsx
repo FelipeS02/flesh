@@ -13,11 +13,18 @@ const analyticsSpy = vi.hoisted(() => vi.fn());
 // top-level statements (import hoisting) — see `header.test.tsx` for the
 // same pattern.
 const showAddedToCartSpy = vi.hoisted(() => vi.fn());
+const restockActionSpy = vi.hoisted(() => vi.fn());
 
 vi.mock("@/modules/cart", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/modules/cart")>();
   return { ...actual, showAddedToCart: showAddedToCartSpy };
 });
+
+// The restock form posts through this Server Action; stubbed so no test here
+// reaches the real service.
+vi.mock("@/modules/newsletter/api/restock.action", () => ({
+  requestRestockNotice: restockActionSpy,
+}));
 
 vi.mock("@/modules/analytics", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/modules/analytics")>();
@@ -25,6 +32,7 @@ vi.mock("@/modules/analytics", async (importOriginal) => {
 });
 
 afterEach(() => {
+  restockActionSpy.mockReset();
   showAddedToCartSpy.mockClear();
   analyticsSpy.mockClear();
 });
@@ -560,5 +568,114 @@ describe("PurchasePanelFallback", () => {
       />);
 
     expectDesktopConfigurationOrder();
+  });
+});
+
+describe("PurchasePanel restock form", () => {
+  const restockHeading = () => screen.queryByRole("heading", { name: "Avisame cuando vuelva" });
+
+  it("offers the form under the disabled CTA for a variant that exists and is sold out", () => {
+    renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
+
+    expect(restockHeading()).not.toBeNull();
+    expect((addToCart(/sin stock/i) as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it("names the variant it will watch", () => {
+    renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
+
+    expect(screen.getByText("L · NOIR")).toBeDefined();
+  });
+
+  it("prepends the page's colourway when the colour is not one of the axes", () => {
+    render(
+      <CartProvider catalog={CART_CATALOG} transferRateBp={1000}>
+        <PurchasePanel
+          product={{ axes: [SIZE], variants: [variant(301, ["M"], { inStock: false })] }}
+          productTitle="Remera Classic"
+          productId={101}
+          defaultVariantId={301}
+          colourwaySelector={null}
+          colourways={[{ slug: "remera-classic", name: "Negro", hex: "#000", inStock: false }]}
+          currentSlug="remera-classic"
+        />
+      </CartProvider>,
+      { wrapper: withNuqsTestingAdapter({ searchParams: "", hasMemory: true }) },
+    );
+
+    expect(screen.getByText("NEGRO · M")).toBeDefined();
+  });
+
+  it("stays out of the way while the variant can be bought", () => {
+    renderPanel(TEE, { searchParams: "?talle=m&color=noir" });
+
+    expect(restockHeading()).toBeNull();
+  });
+
+  // A combination that was never offered will never be restocked, so
+  // promising an email for it would be a lie.
+  it("does not offer it for a combination that does not exist", () => {
+    renderPanel(TEE, { searchParams: "?talle=xl&color=bone" });
+
+    expect(restockHeading()).toBeNull();
+  });
+
+  it("sends the catalogue's product and variant ids with the request", async () => {
+    restockActionSpy.mockResolvedValue({ ok: true, status: "created" });
+    renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "fan@flesh.test" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Avisame" }));
+    });
+
+    expect(restockActionSpy).toHaveBeenCalledWith({
+      email: "fan@flesh.test",
+      productId: 101,
+      variantId: 202,
+      newsletter: false,
+    });
+  });
+
+  it("leaves the form when the shopper moves to a buyable variant", () => {
+    renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
+
+    fireEvent.click(option("Color", "Bone"));
+
+    return waitFor(() => expect(restockHeading()).toBeNull());
+  });
+
+  // The confirmation of one size must never survive a switch to another.
+  it("starts from an empty form when the selected variant changes", async () => {
+    restockActionSpy.mockResolvedValue({ ok: true, status: "created" });
+    const twoSoldOut: VariantMatrix = {
+      axes: [SIZE],
+      variants: [variant(401, ["M"], { inStock: false }), variant(402, ["L"], { inStock: false })],
+    };
+    const view = (defaultVariantId: number) => (
+      <CartProvider catalog={CART_CATALOG} transferRateBp={1000}>
+        <PurchasePanelFallback
+          product={twoSoldOut}
+          productTitle="Remera Classic"
+          productId={101}
+          defaultVariantId={defaultVariantId}
+          colourwaySelector={null}
+          colourways={[]}
+          currentSlug="remera-classic"
+        />
+      </CartProvider>
+    );
+    const { rerender } = render(view(401));
+
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "fan@flesh.test" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Avisame" }));
+    });
+    expect(screen.getByRole("heading", { name: "Te avisamos" })).toBeDefined();
+
+    rerender(view(402));
+
+    expect(restockHeading()).not.toBeNull();
+    expect((screen.getByLabelText(/email/i) as HTMLInputElement).value).toBe("");
   });
 });
