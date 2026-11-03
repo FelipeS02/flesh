@@ -78,6 +78,36 @@ square corners, Spanish copy, comments and test placement.
 
 Changing any of them requires a new build and deployment.
 
+## Sending a campaign
+
+One-off emails (a new drop, an announcement) are sent from your machine with
+`pnpm campaign`. Each campaign is one disposable file; there is no admin UI.
+
+1. **Create the template.** Copy
+   [`example-drop.tsx`](src/modules/newsletter/emails/campaigns/example-drop.tsx)
+   to `src/modules/newsletter/emails/campaigns/<slug>.tsx`. It default-exports
+   the component (props `{ baseUrl, unsubscribeUrl }`) and exports `subject`
+   and `previewText`. The slug is lowercase letters, digits and hyphens.
+2. **Preview it.** `pnpm email` serves the templates and campaigns on
+   http://localhost:3001.
+3. **Dry run.** `pnpm campaign <slug>` prints the Supabase host, sender,
+   subject, active subscriber count, batch count and estimated time, renders one
+   sample, and sends nothing.
+4. **Test send.** `pnpm campaign <slug> --to you@example.com` sends exactly one
+   real email to that address (its unsubscribe link is a dummy).
+5. **Send.** `pnpm campaign <slug> --send` asks you to type the slug, then
+   mails every active subscriber in batches of 100, about two batches per second.
+
+Check the printed Supabase host and sender before step 5: the script reads
+`.env.local`, which may point at production. If a run stops, it prints the batch
+to resume from; re-run with `--from-batch <n>` the same day. Each batch carries
+the idempotency key `campaign/<slug>/<n>`, which Resend remembers for about 24
+hours, so batches it already accepted are not mailed twice.
+
+Campaign files are disposable: delete `<slug>.tsx` after sending, git history
+keeps it. Images are loaded from the site, so a campaign sent from your machine
+needs `SITE_URL` set to an origin that already serves them.
+
 ## Product custom fields
 
 `colourway`, `fit` and `size_chart` are Tiendanube custom fields the admin

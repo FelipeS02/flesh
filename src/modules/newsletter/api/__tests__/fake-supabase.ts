@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-type Reply = { data?: unknown; error?: { code?: string; message?: string } | null };
+type Reply = { data?: unknown; count?: number; error?: { code?: string; message?: string } | null };
 
 export type RecordedCall = { table: string; ops: [method: string, ...args: unknown[]][] };
 
@@ -15,10 +15,10 @@ export function createFakeSupabase(replies: Reply[]) {
   const calls: RecordedCall[] = [];
   const queue = [...replies];
 
-  function next(): { data: unknown; error: Reply["error"] } {
+  function next(): { data: unknown; count: number | null; error: Reply["error"] } {
     const reply = queue.shift();
     if (!reply) throw new Error("fake supabase: no scripted reply left");
-    return { data: reply.data ?? null, error: reply.error ?? null };
+    return { data: reply.data ?? null, count: reply.count ?? null, error: reply.error ?? null };
   }
 
   const client = {
@@ -26,7 +26,7 @@ export function createFakeSupabase(replies: Reply[]) {
       const call: RecordedCall = { table, ops: [] };
       calls.push(call);
       const builder: Record<string, unknown> = {};
-      for (const method of ["select", "insert", "update", "eq", "is", "in", "order", "range", "limit"]) {
+      for (const method of ["select", "insert", "update", "eq", "is", "gt", "in", "order", "range", "limit"]) {
         builder[method] = (...args: unknown[]) => {
           call.ops.push([method, ...args]);
           return builder;

@@ -1,0 +1,16 @@
+{
+  // Used only by `pnpm campaign` (tsx). The newsletter mailer and Supabase
+  // factories start with `import "server-only"`, which Next resolves internally
+  // and which has no installed package, so plain Node throws "Cannot find
+  // package 'server-only'". The guard exists to keep secrets out of client
+  // bundles; a script on the owner's machine ships no bundle, so mapping it to
+  // the same no-op the unit tests use is safe, and keeps the guard in the
+  // modules instead of weakening them for the CLI's sake.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["../src/*"],
+      "server-only": ["../test/server-only-stub.ts"]
+    }
+  }
+}
