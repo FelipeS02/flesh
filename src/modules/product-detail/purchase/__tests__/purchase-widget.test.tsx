@@ -98,14 +98,17 @@ describe("PurchaseWidget", () => {
     expect(props.onSelect).toHaveBeenCalledWith(0, "XL");
   });
 
-  it("keeps an unbuyable option unselectable here too", () => {
-    renderWidget();
+  it("lets a sold-out option be chosen here too, so its restock form is reachable", () => {
+    const { props } = renderWidget();
 
     const sizes = within(screen.getByRole("group", { name: "Talle" }));
+    const soldOut = sizes.getByRole("button", { name: "L" });
 
-    expect(sizes.getByRole("button", { name: /agotado/i }).hasAttribute("disabled")).toBe(
-      true,
-    );
+    expect(soldOut.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(soldOut);
+
+    expect(props.onSelect).toHaveBeenCalledWith(0, "L");
   });
 
   it("links each colour to its own page rather than setting state", () => {

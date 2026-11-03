@@ -261,13 +261,18 @@ describe("PurchasePanel", () => {
     expect(option("Color", "Noir").getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("disables an option that exists but is out of stock, and says so", () => {
+  // Shoppers could not reach the restock form because sold-out sizes were
+  // unclickable: a sold-out value must look and behave like any other.
+  it("keeps an option that exists but is out of stock enabled and selectable", () => {
     renderPanel();
 
     const soldOut = option("Talle", "L");
 
-    expect(soldOut.disabled).toBe(true);
-    expect(soldOut.getAttribute("aria-label")).toContain("agotado");
+    expect(soldOut.disabled).toBe(false);
+    // The hint is for assistive tech only; the accessible NAME stays the value.
+    expect(soldOut.getAttribute("aria-label")).toBeNull();
+    expect(soldOut.getAttribute("aria-description")).toBe("Sin stock");
+    expect(soldOut.className).not.toContain("line-through");
   });
 
   it("disables a combination that was never offered", () => {
@@ -275,9 +280,7 @@ describe("PurchasePanel", () => {
 
     // Bone was never made in XL, which is not the same as having sold out.
     expect(option("Talle", "XL").disabled).toBe(true);
-    expect(option("Talle", "XL").getAttribute("aria-label") ?? "").not.toContain(
-      "agotado",
-    );
+    expect(option("Talle", "XL").getAttribute("aria-description")).toBeNull();
   });
 
   it("writes the chosen value into the query string, lowercased", async () => {
@@ -604,6 +607,24 @@ describe("PurchasePanel restock form", () => {
     );
 
     expect(screen.getByText("NEGRO · M")).toBeDefined();
+  });
+
+  it("reaches the form by clicking a sold-out size, then drops it for an in-stock one", async () => {
+    renderPanel(TEE, { searchParams: "?talle=m&color=noir" });
+
+    expect(restockHeading()).toBeNull();
+
+    fireEvent.click(option("Talle", "L"));
+
+    await waitFor(() => expect(restockHeading()).not.toBeNull());
+    expect(addToCart(/sin stock/i).disabled).toBe(true);
+    // Choosing a size is not buying it.
+    expect(screen.getByTestId("cart-lines").textContent).toBe("");
+
+    fireEvent.click(option("Talle", "XL"));
+
+    await waitFor(() => expect(restockHeading()).toBeNull());
+    expect(addToCart(/agregar al carrito/i).disabled).toBe(false);
   });
 
   it("stays out of the way while the variant can be bought", () => {

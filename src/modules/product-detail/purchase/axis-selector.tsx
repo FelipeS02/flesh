@@ -76,7 +76,6 @@ export function AxisSelector({
         {values.map(({ value, state }) => (
           <AxisOption
             key={value}
-            axisLabel={axis.label}
             value={value}
             state={state}
             isSelected={value === selected}
@@ -90,7 +89,6 @@ export function AxisSelector({
 }
 
 type AxisOptionProps = {
-  axisLabel: string;
   value: string;
   state: AxisValueView["state"];
   isSelected: boolean;
@@ -99,24 +97,32 @@ type AxisOptionProps = {
 };
 
 function AxisOption({
-  axisLabel,
   value,
   state,
   isSelected,
   onSelect,
   compact,
 }: AxisOptionProps) {
-  // Both unbuyable states are unselectable, but only one of them is worth
-  // explaining: "sold out" is a fact about this drop, while a combination that
-  // was never offered has nothing to announce beyond being unavailable.
-  const isDisabled = state !== "available";
-  const label = state === "soldOut" ? `${axisLabel} ${value} — agotado` : undefined;
+  // Only a combination that was never offered is unselectable. A sold-out one
+  // used to be disabled too, and that made the restock form unreachable:
+  // shoppers could not click the size they wanted to be told about. It now
+  // looks and behaves like any other value; the CTA ("Sin stock") and the
+  // restock form say the rest once it is chosen.
+  const isDisabled = state === "nonexistent";
+  // Sighted shoppers get no cue here by design, so the fact moves to a
+  // description: it adds to the name ("L") instead of replacing it, and
+  // changes nothing visually.
+  const description = state === "soldOut" ? "Sin stock" : undefined;
 
   return (
+    // aria-description is ARIA 1.3; the lint rule's attribute table predates
+    // it and flags a valid attribute. An aria-describedby sibling would need a
+    // hidden node per option for the same result.
+    // eslint-disable-next-line jsx-a11y/role-supports-aria-props
     <button
       type="button"
       aria-pressed={isSelected}
-      aria-label={label}
+      aria-description={description}
       disabled={isDisabled}
       onClick={() => onSelect(value)}
       className={cn(
@@ -132,11 +138,11 @@ function AxisOption({
         // anyone lands on by mistake.
         "font-sans transition-colors",
         compact ? "size-9 text-xs" : "size-11 text-sm md:text-base",
-        // An option can be selected AND unbuyable at once — a shared link
-        // carries a combination that has since sold out. The filled
-        // "selected" treatment is reserved for something you can actually
-        // buy; an unbuyable one keeps the muted box and marks the selection
-        // with a ring instead, so it never reads as a live choice.
+        // An option can be selected AND nonexistent at once — a shared link
+        // carries a combination that was never offered. The filled
+        // "selected" treatment is reserved for a real choice; a nonexistent
+        // one keeps the muted box and marks the selection with a ring
+        // instead, so it never reads as a live choice.
         isDisabled
           ? "bg-muted text-muted-foreground line-through opacity-60"
           : isSelected
