@@ -70,6 +70,9 @@ square corners, Spanish copy, comments and test placement.
 | `META_CAPI_ACCESS_TOKEN` | Server | Meta Conversions API token |
 | `SUPABASE_URL` | Server | Supabase project URL for newsletter storage |
 | `SUPABASE_SECRET_KEY` | Server | Supabase secret key (bypasses RLS); never `NEXT_PUBLIC_` |
+| `RESEND_API_KEY` | Server | Resend API key for newsletter and restock emails |
+| `EMAIL_FROM` | Server | Sender, e.g. `FLESH <novedades@flesh.ar>`; the domain must be verified in Resend (DNS records) before production sends |
+| `EMAIL_REPLY_TO` | Server | Optional reply-to address |
 | `CRON_SECRET` | Server | Bearer secret Vercel Cron sends to `/api/cron/keep-alive`; unset rejects every call |
 | `META_GRAPH_API_VERSION` | Server | Graph API version for Conversions API calls; has a default |
 
