@@ -76,7 +76,7 @@ const fieldTypes: Record<FieldSlug, "object" | "object[]"> = {
 };
 
 class TiendanubeRequestError extends Error {
-  constructor(resource: string, status?: number) {
+  constructor(resource: string, readonly status?: number) {
     super(status === undefined
       ? `Tiendanube request failed for ${resource}.`
       : `Tiendanube request failed for ${resource} with status ${status}.`);
@@ -84,15 +84,14 @@ class TiendanubeRequestError extends Error {
   }
 }
 
-export function createTiendanubeCatalogLoader(
-  config: TiendanubeConfig,
-  dependencies: Dependencies = {},
-): () => Promise<CatalogSnapshot> {
+type JsonRequester = (url: URL, resource: string) => Promise<{ body: unknown; headers: Headers }>;
+
+/** One authenticated GET with timeout and bounded retry, shared by every Tiendanube read. */
+function createJsonRequester(config: TiendanubeConfig, dependencies: Dependencies): JsonRequester {
   const fetchImpl = dependencies.fetchImpl ?? fetch;
   const sleep = dependencies.sleep ?? ((milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds)));
   const random = dependencies.random ?? Math.random;
   const timeoutMs = dependencies.timeoutMs ?? DEFAULT_TIMEOUT_MS;
-  const warn = dependencies.warn ?? ((message) => console.warn(message));
 
   const requestJson = async (url: URL, resource: string): Promise<{ body: unknown; headers: Headers }> => {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
@@ -142,6 +141,16 @@ export function createTiendanubeCatalogLoader(
 
     throw new TiendanubeRequestError(resource);
   };
+
+  return requestJson;
+}
+
+export function createTiendanubeCatalogLoader(
+  config: TiendanubeConfig,
+  dependencies: Dependencies = {},
+): () => Promise<CatalogSnapshot> {
+  const requestJson = createJsonRequester(config, dependencies);
+  const warn = dependencies.warn ?? ((message) => console.warn(message));
 
   return async () => {
     const products = await loadProducts(config, requestJson);
@@ -198,6 +207,41 @@ export function createTiendanubeCatalogLoader(
     }
 
     return { purchasable, listed, checkout };
+  };
+}
+
+/**
+ * Reads ONE product straight from Tiendanube, bypassing the cached snapshot.
+ *
+ * The snapshot is stale-while-revalidate (up to five minutes, and the webhook
+ * only marks it stale): asked right after a product/updated delivery it would
+ * still report the variant as sold out, so a restock notice would be judged
+ * against the very state it was meant to replace and never sent. Only the
+ * provider can say what the stock is now.
+ *
+ * `null` means the product is gone (404); anything else that goes wrong throws,
+ * so the caller can tell "nothing to notify" from "could not find out".
+ */
+export function createTiendanubeProductReader(
+  config: TiendanubeConfig,
+  dependencies: Dependencies = {},
+): (productId: number) => Promise<ProductView | null> {
+  const requestJson = createJsonRequester(config, dependencies);
+
+  return async (productId) => {
+    const url = new URL(`/2025-03/${config.storeId}/products/${productId}`, API_ORIGIN);
+    let body: unknown;
+    try {
+      ({ body } = await requestJson(url, "product"));
+    } catch (error) {
+      if (error instanceof TiendanubeRequestError && error.status === 404) return null;
+      throw error;
+    }
+    const parsed = ProductSchema.safeParse(body);
+    if (!parsed.success) throw new Error("Tiendanube contract error for product.");
+    // No colourway, fit or size chart: a restock email needs none of them, and
+    // each is a further round trip inside a three-second-sensitive path.
+    return mapToProductView(parsed.data);
   };
 }
 
