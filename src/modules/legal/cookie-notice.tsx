@@ -5,22 +5,18 @@ import { XIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SkullsBackdrop } from "@/components/ui/skulls-background";
 import {
-  createCookieNoticeStorage,
+  browserCookieNoticeStorage,
   type CookieNoticeStorage,
 } from "./cookie-notice.storage";
 
 /**
- * Lazily built and cached at module scope, NOT at import time — which is the
- * distinction `createCookieNoticeStorage`'s own doc draws. Only `getSnapshot`
- * below reaches this, and React never calls that on the server, so `window`
- * is guaranteed to exist by the time this line runs.
+ * Only `getSnapshot` below reaches the browser instance, and React never
+ * calls that on the server, so `window` exists by then. The instance itself
+ * is shared (see `browserCookieNoticeStorage`) so the newsletter banner can
+ * hear this notice being acknowledged.
  */
-let browserStorage: CookieNoticeStorage | null = null;
-
 function resolveStorage(injected?: CookieNoticeStorage): CookieNoticeStorage {
-  if (injected) return injected;
-
-  return (browserStorage ??= createCookieNoticeStorage(window.localStorage));
+  return injected ?? browserCookieNoticeStorage();
 }
 
 /**

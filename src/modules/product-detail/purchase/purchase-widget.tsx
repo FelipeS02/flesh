@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useBottomDock } from '@/hooks/use-bottom-dock';
 import { cn } from '@/lib/utils';
 import {
   deriveAxisStates,
@@ -84,10 +85,16 @@ export function PurchaseWidget({
   sizeChart,
 }: PurchaseWidgetProps) {
   const visible = useWidgetVisible();
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Published only while on screen: a widget slid off the bottom still has a
+  // box, but it is not covering anything, so it must not push the newsletter
+  // banner (or any other bottom-pinned element) up.
+  useBottomDock(rootRef, visible);
   const { axes } = product;
 
   return (
     <div
+      ref={rootRef}
       data-purchase-widget
       data-visible={visible}
       // `inert` and not just `opacity-0`: a widget that has slid off the

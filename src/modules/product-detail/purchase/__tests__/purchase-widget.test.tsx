@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import type { ColourwayLink, GarmentSize, VariantMatrix, VariantView } from "@/modules/catalog";
+import { BOTTOM_DOCK_PROPERTY } from "@/hooks/use-bottom-dock";
+import { installControllableResizeObserver } from "../../../../../test/fixtures/observers";
 import { PurchaseWidget } from "../purchase-widget";
 
 const ARS = "ARS";
@@ -164,5 +166,41 @@ describe("PurchaseWidget", () => {
     renderWidget();
 
     expect(within(widget()).queryByRole("button", { name: "Guía" })).toBeNull();
+  });
+});
+
+describe("PurchaseWidget as a bottom dock", () => {
+  let resize: ReturnType<typeof installControllableResizeObserver>;
+  let descriptor: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    resize = installControllableResizeObserver();
+    descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get: () => 132,
+    });
+  });
+
+  afterEach(() => {
+    resize.restore();
+    if (descriptor) Object.defineProperty(HTMLElement.prototype, "offsetHeight", descriptor);
+    document.documentElement.style.removeProperty(BOTTOM_DOCK_PROPERTY);
+  });
+
+  // The newsletter banner reads this to sit ABOVE the widget instead of
+  // covering the one control the PDP exists for.
+  it("publishes its height while it is on screen", () => {
+    renderWidget();
+
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_DOCK_PROPERTY)).toBe("132px");
+  });
+
+  it("stops publishing when it leaves the page", () => {
+    const { unmount } = renderWidget();
+
+    unmount();
+
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_DOCK_PROPERTY)).toBe("");
   });
 });

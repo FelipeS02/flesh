@@ -15,7 +15,7 @@ function fakeStorage(acknowledged: boolean): CookieNoticeStorage & {
     state = true;
   });
 
-  return { acknowledged: () => state, acknowledge };
+  return { acknowledged: () => state, settled: () => state, subscribe: () => () => {}, acknowledge };
 }
 
 function notice() {

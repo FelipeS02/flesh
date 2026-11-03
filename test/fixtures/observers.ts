@@ -83,3 +83,49 @@ export function installControllableIntersectionObserver(): {
     },
   };
 }
+
+/**
+ * A `ResizeObserver` a test drives by hand: jsdom has no layout, so the only
+ * honest way to exercise "reacts to a size change" is for the test to say
+ * when a resize happened (and to stub `offsetHeight` for what it measured).
+ * Call `restore` in `afterEach`.
+ */
+export function installControllableResizeObserver(): {
+  trigger: () => void;
+  observing: () => number;
+  restore: () => void;
+} {
+  const original = window.ResizeObserver;
+  const live = new Set<{ callback: ResizeObserverCallback; instance: object }>();
+
+  class ControllableResizeObserver {
+    constructor(private readonly callback: ResizeObserverCallback) {}
+
+    observe(): void {
+      live.add({ callback: this.callback, instance: this });
+    }
+
+    unobserve(): void {}
+
+    disconnect(): void {
+      for (const entry of live) {
+        if (entry.instance === this) live.delete(entry);
+      }
+    }
+  }
+
+  window.ResizeObserver = ControllableResizeObserver as unknown as typeof ResizeObserver;
+
+  return {
+    trigger: () => {
+      for (const { callback, instance } of [...live]) {
+        callback([], instance as ResizeObserver);
+      }
+    },
+    observing: () => live.size,
+    restore: () => {
+      live.clear();
+      window.ResizeObserver = original;
+    },
+  };
+}

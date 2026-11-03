@@ -19,6 +19,21 @@ const ACKNOWLEDGED = "1";
 export interface CookieNoticeStorage {
   acknowledged(): boolean;
   acknowledge(): void;
+  /**
+   * Whether the notice is out of the way for THIS page lifetime: stored from
+   * a previous visit, or acknowledged since load even if the write failed.
+   * Distinct from `acknowledged()` on purpose — that one answers "should the
+   * notice show next visit" and stays false on a browser blocking storage,
+   * which would leave anything waiting on the notice (the newsletter banner)
+   * waiting forever.
+   */
+  settled(): boolean;
+  /**
+   * Same-tab change feed for `acknowledge()`. The `storage` DOM event only
+   * fires in OTHER tabs, so it cannot tell the banner that the notice beside
+   * it was just closed.
+   */
+  subscribe(listener: () => void): () => void;
 }
 
 /** The slice of `Storage` this adapter touches. */
@@ -32,20 +47,37 @@ type StorageBacking = Pick<Storage, "getItem" | "setItem">;
  * case that can only be tested by handing in one that throws.
  */
 export function createCookieNoticeStorage(backing: StorageBacking): CookieNoticeStorage {
+  const listeners = new Set<() => void>();
+  let acknowledgedThisPage = false;
+
+  /**
+   * A browser refusing to hand over storage answers "not acknowledged", so
+   * the notice shows again on the next visit. That is the safe direction:
+   * showing a notice twice costs a shopper one click, while swallowing the
+   * error the other way would hide a legal notice from someone who never
+   * saw it.
+   */
+  function acknowledged(): boolean {
+    try {
+      return backing.getItem(COOKIE_NOTICE_STORAGE_KEY) !== null;
+    } catch {
+      return false;
+    }
+  }
+
   return {
-    /**
-     * A browser refusing to hand over storage answers "not acknowledged", so
-     * the notice shows again on the next visit. That is the safe direction:
-     * showing a notice twice costs a shopper one click, while swallowing the
-     * error the other way would hide a legal notice from someone who never
-     * saw it.
-     */
-    acknowledged() {
-      try {
-        return backing.getItem(COOKIE_NOTICE_STORAGE_KEY) !== null;
-      } catch {
-        return false;
-      }
+    acknowledged,
+
+    settled() {
+      return acknowledgedThisPage || acknowledged();
+    },
+
+    subscribe(listener) {
+      listeners.add(listener);
+
+      return () => {
+        listeners.delete(listener);
+      };
     },
 
     /**
@@ -56,11 +88,41 @@ export function createCookieNoticeStorage(backing: StorageBacking): CookieNotice
      * worse outcome than a notice that reappears.
      */
     acknowledge() {
+      acknowledgedThisPage = true;
+
       try {
         backing.setItem(COOKIE_NOTICE_STORAGE_KEY, ACKNOWLEDGED);
       } catch {
         // Intentionally swallowed; see above.
       }
+
+      for (const listener of [...listeners]) {
+        try {
+          listener();
+        } catch {
+          // One misbehaving subscriber must not starve the others, nor undo
+          // a dismissal that is already written.
+        }
+      }
     },
   };
+}
+
+let browserStorage: CookieNoticeStorage | null = null;
+
+/**
+ * THE instance the notice and the newsletter banner share. It has to be one
+ * object: the subscription lives inside the adapter, so two adapters over the
+ * same `localStorage` would acknowledge without ever telling each other.
+ *
+ * Lazy and module-cached, never built at import time, for the reason
+ * `createCookieNoticeStorage` gives: only call it from client-only paths.
+ */
+export function browserCookieNoticeStorage(): CookieNoticeStorage {
+  // Lazy accessors: reading `window.localStorage` itself can throw when site
+  // data is blocked, and that must land inside the adapter's try/catch.
+  return (browserStorage ??= createCookieNoticeStorage({
+    getItem: (key) => window.localStorage.getItem(key),
+    setItem: (key, value) => window.localStorage.setItem(key, value),
+  }));
 }
