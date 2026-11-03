@@ -88,13 +88,16 @@ async function gate(request: NextRequest) {
 export const config = {
   matcher: [
     // Whatever this matches gets redirected to `/acceso` without the cookie,
-    // so three exclusions are load-bearing rather than cosmetic:
+    // so four exclusions are load-bearing rather than cosmetic:
     // `api/` keeps the Tiendanube webhook reachable — it is a server-to-server
     // POST with no cookie, and a 307 into an HTML page reads as a failed
     // delivery; `_vercel/` does the same for the Analytics and Speed Insights
     // beacons, whose scripts pass on their `.js` but whose extensionless POSTs
-    // would not; and `acceso(?:/|$)` is anchored so the gate route is skipped
-    // without also swallowing a future `/accesorios`.
-    "/((?!acceso(?:/|$)|api/|_vercel/|_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|webp|gif|svg|ico|css|js|mjs|map|woff2?|ttf|otf|mp4|webm|txt|xml|json)$).*)",
+    // would not; `newsletter/baja(?:/|$)` is the page behind every unsubscribe
+    // link, opened by people who may never have held the gate cookie, and a
+    // redirect there would make leaving the list impossible; and
+    // `acceso(?:/|$)` is anchored so the gate route is skipped without also
+    // swallowing a future `/accesorios`.
+    "/((?!acceso(?:/|$)|newsletter/baja(?:/|$)|api/|_vercel/|_next/static|_next/image|favicon\\.ico|.*\\.(?:png|jpg|jpeg|webp|gif|svg|ico|css|js|mjs|map|woff2?|ttf|otf|mp4|webm|txt|xml|json)$).*)",
   ],
 };

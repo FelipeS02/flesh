@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requestRestock, subscribe } from "../subscribers";
+import { requestRestock, resubscribe, subscribe, unsubscribe } from "../subscribers";
 import { createFakeSupabase } from "./fake-supabase";
 
 const ID = "7b1d6f0e-2c1a-4a58-9d3e-5a1f0c2b9e11";
@@ -112,5 +112,81 @@ describe("requestRestock", () => {
     const { client } = createFakeSupabase([{ error: { code: "XX000" } }]);
 
     await expect(requestRestock(client, request)).rejects.toThrow();
+  });
+});
+
+describe("unsubscribe", () => {
+  const NOW = new Date("2026-11-03T12:00:00Z");
+
+  it("short-circuits a token that is not a uuid, without any query", async () => {
+    const { client, calls } = createFakeSupabase([]);
+
+    await expect(unsubscribe(client, "not-a-uuid")).resolves.toBe("invalid");
+    await expect(unsubscribe(client, "")).resolves.toBe("invalid");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("stamps unsubscribed_at on an active row", async () => {
+    const { client, calls } = createFakeSupabase([{ data: [{ id: ID }] }]);
+
+    await expect(unsubscribe(client, ID, () => NOW)).resolves.toBe("done");
+    expect(calls).toEqual([
+      {
+        table: "newsletter_subscribers",
+        ops: [
+          ["update", { unsubscribed_at: "2026-11-03T12:00:00.000Z" }],
+          ["eq", "id", ID],
+          ["is", "unsubscribed_at", null],
+          ["select", "id"],
+        ],
+      },
+    ]);
+  });
+
+  it("is idempotent: an already-unsubscribed row is still done", async () => {
+    const { client } = createFakeSupabase([{ data: [] }, { data: { id: ID } }]);
+
+    await expect(unsubscribe(client, ID)).resolves.toBe("done");
+  });
+
+  it("reports invalid for an unknown id", async () => {
+    const { client } = createFakeSupabase([{ data: [] }, { data: null }]);
+
+    await expect(unsubscribe(client, ID)).resolves.toBe("invalid");
+  });
+
+  it("throws on a database error rather than claiming success", async () => {
+    const { client } = createFakeSupabase([{ error: { code: "XX000" } }]);
+
+    await expect(unsubscribe(client, ID)).rejects.toThrow();
+  });
+});
+
+describe("resubscribe", () => {
+  it("short-circuits a malformed token without any query", async () => {
+    const { client, calls } = createFakeSupabase([]);
+
+    await expect(resubscribe(client, "nope")).resolves.toBe("invalid");
+    expect(calls).toHaveLength(0);
+  });
+
+  it("clears unsubscribed_at and leaves the source alone", async () => {
+    const { client, calls } = createFakeSupabase([{ data: [{ id: ID }] }]);
+
+    await expect(resubscribe(client, ID)).resolves.toBe("done");
+    expect(calls[0]?.ops[0]).toEqual(["update", { unsubscribed_at: null }]);
+    expect(calls[0]?.ops).toContainEqual(["eq", "id", ID]);
+  });
+
+  it("reports invalid for an unknown id", async () => {
+    const { client } = createFakeSupabase([{ data: [] }]);
+
+    await expect(resubscribe(client, ID)).resolves.toBe("invalid");
+  });
+
+  it("throws on a database error", async () => {
+    const { client } = createFakeSupabase([{ error: { code: "XX000" } }]);
+
+    await expect(resubscribe(client, ID)).rejects.toThrow();
   });
 });

@@ -5,3 +5,4 @@ export type { Mailer, MailMessage, MailResult } from "./api/mailer";
 export { subscribeToNewsletter } from "./api/subscribe.action";
 export { requestRestockNotice } from "./api/restock.action";
 export type { RestockOutcome, SubscribeOutcome } from "./api/newsletter.service";
+export { handleResubscribe, handleUnsubscribe } from "./api/token-routes";

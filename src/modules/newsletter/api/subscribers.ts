@@ -101,3 +101,57 @@ export async function requestRestock(
   if (error) throw new NewsletterStorageError("restock_insert");
   return "created";
 }
+
+// Loose on version and variant bits on purpose: this only has to stop obvious
+// junk from becoming a query, and the table's own uuid column is the real judge.
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export type TokenResult = "done" | "invalid";
+
+/**
+ * The token IS the row id, so possession of the link is the whole credential:
+ * it is a v4 uuid (122 random bits) that only ever travelled to its owner's
+ * inbox. Not a uuid -> invalid without asking the database anything.
+ */
+export async function unsubscribe(
+  client: SupabaseClient,
+  token: string,
+  now: () => Date = () => new Date(),
+): Promise<TokenResult> {
+  if (!UUID_PATTERN.test(token)) return "invalid";
+
+  const { data, error } = await client
+    .from("newsletter_subscribers")
+    .update({ unsubscribed_at: now().toISOString() })
+    .eq("id", token)
+    // Keeps the ORIGINAL unsubscribe time on a repeat click instead of
+    // rewriting it, so the column stays evidence of when consent was withdrawn.
+    .is("unsubscribed_at", null)
+    .select("id");
+  if (error) throw new NewsletterStorageError("unsubscribe_update");
+  if (Array.isArray(data) && data.length > 0) return "done";
+
+  // Nothing was updated: either the address was already out (a double click, a
+  // scanner that ran first) — which is still the outcome the person asked for —
+  // or the id never existed.
+  const existing = await client.from("newsletter_subscribers").select("id").eq("id", token).maybeSingle();
+  if (existing.error) throw new NewsletterStorageError("unsubscribe_lookup");
+  return existing.data ? "done" : "invalid";
+}
+
+/**
+ * Undoes an unsubscribe from the same token link. Restoring consent here is
+ * sound because the person themselves just asked for it from their own link;
+ * `source` is kept since the original opt-in channel has not changed.
+ */
+export async function resubscribe(client: SupabaseClient, token: string): Promise<TokenResult> {
+  if (!UUID_PATTERN.test(token)) return "invalid";
+
+  const { data, error } = await client
+    .from("newsletter_subscribers")
+    .update({ unsubscribed_at: null })
+    .eq("id", token)
+    .select("id");
+  if (error) throw new NewsletterStorageError("resubscribe_update");
+  return Array.isArray(data) && data.length > 0 ? "done" : "invalid";
+}
