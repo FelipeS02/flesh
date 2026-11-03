@@ -30,7 +30,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
-import { RestockForm } from '@/modules/newsletter/client';
+import { RESTOCK_PITCH, RestockForm } from '@/modules/newsletter/client';
 
 /**
  * The sentinel the widget watches, and the reason it exists.
@@ -192,9 +192,7 @@ export function PurchaseWidget({
               <SheetTitle className='text-[28px] leading-none'>
                 Avisame cuando vuelva
               </SheetTitle>
-              <SheetDescription className='tracking-control uppercase'>
-                {restock.variantLine}
-              </SheetDescription>
+              <SheetDescription>{RESTOCK_PITCH}</SheetDescription>
             </SheetHeader>
             <div className='px-5 pb-6'>
               <RestockForm

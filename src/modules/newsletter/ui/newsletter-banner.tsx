@@ -1,17 +1,28 @@
-"use client";
+'use client';
 
-import { useCallback, useEffect, useId, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
-import { getImageProps } from "next/image";
-import { MailCheckIcon, TriangleAlertIcon, XIcon } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { browserCookieNoticeStorage, type CookieNoticeStorage } from "@/modules/legal/cookie-notice.storage";
-import { decideBanner } from "../domain/banner-policy";
-import desktopTexture from "./assets/newsletter-banner-desktop.jpg";
-import mobileTexture from "./assets/newsletter-banner-mobile.png";
-import { browserBannerStorage, type BannerStorage } from "./banner-storage";
-import { createSubscribePort, type SubscribePort } from "./newsletter.client";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type KeyboardEvent,
+} from 'react';
+import { getImageProps } from 'next/image';
+import { MailCheckIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  browserCookieNoticeStorage,
+  type CookieNoticeStorage,
+} from '@/modules/legal/cookie-notice.storage';
+import { decideBanner } from '../domain/banner-policy';
+import desktopTexture from './assets/newsletter-banner-desktop.jpg';
+import mobileTexture from './assets/newsletter-banner-mobile.png';
+import { browserBannerStorage, type BannerStorage } from './banner-storage';
+import { createSubscribePort, type SubscribePort } from './newsletter.client';
 
 /** How long the confirmation stays before the banner leaves on its own. */
 const SUCCESS_VISIBLE_MS = 4_000;
@@ -22,12 +33,12 @@ const SUCCESS_VISIBLE_MS = 4_000;
  * the `<picture>` below and the preload must resolve to the SAME candidates
  * or the preload warms a resource nobody requests (see `SheetBackgroundPreload`).
  */
-const TEXTURE_SIZES = "100vw";
-const DESKTOP_MEDIA = "(min-width: 768px)";
-const MOBILE_MEDIA = "(max-width: 767px)";
+const TEXTURE_SIZES = '100vw';
+const DESKTOP_MEDIA = '(min-width: 768px)';
+const MOBILE_MEDIA = '(max-width: 767px)';
 
 function textureProps() {
-  const common = { alt: "", sizes: TEXTURE_SIZES, fill: true } as const;
+  const common = { alt: '', sizes: TEXTURE_SIZES, fill: true } as const;
 
   return {
     desktop: getImageProps({ ...common, src: desktopTexture }).props,
@@ -47,20 +58,20 @@ export function NewsletterBannerPreload() {
   return (
     <>
       <link
-        rel="preload"
-        as="image"
+        rel='preload'
+        as='image'
         media={DESKTOP_MEDIA}
         imageSrcSet={desktop.srcSet}
         imageSizes={desktop.sizes}
-        fetchPriority="low"
+        fetchPriority='low'
       />
       <link
-        rel="preload"
-        as="image"
+        rel='preload'
+        as='image'
         media={MOBILE_MEDIA}
         imageSrcSet={mobile.srcSet}
         imageSizes={mobile.sizes}
-        fetchPriority="low"
+        fetchPriority='low'
       />
     </>
   );
@@ -74,9 +85,9 @@ type NewsletterBannerProps = {
 };
 
 type Status =
-  | { kind: "idle"; error: "invalid-email" | "unavailable" | null }
-  | { kind: "pending" }
-  | { kind: "done"; email: string };
+  | { kind: 'idle'; error: 'invalid-email' | 'unavailable' | null }
+  | { kind: 'pending' }
+  | { kind: 'done'; email: string };
 
 /**
  * The timed newsletter strip: a NON-modal offer pinned to the bottom edge.
@@ -91,15 +102,20 @@ type Status =
  * draws the answer. It renders nothing until its own timer fires, which is
  * also what keeps the server and the first client render identical.
  */
-export function NewsletterBanner({ port, storage, cookieNotice }: NewsletterBannerProps) {
+export function NewsletterBanner({
+  port,
+  storage,
+  cookieNotice,
+}: NewsletterBannerProps) {
   const [open, setOpen] = useState(false);
-  const [status, setStatus] = useState<Status>({ kind: "idle", error: null });
-  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<Status>({ kind: 'idle', error: null });
+  const [email, setEmail] = useState('');
   const fieldId = useId();
   const alertId = useId();
 
   const subscribeToCookieNotice = useCallback(
-    (listener: () => void) => (cookieNotice ?? browserCookieNoticeStorage()).subscribe(listener),
+    (listener: () => void) =>
+      (cookieNotice ?? browserCookieNoticeStorage()).subscribe(listener),
     [cookieNotice],
   );
   /**
@@ -125,17 +141,20 @@ export function NewsletterBanner({ port, storage, cookieNotice }: NewsletterBann
       cookieNoticePending,
     });
 
-    if (decision.kind === "hidden") return;
+    if (decision.kind === 'hidden') return;
 
     // Always through a timer, even when due now: it keeps the state change out
     // of the effect body, and the 0 ms case is the "shortly after the notice
     // is acknowledged" the design asks for.
-    const timer = setTimeout(() => setOpen(true), decision.kind === "at" ? decision.at - now : 0);
+    const timer = setTimeout(
+      () => setOpen(true),
+      decision.kind === 'at' ? decision.at - now : 0,
+    );
 
     return () => clearTimeout(timer);
   }, [storage, cookieNoticePending]);
 
-  const done = status.kind === "done";
+  const done = status.kind === 'done';
 
   useEffect(() => {
     if (!done) return;
@@ -153,31 +172,31 @@ export function NewsletterBanner({ port, storage, cookieNotice }: NewsletterBann
   }
 
   function onKeyDown(event: KeyboardEvent<HTMLElement>) {
-    if (event.key === "Escape") dismiss();
+    if (event.key === 'Escape') dismiss();
   }
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (status.kind === "pending") return;
+    if (status.kind === 'pending') return;
 
-    setStatus({ kind: "pending" });
+    setStatus({ kind: 'pending' });
     const outcome = await (port ?? createSubscribePort()).subscribe(email);
 
     if (outcome.ok) {
       // Written now, not when the banner leaves: a reload inside the four
       // seconds of confirmation must not offer it to someone who just joined.
       (storage ?? browserBannerStorage()).markSubscribed();
-      setStatus({ kind: "done", email });
+      setStatus({ kind: 'done', email });
       return;
     }
 
-    setStatus({ kind: "idle", error: outcome.error });
+    setStatus({ kind: 'idle', error: outcome.error });
   }
 
   const { desktop, mobile } = textureProps();
   const { srcSet: desktopSrcSet } = desktop;
   const { srcSet: mobileSrcSet, ...mobileImage } = mobile;
-  const error = status.kind === "idle" ? status.error : null;
+  const error = status.kind === 'idle' ? status.error : null;
 
   return (
     // `isolate` + `overflow-hidden` are the plate's contract (see
@@ -190,81 +209,101 @@ export function NewsletterBanner({ port, storage, cookieNotice }: NewsletterBann
     // layer; the cookie notice (z-50) can never coexist with it, and a sheet
     // opened over the page (z-50) rightly covers it.
     <section
-      role="region"
-      aria-label="Newsletter"
+      role='region'
+      aria-label='Newsletter'
       onKeyDown={onKeyDown}
-      className="fixed inset-x-0 bottom-[var(--bottom-dock,0px)] z-40 isolate overflow-hidden border-t border-border bg-popover px-5 py-[22px] text-popover-foreground transition-[bottom] duration-300 animate-in fade-in slide-in-from-bottom ease-out motion-reduce:transition-none motion-reduce:animate-none md:px-10 md:py-7"
+      className='fixed inset-x-0 bottom-[var(--bottom-dock,0px)] z-40 isolate overflow-hidden border-t border-border bg-popover px-5 py-[22px] text-popover-foreground transition-[bottom] duration-300 animate-in fade-in slide-in-from-bottom ease-out motion-reduce:transition-none motion-reduce:animate-none md:px-10 md:py-7'
     >
       <picture>
         <source media={DESKTOP_MEDIA} srcSet={desktopSrcSet} />
         {/* Decorative: the strip reads the same without it. Plain `<img>`
             from `getImageProps` because art direction needs the `<picture>`
             and `next/image` cannot emit one. */}
-        <img {...mobileImage} alt="" srcSet={mobileSrcSet} aria-hidden className="-z-1 object-cover opacity-20" />
+        <img
+          {...mobileImage}
+          alt=''
+          srcSet={mobileSrcSet}
+          aria-hidden
+          className='-z-1 object-cover opacity-20'
+        />
       </picture>
 
-      <div className="mx-auto flex w-full max-w-[488px] flex-col gap-4">
-        {status.kind === "done" ? (
-          <div role="status" className="flex flex-col gap-3">
-            <h2 className="font-sans text-sm tracking-control text-foreground uppercase">YA ESTÁS ADENTRO</h2>
-            <p className="flex items-center gap-2 font-sans text-sm text-foreground">
-              <MailCheckIcon aria-hidden className="size-4 shrink-0" />
+      <div className='mx-auto flex w-full max-w-[488px] flex-col gap-4'>
+        {status.kind === 'done' ? (
+          <div role='status' className='flex flex-col gap-3'>
+            <h2 className='font-sans text-sm tracking-control text-foreground uppercase'>
+              YA ESTÁS ADENTRO
+            </h2>
+            <p className='flex items-center gap-2 font-sans text-sm text-foreground'>
+              <MailCheckIcon aria-hidden className='size-4 shrink-0' />
               <span>Te mandamos la bienvenida a {status.email}</span>
             </p>
-            <p className="font-sans text-[10px] leading-relaxed tracking-control text-muted-foreground">
+            <p className='font-sans text-[10px] leading-relaxed tracking-control text-muted-foreground'>
               SOLO DROPS Y RESTOCKS. SI NO LO VES, REVISÁ PROMOCIONES O SPAM.
             </p>
           </div>
         ) : (
-          <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-            <h2 className="font-sans text-sm tracking-control text-foreground uppercase">
-              RECIBÍ LAS NOVEDADES DE FLESH
+          <form onSubmit={onSubmit} noValidate className='flex flex-col gap-4'>
+            <h2 className='font-sans text-sm tracking-control text-foreground uppercase'>
+              ENTERATE PRIMERO DE CADA DROP
             </h2>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor={fieldId} className="sr-only">
+            <div className='flex flex-col gap-2'>
+              <Label htmlFor={fieldId} className='sr-only'>
                 Email
               </Label>
               <Input
                 id={fieldId}
-                type="email"
-                name="email"
-                autoComplete="email"
-                placeholder="EMAIL"
+                type='email'
+                name='email'
+                autoComplete='email'
+                placeholder='EMAIL'
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
-                aria-invalid={error === "invalid-email" || undefined}
+                aria-invalid={error === 'invalid-email' || undefined}
                 aria-describedby={error ? alertId : undefined}
                 // Primary, not the destructive red: this brand's alarm colour
                 // IS its primary, and `aria-invalid:` would otherwise win.
-                className="h-11 bg-background/60 px-3 tracking-control aria-invalid:border-primary aria-invalid:ring-primary/20"
+                className='h-11 bg-background/60 px-3 tracking-control aria-invalid:border-primary aria-invalid:ring-primary/20'
               />
               {error && (
-                <p id={alertId} role="alert" className="flex items-center gap-2 font-sans text-[11px] tracking-control text-primary">
-                  <TriangleAlertIcon aria-hidden className="size-3.5 shrink-0" />
-                  {error === "invalid-email" ? "REVISÁ EL EMAIL, LE FALTA ALGO." : "NO PUDIMOS ANOTARTE. PROBÁ DE NUEVO."}
+                <p
+                  id={alertId}
+                  role='alert'
+                  className='flex items-center gap-2 font-sans text-[11px] tracking-control text-primary'
+                >
+                  <TriangleAlertIcon
+                    aria-hidden
+                    className='size-3.5 shrink-0'
+                  />
+                  {error === 'invalid-email'
+                    ? 'REVISÁ EL EMAIL, LE FALTA ALGO.'
+                    : 'NO PUDIMOS ANOTARTE. PROBÁ DE NUEVO.'}
                 </p>
               )}
             </div>
-            <Button type="submit" disabled={status.kind === "pending"} className="h-11 w-full font-display text-lg">
-              {status.kind === "pending" ? "Enviando…" : "Suscribirme"}
+            <Button
+              type='submit'
+              disabled={status.kind === 'pending'}
+              className='h-11 w-full font-display text-lg'
+            >
+              {status.kind === 'pending' ? 'Enviando…' : 'Suscribirme'}
             </Button>
-            <p className="font-sans text-[10px] leading-relaxed tracking-control text-muted-foreground">
-              AL SUSCRIBIRTE ACEPTÁS RECIBIR EMAILS DE FLESH CON DROPS Y RESTOCKS. NO HACE FALTA PARA COMPRAR. TE DAS DE BAJA
-              DESDE CUALQUIER EMAIL.
+            <p className='font-sans text-[10px] leading-relaxed tracking-control text-muted-foreground'>
+              AL SUSCRIBIRTE ACEPTÁS RECIBIR COMUNICACIONES COMERCIALES POR EMAIL.
             </p>
           </form>
         )}
       </div>
 
       <Button
-        type="button"
-        variant="ghost"
-        size="icon-sm"
+        type='button'
+        variant='ghost'
+        size='icon-sm'
         onClick={dismiss}
-        className="absolute top-3 right-3 text-muted-foreground hover:bg-transparent hover:text-foreground"
+        className='absolute top-3 right-3 text-muted-foreground hover:bg-transparent hover:text-foreground'
       >
         <XIcon />
-        <span className="sr-only">Cerrar</span>
+        <span className='sr-only'>Cerrar</span>
       </Button>
     </section>
   );

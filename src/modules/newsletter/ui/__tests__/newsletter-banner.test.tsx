@@ -361,11 +361,11 @@ describe("NewsletterBanner submission", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
-  it("states what subscribing means, and that it is not needed to buy", () => {
+  it("states what subscribing means", () => {
     open();
 
     expect(
-      screen.getByText(/NO HACE FALTA PARA COMPRAR\. TE DAS DE BAJA DESDE CUALQUIER EMAIL\./),
+      screen.getByText("AL SUSCRIBIRTE ACEPTÁS RECIBIR COMUNICACIONES COMERCIALES POR EMAIL."),
     ).toBeDefined();
   });
 });

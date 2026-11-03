@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ColourwayLink, GarmentSize, VariantMatrix, VariantView } from "@/modules/catalog";
 import { BOTTOM_DOCK_PROPERTY } from "@/hooks/use-bottom-dock";
+import { RESTOCK_PITCH } from "@/modules/newsletter/client";
 import { installControllableResizeObserver } from "../../../../../test/fixtures/observers";
 import { PurchaseWidget } from "../purchase-widget";
 
@@ -247,7 +248,7 @@ describe("PurchaseWidget on a sold-out variant", () => {
     expect(within(widget()).getByRole("button", { name: /agregar al carrito/i })).toBeDefined();
   });
 
-  it("opens a bottom sheet with the form, titled and described by the variant", () => {
+  it("opens a bottom sheet with the form, titled and pitched", () => {
     renderSoldOut();
 
     fireEvent.click(within(widget()).getByRole("button", { name: "Avisame cuando vuelva" }));
@@ -255,7 +256,8 @@ describe("PurchaseWidget on a sold-out variant", () => {
     const sheet = screen.getByRole("dialog", { name: "Avisame cuando vuelva" });
 
     expect(sheet.getAttribute("data-side")).toBe("bottom");
-    expect(within(sheet).getByText("NEGRO · L")).toBeDefined();
+    expect(within(sheet).getByText(RESTOCK_PITCH)).toBeDefined();
+    expect(within(sheet).queryByText("NEGRO · L")).toBeNull();
     expect(within(sheet).getByLabelText("EMAIL")).toBeDefined();
     expect(within(sheet).getByRole("checkbox").getAttribute("aria-checked")).toBe("false");
   });

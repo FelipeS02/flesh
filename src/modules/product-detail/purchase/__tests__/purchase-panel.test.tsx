@@ -339,15 +339,13 @@ describe("PurchasePanel", () => {
     expect(showAddedToCartSpy).toHaveBeenLastCalledWith({ variantId: 201, repeat: true });
   });
 
-  it("says the garment is gone rather than offering a dead add-to-cart", () => {
+  it("never offers a dead add-to-cart for a sold-out variant", () => {
     renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
 
     // A disabled button still reading "Agregar al carrito" reads as a broken
-    // site. Naming the reason is what makes the disabled state legible.
-    const cta = addToCart(/sin stock/i);
-
-    expect((cta as HTMLButtonElement).disabled).toBe(true);
+    // site; the restock form takes the CTA's place instead.
     expect(screen.queryByRole("button", { name: /agregar al carrito/i })).toBeNull();
+    expect(screen.getByRole("button", { name: "Avisame" })).toBeDefined();
   });
 
   it("disables the CTA and reads Máximo disponible once the cart already holds the limit", async () => {
@@ -545,7 +543,7 @@ describe("PurchasePanelFallback", () => {
     expect(axisGroup("Color")).toBeDefined();
   });
 
-  it("says what the default variant's CTA says", () => {
+  it("offers the restock form instead of a CTA when the default variant is sold out", () => {
     render(<PurchasePanelFallback
         product={TEE}
         productTitle="Remera Classic"
@@ -556,7 +554,8 @@ describe("PurchasePanelFallback", () => {
         currentSlug="remera-classic"
       />);
 
-    expect(addToCart("Sin stock")).toBeDefined();
+    expect(within(panel()).queryByRole("button", { name: /sin stock/i })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Avisame cuando vuelva" })).toBeDefined();
   });
 
   it("keeps the colourway slot in the same configuration order", () => {
@@ -577,20 +576,28 @@ describe("PurchasePanelFallback", () => {
 describe("PurchasePanel restock form", () => {
   const restockHeading = () => screen.queryByRole("heading", { name: "Avisame cuando vuelva" });
 
-  it("offers the form under the disabled CTA for a variant that exists and is sold out", () => {
+  // The form IS the answer for a sold-out variant; a dead "Sin stock" block
+  // above it only repeated the bad news in the panel's loudest slot.
+  it("replaces the CTA with the form for a variant that exists and is sold out", () => {
     renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
 
     expect(restockHeading()).not.toBeNull();
-    expect((addToCart(/sin stock/i) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(panel()).queryByRole("button", { name: /sin stock/i })).toBeNull();
   });
 
-  it("names the variant it will watch", () => {
+  it("names the variant it watches once the request lands", async () => {
+    restockActionSpy.mockResolvedValue({ ok: true, status: "created" });
     renderPanel(TEE, { searchParams: "?talle=l&color=noir" });
 
-    expect(screen.getByText("L · NOIR")).toBeDefined();
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "fan@flesh.test" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Avisame" }));
+    });
+
+    expect(screen.getByText(/L · NOIR/)).toBeDefined();
   });
 
-  it("prepends the page's colourway when the colour is not one of the axes", () => {
+  it("prepends the page's colourway when the colour is not one of the axes", async () => {
     render(
       <CartProvider catalog={CART_CATALOG} transferRateBp={1000}>
         <PurchasePanel
@@ -606,7 +613,13 @@ describe("PurchasePanel restock form", () => {
       { wrapper: withNuqsTestingAdapter({ searchParams: "", hasMemory: true }) },
     );
 
-    expect(screen.getByText("NEGRO · M")).toBeDefined();
+    restockActionSpy.mockResolvedValue({ ok: true, status: "created" });
+    fireEvent.change(screen.getByLabelText(/email/i), { target: { value: "fan@flesh.test" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Avisame" }));
+    });
+
+    expect(screen.getByText(/NEGRO · M/)).toBeDefined();
   });
 
   it("reaches the form by clicking a sold-out size, then drops it for an in-stock one", async () => {
@@ -617,7 +630,7 @@ describe("PurchasePanel restock form", () => {
     fireEvent.click(option("Talle", "L"));
 
     await waitFor(() => expect(restockHeading()).not.toBeNull());
-    expect(addToCart(/sin stock/i).disabled).toBe(true);
+    expect(within(panel()).queryByRole("button", { name: /sin stock/i })).toBeNull();
     // Choosing a size is not buying it.
     expect(screen.getByTestId("cart-lines").textContent).toBe("");
 

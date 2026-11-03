@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import type { RestockOutcome } from "../../api/newsletter.service";
 import type { RestockPort } from "../newsletter.client";
-import { RestockForm } from "../restock-form";
+import { RESTOCK_PITCH, RestockForm } from "../restock-form";
 
 const LINE = "NEGRO · M";
 
@@ -27,14 +27,19 @@ async function submit(email: string) {
 }
 
 describe("RestockForm (panel)", () => {
-  it("says what it is for and which variant it is about", () => {
+  it("says what it is for", () => {
     renderForm();
 
     expect(screen.getByRole("heading", { name: "Avisame cuando vuelva" })).toBeDefined();
-    expect(screen.getByText(LINE)).toBeDefined();
-    expect(
-      screen.getByText("Te mandamos un solo email, el día que entre tu talle. No te reservamos la prenda."),
-    ).toBeDefined();
+    expect(screen.getByText(RESTOCK_PITCH)).toBeDefined();
+  });
+
+  // The size already reads on the selector right above; repeated here it was
+  // a lone, tiny "M" under a 34px heading.
+  it("does not repeat the variant line while idle", () => {
+    renderForm();
+
+    expect(screen.queryByText(LINE)).toBeNull();
   });
 
   it("asks for an email in a typed, labelled field", () => {
@@ -171,13 +176,13 @@ describe("RestockForm (sheet)", () => {
     return renderForm(restockPort, { layout: "sheet" });
   }
 
-  // The sheet's own header already carries the title and the variant line.
-  it("leaves the heading to the sheet while idle", () => {
+  // The sheet's own header already carries the title and the pitch.
+  it("leaves the heading and the pitch to the sheet while idle", () => {
     renderSheet();
 
     expect(screen.queryByRole("heading")).toBeNull();
+    expect(screen.queryByText(RESTOCK_PITCH)).toBeNull();
     expect(screen.getByLabelText("EMAIL")).toBeDefined();
-    expect(screen.getByText("Un solo email, el día que entre tu talle. No te reservamos la prenda.")).toBeDefined();
   });
 
   it("submits through the same port with the same payload", async () => {

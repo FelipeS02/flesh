@@ -285,6 +285,12 @@ function PanelView({
       {/* Wrapped with the CTA so the note sits 12px above it instead of the
           panel's 20px rhythm: it belongs to the button, not to the list of
           choices above it. */}
+      {/* Not rendered for a sold-out variant: the restock form below is the
+          answer there, and a dead "Sin stock" block above it only repeated
+          the bad news in the panel's loudest slot. The wrapper goes with it —
+          left behind empty, it still took a 20px gap of the panel's rhythm
+          and pushed the form away from the selectors it belongs to. */}
+      {!restock && (
       <div className="flex flex-col gap-3">
       {lastUnit && <StockNote />}
 
@@ -311,6 +317,7 @@ function PanelView({
         {ctaLabel}
       </button>
       </div>
+      )}
 
       {/* Keyed by variant: a confirmation for one size must not survive a
           switch to another. */}
