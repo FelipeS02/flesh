@@ -68,6 +68,9 @@ square corners, Spanish copy, comments and test placement.
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Client | Enables GA4; omit to disable analytics |
 | `NEXT_PUBLIC_META_PIXEL_ID` | Client | Enables the Meta Pixel |
 | `META_CAPI_ACCESS_TOKEN` | Server | Meta Conversions API token |
+| `SUPABASE_URL` | Server | Supabase project URL for newsletter storage |
+| `SUPABASE_SECRET_KEY` | Server | Supabase secret key (bypasses RLS); never `NEXT_PUBLIC_` |
+| `CRON_SECRET` | Server | Bearer secret Vercel Cron sends to `/api/cron/keep-alive`; unset rejects every call |
 | `META_GRAPH_API_VERSION` | Server | Graph API version for Conversions API calls; has a default |
 
 Changing any of them requires a new build and deployment.
