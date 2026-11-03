@@ -37,4 +37,6 @@ jobs:
           version: 3.0.0
 
       # `--remote=<ref>` targets the project directly, so CI needs no `link`.
-      - run: supabase db push --remote=${{ vars.SUPABASE_PROJECT_ID }} --yes
+      # The ref is a secret, not a variable: this repo's logs are public and
+      # variables print unmasked, which would publish the production ref.
+      - run: supabase db push --remote=${{ secrets.SUPABASE_PROJECT_ID }} --yes
