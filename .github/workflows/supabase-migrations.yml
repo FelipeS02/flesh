@@ -1,0 +1,40 @@
+name: Supabase migrations
+
+on:
+  push:
+    branches:
+      - main
+    # Only a merged migration has anything to apply; every other push to main
+    # would just spend a run proving the database is already up to date.
+    paths:
+      - supabase/migrations/**
+  workflow_dispatch:
+
+# Two merges in quick succession must not push the same migration twice at
+# once; the second run waits and then finds nothing left to apply.
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: false
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    # The production environment scopes the database credentials to this job,
+    # so no other workflow can read them.
+    environment: production
+
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: supabase/setup-cli@v3
+        with:
+          # Pinned to the CLI the migrations were written and dry-run with, so
+          # a CLI release cannot change what a push does between two merges.
+          version: 3.0.0
+
+      # `--remote=<ref>` targets the project directly, so CI needs no `link`.
+      - run: supabase db push --remote=${{ vars.SUPABASE_PROJECT_ID }} --yes
