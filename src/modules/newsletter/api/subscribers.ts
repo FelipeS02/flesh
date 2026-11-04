@@ -155,3 +155,27 @@ export async function resubscribe(client: SupabaseClient, token: string): Promis
   if (error) throw new NewsletterStorageError("resubscribe_update");
   return Array.isArray(data) && data.length > 0 ? "done" : "invalid";
 }
+
+/**
+ * Drops a dead address from every table that could still mail it. The
+ * subscriber row is DELETED rather than flagged `unsubscribed_at`: that column
+ * is consent-withdrawal evidence (Ley 25.326) and a bounce is not a withdrawal.
+ *
+ * Only PENDING requests go: a notified row is history of something we already
+ * sent, and nothing will ever mail it again.
+ *
+ * Deleting an absent row is success, since Resend retries a delivery until it
+ * gets a 2xx and the second attempt finds nothing left to do. Each step has its
+ * own operation name so a partial failure says which table still holds the
+ * address.
+ */
+export async function forgetAddress(client: SupabaseClient, email: string): Promise<void> {
+  const subscriber = await client.from("newsletter_subscribers").delete().eq("email", email);
+  if (subscriber.error) throw new NewsletterStorageError("forget_subscriber");
+
+  const restock = await client.from("restock_requests").delete().eq("email", email).is("notified_at", null);
+  if (restock.error) throw new NewsletterStorageError("forget_restock_requests");
+
+  const launch = await client.from("product_launch_requests").delete().eq("email", email).is("notified_at", null);
+  if (launch.error) throw new NewsletterStorageError("forget_launch_requests");
+}

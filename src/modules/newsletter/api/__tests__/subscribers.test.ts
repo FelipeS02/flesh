@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { requestRestock, resubscribe, subscribe, unsubscribe } from "../subscribers";
+import { forgetAddress, requestRestock, resubscribe, subscribe, unsubscribe } from "../subscribers";
 import { createFakeSupabase } from "./fake-supabase";
 
 const ID = "7b1d6f0e-2c1a-4a58-9d3e-5a1f0c2b9e11";
@@ -188,5 +188,47 @@ describe("resubscribe", () => {
     const { client } = createFakeSupabase([{ error: { code: "XX000" } }]);
 
     await expect(resubscribe(client, ID)).rejects.toThrow();
+  });
+});
+
+describe("forgetAddress", () => {
+  it("deletes the subscriber and only the pending requests for that address", async () => {
+    const { client, calls } = createFakeSupabase([{}, {}, {}]);
+
+    await expect(forgetAddress(client, "dead@example.com")).resolves.toBeUndefined();
+
+    expect(calls).toEqual([
+      { table: "newsletter_subscribers", ops: [["delete"], ["eq", "email", "dead@example.com"]] },
+      {
+        table: "restock_requests",
+        ops: [["delete"], ["eq", "email", "dead@example.com"], ["is", "notified_at", null]],
+      },
+      {
+        table: "product_launch_requests",
+        ops: [["delete"], ["eq", "email", "dead@example.com"], ["is", "notified_at", null]],
+      },
+    ]);
+  });
+
+  it("succeeds when nothing matched, because Resend retries deliveries", async () => {
+    const { client } = createFakeSupabase([{ data: [] }, { data: [] }, { data: [] }]);
+
+    await expect(forgetAddress(client, "gone@example.com")).resolves.toBeUndefined();
+  });
+
+  it.each([
+    [0, "forget_subscriber"],
+    [1, "forget_restock_requests"],
+    [2, "forget_launch_requests"],
+  ])("names the failing step when delete #%i errors", async (failingStep, operation) => {
+    const replies = [{}, {}, {}].map((reply, index) =>
+      index === failingStep ? { error: { code: "XX000", message: "dead@example.com" } } : reply,
+    );
+    const { client } = createFakeSupabase(replies);
+
+    const failure = await forgetAddress(client, "dead@example.com").catch((error: unknown) => error);
+
+    expect(failure).toMatchObject({ name: "NewsletterStorageError", operation });
+    expect((failure as Error).message).not.toContain("dead@example.com");
   });
 });

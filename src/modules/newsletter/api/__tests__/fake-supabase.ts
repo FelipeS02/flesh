@@ -26,7 +26,7 @@ export function createFakeSupabase(replies: Reply[]) {
       const call: RecordedCall = { table, ops: [] };
       calls.push(call);
       const builder: Record<string, unknown> = {};
-      for (const method of ["select", "insert", "update", "eq", "is", "gt", "in", "order", "range", "limit"]) {
+      for (const method of ["select", "insert", "update", "delete", "eq", "is", "gt", "in", "order", "range", "limit"]) {
         builder[method] = (...args: unknown[]) => {
           call.ops.push([method, ...args]);
           return builder;
