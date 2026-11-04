@@ -11,7 +11,7 @@ type NavItem = {
 
 export const NAV_ITEMS: readonly NavItem[] = [
   { label: "Catálogo", href: "/" },
-  { label: "Instagram", href: "https://www.instagram.com/flesh.athletics/" },
+  { label: "Instagram", href: "https://www.instagram.com/flesh.ar/" },
   { label: "Devolución", href: "/devoluciones" },
   {
     label: "Playlist",

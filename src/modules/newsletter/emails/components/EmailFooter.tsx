@@ -2,7 +2,7 @@ import { Link, Section, Text } from "react-email";
 import { emailTheme as t, legacyBackground } from "../theme";
 
 // The storefront nav links this same profile; keep the two in step.
-export const INSTAGRAM_URL = "https://www.instagram.com/flesh.athletics/";
+export const INSTAGRAM_URL = "https://www.instagram.com/flesh.ar/";
 
 type EmailFooterProps = {
   baseUrl: string;

@@ -104,7 +104,7 @@ export function RestockForm({
           <MailCheckIcon aria-hidden className='mt-0.5 size-4 shrink-0' />
           <span>
             {status.result === 'created'
-              ? `Cuando entre ${variantLine} te escribimos a ${status.email}. Un solo email, nada más.`
+              ? `Cuando entre ${variantLine} te escribimos a ${status.email}.`
               : `${status.email} ya espera ${variantLine}. Te escribimos apenas entre.`}
           </span>
         </p>

@@ -111,7 +111,7 @@ describe("RestockForm (panel)", () => {
 
     expect(screen.getByRole("heading", { name: "Te avisamos" })).toBeDefined();
     expect(
-      screen.getByText(`Cuando entre ${LINE} te escribimos a fan@flesh.test. Un solo email, nada más.`),
+      screen.getByText(`Cuando entre ${LINE} te escribimos a fan@flesh.test.`),
     ).toBeDefined();
     expect(screen.queryByRole("button", { name: "Avisame" })).toBeNull();
   });

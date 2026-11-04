@@ -100,6 +100,7 @@ export async function subscribeToNewsletter(
     await subscribeAndWelcome(deps, email, "newsletter");
     return { ok: true };
   } catch (error) {
+    console.log(error)
     return unavailable(error);
   }
 }
@@ -168,6 +169,7 @@ async function subscribeAndWelcome(
       const outcome = await deps.createMailer().send(welcomeMessage(deps.siteOrigin(), email, result.id));
       if (!outcome.ok) console.error("[newsletter] welcome_failed", { reason: outcome.reason });
     } catch (error) {
+
       console.error("[newsletter] welcome_failed", describe(error));
     }
   });
