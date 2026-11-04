@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { z } from "zod";
 import { createSupabaseServerClient } from "./supabase";
-import { forgetAddress } from "./subscribers";
+import { forgetAddress, unsubscribeAddress } from "./subscribers";
 
 export type ResendWebhookDependencies = {
   /** Read lazily so a missing value fails the request, not the module import. */
@@ -13,6 +13,7 @@ export type ResendWebhookDependencies = {
   createClient: () => SupabaseClient;
   repository: {
     forgetAddress: (client: SupabaseClient, email: string) => Promise<void>;
+    unsubscribeAddress: (client: SupabaseClient, email: string) => Promise<void>;
   };
 };
 
@@ -34,7 +35,7 @@ function defaultDependencies(): ResendWebhookDependencies {
         webhookSecret,
       }),
     createClient: () => createSupabaseServerClient(),
-    repository: { forgetAddress },
+    repository: { forgetAddress, unsubscribeAddress },
   };
 }
 
@@ -49,6 +50,11 @@ const BouncedEventSchema = z.object({
   }),
 });
 
+const ComplainedEventSchema = z.object({
+  type: z.literal("email.complained"),
+  data: z.object({ to: z.array(z.string().min(1)) }),
+});
+
 function logFailure(reason: string, error?: unknown): void {
   // Event type or error class only: the payload carries recipient addresses and
   // the provider's bounce message, and neither may reach a log line.
@@ -58,8 +64,12 @@ function logFailure(reason: string, error?: unknown): void {
 }
 
 /**
- * Deletes every stored trace of an address Resend reports as permanently
- * bounced, so no later campaign mails it again.
+ * Keeps the list clean from Resend's delivery feedback:
+ * - a permanent bounce DELETES every stored trace of the address, so no later
+ *   campaign mails a dead mailbox;
+ * - a spam complaint MARKS the subscriber unsubscribed, because it is a consent
+ *   withdrawal and the row is its evidence.
+ * Every other event is acknowledged and ignored.
  *
  * 204 means handled or deliberately ignored; 400 an invalid signature or
  * payload; 503 missing config or a storage failure, which is what makes Resend
@@ -88,8 +98,12 @@ export async function handleResendWebhook(
   }
 
   const eventType = (event as { type?: unknown } | null)?.type;
-  if (eventType !== "email.bounced") return new Response(null, { status: 204 });
+  if (eventType === "email.bounced") return handleBounce(event, dependencies);
+  if (eventType === "email.complained") return handleComplaint(event, dependencies);
+  return new Response(null, { status: 204 });
+}
 
+async function handleBounce(event: unknown, dependencies: ResendWebhookDependencies): Promise<Response> {
   const parsed = BouncedEventSchema.safeParse(event);
   if (!parsed.success) return new Response(null, { status: 400 });
 
@@ -97,10 +111,25 @@ export async function handleResendWebhook(
   // about whether the address is dead, so they are left alone.
   if (parsed.data.data.bounce.type.toLowerCase() !== "permanent") return new Response(null, { status: 204 });
 
+  return applyToEach(parsed.data.data.to, dependencies, dependencies.repository.forgetAddress);
+}
+
+function handleComplaint(event: unknown, dependencies: ResendWebhookDependencies): Promise<Response> | Response {
+  const parsed = ComplainedEventSchema.safeParse(event);
+  if (!parsed.success) return new Response(null, { status: 400 });
+
+  return applyToEach(parsed.data.data.to, dependencies, dependencies.repository.unsubscribeAddress);
+}
+
+async function applyToEach(
+  addresses: string[],
+  dependencies: ResendWebhookDependencies,
+  action: (client: SupabaseClient, email: string) => Promise<void>,
+): Promise<Response> {
   try {
     const client = dependencies.createClient();
-    for (const address of parsed.data.data.to) {
-      await dependencies.repository.forgetAddress(client, address);
+    for (const address of addresses) {
+      await action(client, address);
     }
     return new Response(null, { status: 204 });
   } catch (error) {

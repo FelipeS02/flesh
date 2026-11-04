@@ -179,3 +179,28 @@ export async function forgetAddress(client: SupabaseClient, email: string): Prom
   const launch = await client.from("product_launch_requests").delete().eq("email", email).is("notified_at", null);
   if (launch.error) throw new NewsletterStorageError("forget_launch_requests");
 }
+
+/**
+ * Records a spam complaint as the consent withdrawal it is. Marked, never
+ * deleted: `unsubscribed_at` is the evidence (Ley 25.326) that this person asked
+ * to stop, and deleting the row would also let the address sign up again with no
+ * trace of that.
+ *
+ * Pending restock and launch requests are left alone on purpose: each is a
+ * separate explicit request, and the unsubscribe flow does not cancel them either.
+ *
+ * The `is null` filter keeps the ORIGINAL withdrawal time on a repeat delivery,
+ * and a missing row is success, since Resend retries until it gets a 2xx.
+ */
+export async function unsubscribeAddress(
+  client: SupabaseClient,
+  email: string,
+  now: () => Date = () => new Date(),
+): Promise<void> {
+  const { error } = await client
+    .from("newsletter_subscribers")
+    .update({ unsubscribed_at: now().toISOString() })
+    .eq("email", email)
+    .is("unsubscribed_at", null);
+  if (error) throw new NewsletterStorageError("unsubscribe_address");
+}
