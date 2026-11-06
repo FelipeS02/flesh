@@ -58,6 +58,34 @@ describe("handleCatalogWebhook", () => {
     expect(revalidate).not.toHaveBeenCalled();
   });
 
+  // A bare 401 left a real misconfiguration undiagnosable in production, so each
+  // rejection names its cause — and only its cause: the signature and body are
+  // caller-controlled and the body carries store data, so neither is logged.
+  it.each([
+    ["missing-signature", BODY, null],
+    ["malformed-signature", BODY, "abc123"],
+    ["malformed-signature", BODY, "z".repeat(64)],
+    ["signature-mismatch", BODY, sign(BODY, "not-the-secret")],
+  ])("logs %s as the rejection reason, and nothing else", async (reason, body, signature) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { dependencies: deps } = dependencies();
+
+    await handleCatalogWebhook(webhookRequest(body, signature), deps);
+
+    expect(warn).toHaveBeenCalledExactlyOnceWith("[catalog] tiendanube webhook rejected", { reason });
+    warn.mockRestore();
+  });
+
+  it("logs nothing for an authentic delivery", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { dependencies: deps } = dependencies();
+
+    await handleCatalogWebhook(webhookRequest(BODY, sign(BODY)), deps);
+
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   // The provider serialises `store_id` as a string on some deliveries and a
   // number on others, so the handler must verify the bytes it actually
   // received rather than anything re-serialised from a parsed body.

@@ -152,13 +152,25 @@ function parseJson(raw: string): unknown {
  * signed bytes: the provider sends `store_id` as a string on some deliveries
  * and a number on others, so the exact encoding is not ours to reconstruct.
  */
+type RejectionReason = "missing-signature" | "malformed-signature" | "signature-mismatch";
+
 function isAuthentic(raw: string, signature: string | null, secret: string): boolean {
-  if (!signature) return false;
+  const reason = rejectionReason(raw, signature, secret);
+  // A bare 401 cannot tell a provider that stopped signing from a deployment
+  // holding the wrong secret. Only the reason is logged: the header is
+  // caller-controlled and the body carries store data.
+  if (reason) console.warn("[catalog] tiendanube webhook rejected", { reason });
+  return reason === null;
+}
+
+function rejectionReason(raw: string, signature: string | null, secret: string): RejectionReason | null {
+  if (!signature) return "missing-signature";
   const expected = createHmac("sha256", secret).update(raw).digest();
   // A caller-controlled header reaches this line, and invalid hex truncates
   // rather than throwing, so the length is checked before `timingSafeEqual`,
   // which throws on mismatched lengths. The comparison itself stays constant
   // time so a wrong digest never reveals how many leading bytes were right.
   const received = Buffer.from(signature, "hex");
-  return received.length === expected.length && timingSafeEqual(received, expected);
+  if (received.length !== expected.length) return "malformed-signature";
+  return timingSafeEqual(received, expected) ? null : "signature-mismatch";
 }
