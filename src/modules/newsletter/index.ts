@@ -7,5 +7,6 @@ export { requestRestockNotice } from "./api/restock.action";
 export { requestLaunchNotice } from "./api/launch.action";
 export type { LaunchOutcome, RestockOutcome, SubscribeOutcome } from "./api/newsletter.service";
 export { dispatchRestockNotices } from "./api/restock-dispatch";
+export { dispatchLaunchNotices } from "./api/launch-dispatch";
 export { handleResubscribe, handleUnsubscribe } from "./api/token-routes";
 export { handleResendWebhook } from "./api/resend-webhook";
