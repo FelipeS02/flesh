@@ -83,9 +83,9 @@ export async function dispatchLaunchNotices(
     const inStock = product.variants.filter((variant) => variant.inStock);
     if (inStock.length === 0) return;
 
-    const claims = await claimLaunches(client, { productId, now: deps.now() });
-    if (claims.length === 0) return;
-
+    // Everything that can fail is prepared before the claim: a claimed row is
+    // marked notified, so a missing Resend key discovered after it would burn
+    // every pending request without one email leaving.
     const rateBp = await deps.getTransferRateBp();
     const prices = inStock.map((variant) => applyRate(variant.price, rateBp));
     const cheapest = prices.reduce((low, price) => (price.amount < low.amount ? price : low));
@@ -98,6 +98,9 @@ export async function dispatchLaunchNotices(
       origin: deps.siteOrigin(),
       price: `${differ ? "Desde " : ""}${formatMoney(cheapest)}`,
     };
+
+    const claims = await claimLaunches(client, { productId, now: deps.now() });
+    if (claims.length === 0) return;
     for (const chunk of chunked(claims, MAX_BATCH_SIZE)) await sendChunk(context, chunk);
   } catch (error) {
     console.error("[newsletter] launch_dispatch_failed", describe(error));

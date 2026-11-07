@@ -105,6 +105,21 @@ describe("dispatchLaunchNotices", () => {
     expect(errorLog).toHaveBeenCalledWith("[newsletter] launch_dispatch_failed", { reason: "unexpected_error" });
   });
 
+  // A claim marks rows notified, so anything that can fail before the first
+  // batch must fail BEFORE it: a missing Resend key would otherwise burn every
+  // pending request without a single email leaving.
+  it.each([
+    ["the mailer cannot be built", { createMailer: () => { throw new Error("Invalid mail configuration: RESEND_API_KEY"); } }],
+    ["the transfer rate cannot be read", { getTransferRateBp: async () => { throw new Error("pricing unavailable"); } }],
+  ] as const)("claims nothing when %s, leaving rows pending", async (_, override) => {
+    const { dependencies, calls, sendBatch } = setup([PENDING], override as Partial<LaunchDispatchDependencies>);
+
+    await expect(dispatchLaunchNotices(PRODUCT_ID, dependencies)).resolves.toBeUndefined();
+
+    expect(calls).toHaveLength(1);
+    expect(sendBatch).not.toHaveBeenCalled();
+  });
+
   it("does nothing for a product that no longer exists", async () => {
     const { dependencies, calls, sendBatch } = setup([PENDING], { getFreshProduct: async () => null });
 
