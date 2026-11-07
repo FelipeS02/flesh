@@ -159,15 +159,7 @@ export function createTiendanubeCatalogLoader(
     const colourwayField = await loadOwners(config, "colourway", requestJson);
     const fitField = await loadOwners(config, "fit", requestJson);
     const sizeChartField = await loadOwners(config, "size_chart", requestJson);
-    // An absent definition means no product can carry the field, so "no
-    // previews" is the truth and a 404 is read that way. ONLY a 404, ONLY here:
-    // swallowing a transient failure would fail OPEN and make preview products
-    // purchasable, so every other error stays fatal.
-    const previewField = await loadOwners(config, "preview", requestJson).catch((error: unknown) => {
-      if (!(error instanceof TiendanubeRequestError) || error.status !== 404) throw error;
-      warn("[catalog] The preview custom field is not defined; treating every product as released.");
-      return { id: "preview", namespace: "custom", slug: "preview", key: "custom/preview", value_type: "boolean", owner_resource: "products" as const, owners: [], has_more: false };
-    });
+    const previewField = await loadPreviewField(config, requestJson, warn);
 
     const validColourwayOwners = colourwayField.owners.flatMap((owner) => {
       const parsed = ColourwayOwnerSchema.safeParse(owner);
@@ -262,9 +254,55 @@ export function createTiendanubeProductReader(
     }
     const parsed = ProductSchema.safeParse(body);
     if (!parsed.success) throw new Error("Tiendanube contract error for product.");
-    // No colourway, fit or size chart: a restock email needs none of them, and
-    // each is a further round trip inside a three-second-sensitive path.
+    // No colourway, fit, size chart or preview: a restock email needs none of
+    // them, and each is a further request that can fail. `preview` is therefore
+    // ALWAYS false on this path; never trust it here, ask
+    // `createTiendanubePreviewReader` instead.
     return mapToProductView(parsed.data);
+  };
+}
+
+/**
+ * An absent definition means no product can carry the field, so "no previews"
+ * is the truth and a 404 is read that way. ONLY a 404, ONLY here: swallowing a
+ * transient failure would fail OPEN (a preview product purchasable, or mailed
+ * as launched), so every other error stays fatal.
+ */
+async function loadPreviewField(
+  config: TiendanubeConfig,
+  requestJson: JsonRequester,
+  warn: (message: string) => void,
+): Promise<OwnersEnvelope> {
+  try {
+    return await loadOwners(config, "preview", requestJson);
+  } catch (error) {
+    if (!(error instanceof TiendanubeRequestError) || error.status !== 404) throw error;
+    warn("[catalog] The preview custom field is not defined; treating every product as released.");
+    return { id: "preview", namespace: "custom", slug: "preview", key: "custom/preview", value_type: "boolean", owner_resource: "products", owners: [], has_more: false };
+  }
+}
+
+/**
+ * Whether ONE product is currently an unreleased preview, read live.
+ *
+ * Separate from the product reader on purpose: restock also uses that one, and
+ * folding this lookup in would make restock mails fail whenever the preview
+ * owners call does. Tiendanube has no per-product route for custom-field
+ * values, so this reads the field's owners and picks the product out of them,
+ * exactly as the snapshot loader does. Fails closed: anything but a missing
+ * definition throws, so the launch dispatch claims nothing and retries later.
+ */
+export function createTiendanubePreviewReader(
+  config: TiendanubeConfig,
+  dependencies: Dependencies = {},
+): (productId: number) => Promise<boolean> {
+  const requestJson = createJsonRequester(config, dependencies);
+  const warn = dependencies.warn ?? ((message) => console.warn(message));
+
+  return async (productId) => {
+    const field = await loadPreviewField(config, requestJson, warn);
+    const previews = toPreviewIndex(PreviewFieldSchema.parse(normalisedField(field)));
+    return previews.values.get(productId) ?? false;
   };
 }
 
