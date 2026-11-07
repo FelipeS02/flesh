@@ -10,6 +10,7 @@ import {
   type KeyboardEvent,
 } from 'react';
 import { getImageProps } from 'next/image';
+import { usePathname } from 'next/navigation';
 import { MailCheckIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +59,8 @@ function textureProps() {
  * Warms both art-directed textures from the document head, each gated by the
  * media query that decides which one the `<picture>` will pick, so a phone
  * never downloads the desktop plate. Low priority: the banner appears ten
- * seconds in, and this must never race the LCP image.
+ * seconds in, and this must never race the LCP image. Rendered by the home
+ * page only, because only the home can show the strip.
  */
 export function NewsletterBannerPreload() {
   const { desktop, mobile } = textureProps();
@@ -85,6 +87,9 @@ export function NewsletterBannerPreload() {
   );
 }
 
+/** The only route the strip is offered on. */
+const HOME_PATH = '/';
+
 type NewsletterBannerProps = {
   /** Injected by the tests; production calls the Server Action. */
   port?: SubscribePort;
@@ -109,12 +114,18 @@ type Status =
  * WHEN it shows is `decideBanner`'s job; this component only schedules and
  * draws the answer. It renders nothing until its own timer fires, which is
  * also what keeps the server and the first client render identical.
+ *
+ * Home only. It stays mounted in the layout so its timers survive client
+ * navigation, but it neither stamps the session clock nor schedules anything
+ * elsewhere: a shopper who enters through a PDP and opens the home a minute
+ * later would otherwise find the strip already due and see it instantly.
  */
 export function NewsletterBanner({
   port,
   storage,
   cookieNotice,
 }: NewsletterBannerProps) {
+  const onHome = usePathname() === HOME_PATH;
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: 'idle', error: null });
@@ -140,6 +151,8 @@ export function NewsletterBanner({
   );
 
   useEffect(() => {
+    if (!onHome) return;
+
     const store = storage ?? browserBannerStorage();
     const now = Date.now();
     const decision = decideBanner({
@@ -161,7 +174,19 @@ export function NewsletterBanner({
     );
 
     return () => clearTimeout(timer);
-  }, [storage, cookieNoticePending]);
+  }, [storage, cookieNoticePending, onHome]);
+
+  useEffect(() => {
+    if (!onHome) return;
+
+    // Leaving home closes the strip instead of merely hiding it: kept open,
+    // coming back would show it at once and skip the policy (dismissal,
+    // subscription) that a return is owed.
+    return () => {
+      setOpen(false);
+      setLeaving(false);
+    };
+  }, [onHome]);
 
   const done = status.kind === 'done';
 

@@ -3,9 +3,13 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { createCookieNoticeStorage } from "@/modules/legal/cookie-notice.storage";
 import { BANNER_DELAY_MS, BANNER_DISMISS_MS } from "../../domain/banner-policy";
-import { createBannerStorage } from "../banner-storage";
+import { BANNER_SESSION_KEY, createBannerStorage } from "../banner-storage";
 import { BANNER_EXIT_MS, NewsletterBanner, NewsletterBannerPreload } from "../newsletter-banner";
 import type { SubscribePort } from "../newsletter.client";
+
+const route = vi.hoisted(() => ({ pathname: "/" }));
+
+vi.mock("next/navigation", () => ({ usePathname: () => route.pathname }));
 
 function memory(seed: Record<string, string> = {}) {
   const store = new Map(Object.entries(seed));
@@ -64,6 +68,7 @@ async function submit(email: string) {
 }
 
 beforeEach(() => {
+  route.pathname = "/";
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2026-11-03T12:00:00Z"));
 });
@@ -128,6 +133,75 @@ describe("NewsletterBanner timing", () => {
   });
 });
 
+describe("NewsletterBanner home-only", () => {
+  it("never appears off the home page, however long the shopper stays", () => {
+    route.pathname = "/producto/some-tee";
+    mount(makeHarness());
+
+    advance(BANNER_DELAY_MS * 10);
+
+    expect(banner()).toBeNull();
+  });
+
+  it("does not start the session clock off the home page", () => {
+    route.pathname = "/producto/some-tee";
+    const harness = makeHarness();
+    mount(harness);
+
+    expect(harness.session.getItem(BANNER_SESSION_KEY)).toBeNull();
+  });
+
+  it("counts the delay from the first home visit, not from time spent elsewhere", () => {
+    route.pathname = "/producto/some-tee";
+    const view = mount(makeHarness());
+    advance(30_000);
+
+    route.pathname = "/";
+    view.rerender(
+      <NewsletterBanner port={view.port} storage={view.storage} cookieNotice={view.cookieNotice} />,
+    );
+    advance(BANNER_DELAY_MS - 1);
+
+    expect(banner()).toBeNull();
+
+    advance(1);
+
+    expect(banner()).not.toBeNull();
+  });
+
+  it("disappears when the shopper navigates away while it is showing", () => {
+    const view = mount(makeHarness());
+    advance(BANNER_DELAY_MS);
+    expect(banner()).not.toBeNull();
+
+    route.pathname = "/devoluciones";
+    view.rerender(
+      <NewsletterBanner port={view.port} storage={view.storage} cookieNotice={view.cookieNotice} />,
+    );
+
+    expect(banner()).toBeNull();
+  });
+
+  it("re-evaluates the policy on coming back to the home page", () => {
+    const view = mount(makeHarness());
+    advance(BANNER_DELAY_MS);
+    route.pathname = "/devoluciones";
+    view.rerender(
+      <NewsletterBanner port={view.port} storage={view.storage} cookieNotice={view.cookieNotice} />,
+    );
+
+    route.pathname = "/";
+    view.rerender(
+      <NewsletterBanner port={view.port} storage={view.storage} cookieNotice={view.cookieNotice} />,
+    );
+    advance(1);
+
+    // The delay has long passed, so the policy says "now": it returns through
+    // the same timer path as any other showing.
+    expect(banner()).not.toBeNull();
+  });
+});
+
 describe("NewsletterBanner and the cookie notice", () => {
   it("stays away while the cookie notice is pending, however long that takes", () => {
     mount(makeHarness({ cookieAcknowledged: false }));
@@ -142,7 +216,7 @@ describe("NewsletterBanner and the cookie notice", () => {
 
     advance(BANNER_DELAY_MS * 6);
     act(() => cookieNotice.acknowledge());
-    advance(0);
+    advance(1);
 
     expect(banner()).not.toBeNull();
   });
