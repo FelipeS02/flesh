@@ -51,7 +51,7 @@ export default function RestockEmail({
           variantLabel={variantLabel}
           price={price}
         />
-        <CtaButton href={productUrl}>Comprarlo ahora</CtaButton>
+        <CtaButton href={productUrl}>NO DUERMAS</CtaButton>
         <BodyText>
           Entraron pocas unidades y no te la reservamos: se la lleva el primero que paga.
         </BodyText>
