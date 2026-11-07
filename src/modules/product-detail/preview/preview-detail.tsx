@@ -20,7 +20,10 @@ type PreviewDetailProps = {
  */
 export function PreviewDetail({ product }: PreviewDetailProps) {
   return (
-    <main className='mx-auto flex w-full flex-1 flex-col items-center md:mt-6'>
+    // `justify-center` over a top margin: `main` already takes the height left
+    // under the header, so the block sits visually centred in it at any
+    // viewport height, where a fixed margin only looked right at one.
+    <main className='mx-auto flex w-full flex-1 flex-col items-center justify-center'>
       {/* The -mx-4 undoes the page wrapper's mobile gutter so the neighbouring
           slides can bleed to the screen edge. */}
       <div className='-mx-4 w-[calc(100%+2rem)] md:mx-0 md:w-full'>
