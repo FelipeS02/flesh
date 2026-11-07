@@ -7,7 +7,6 @@ import useEmblaCarousel, {
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react"
 
 type CarouselApi = UseEmblaCarouselType[1]
 type UseCarouselParameters = Parameters<typeof useEmblaCarousel>
@@ -180,10 +179,25 @@ function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
   )
 }
 
+/**
+ * Both arrows are invisible hit areas over one half of the slide each, with a
+ * big display-font glyph pushed to the outer edge. The brand wanted the whole
+ * half of the photo to be the control (a thumb never has to find a 28px
+ * target), and the glyph only to say which way it goes.
+ *
+ * Still the design system `Button`, so the focus-visible ring and the
+ * disabled handling come with it; the overrides only strip its chrome.
+ * Resting colour is `muted-foreground` (oklch .85), the closest token to the
+ * light grey the brand picked (oklch .87); hover and press go to `primary`.
+ * The hard black shadow keeps the glyph legible over any photo.
+ */
+const ARROW_CLASS =
+  "absolute z-5 cursor-pointer rounded-none border-0 bg-transparent px-4 font-display text-4xl tracking-[-2px] text-muted-foreground text-shadow-[4px_4px_0_black] hover:bg-transparent hover:text-primary active:text-primary dark:hover:bg-transparent"
+
 function CarouselPrevious({
   className,
-  variant = "outline",
-  size = "icon-sm",
+  variant = "ghost",
+  size = "default",
   ...props
 }: React.ComponentProps<typeof Button>) {
   const { orientation, scrollPrev, canScrollPrev } = useCarousel()
@@ -193,27 +207,29 @@ function CarouselPrevious({
       data-slot="carousel-previous"
       variant={variant}
       size={size}
+      aria-label="Imagen anterior"
       className={cn(
-        "absolute touch-manipulation rounded-full",
+        ARROW_CLASS,
         orientation === "horizontal"
-          ? "inset-y-0 -left-12 my-auto"
-          : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
+          ? "top-0 left-0 h-full w-1/2 justify-start text-left"
+          : "top-0 left-0 h-1/2 w-full items-start",
         className
       )}
       disabled={!canScrollPrev}
       onClick={scrollPrev}
       {...props}
     >
-      <ChevronLeftIcon />
-      <span className="sr-only">Previous slide</span>
+      <span aria-hidden="true" className={orientation === "vertical" ? "rotate-90" : undefined}>
+        {"<<"}
+      </span>
     </Button>
   )
 }
 
 function CarouselNext({
   className,
-  variant = "outline",
-  size = "icon-sm",
+  variant = "ghost",
+  size = "default",
   ...props
 }: React.ComponentProps<typeof Button>) {
   const { orientation, scrollNext, canScrollNext } = useCarousel()
@@ -223,19 +239,21 @@ function CarouselNext({
       data-slot="carousel-next"
       variant={variant}
       size={size}
+      aria-label="Imagen siguiente"
       className={cn(
-        "absolute touch-manipulation rounded-full",
+        ARROW_CLASS,
         orientation === "horizontal"
-          ? "inset-y-0 -right-12 my-auto"
-          : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
+          ? "top-0 right-0 h-full w-1/2 justify-end text-right"
+          : "bottom-0 left-0 h-1/2 w-full items-end",
         className
       )}
       disabled={!canScrollNext}
       onClick={scrollNext}
       {...props}
     >
-      <ChevronRightIcon />
-      <span className="sr-only">Next slide</span>
+      <span aria-hidden="true" className={orientation === "vertical" ? "rotate-90" : undefined}>
+        {">>"}
+      </span>
     </Button>
   )
 }
