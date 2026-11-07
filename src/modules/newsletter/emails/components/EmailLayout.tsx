@@ -23,6 +23,14 @@ export function EmailLayout({ baseUrl, preview, footer, children }: EmailLayoutP
             format: "woff2",
           }}
         />
+        {/* A copy of src/app/fonts/kraut.woff2: next/font serves that one under a
+            content-hashed path, and a mail needs a URL that stays put after it
+            is sent. Replace both files together when the font changes. */}
+        <Font
+          fontFamily="Kraut"
+          fallbackFontFamily="serif"
+          webFont={{ url: `${baseUrl}/email/kraut.woff2`, format: "woff2" }}
+        />
       </Head>
       <Preview>{preview}</Preview>
       <Body

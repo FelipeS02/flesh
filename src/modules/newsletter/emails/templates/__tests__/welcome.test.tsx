@@ -24,6 +24,13 @@ describe("WelcomeEmail", () => {
     expect(html).not.toContain("localhost");
   });
 
+  it("loads Kraut for the display text from the given base URL", async () => {
+    const html = await render(<WelcomeEmail {...props} />);
+
+    expect(html).toMatch(/font-family:\s*'Kraut'/);
+    expect(html).toContain("url(https://flesh.example/email/kraut.woff2)");
+  });
+
   it("carries the Spanish copy and subject", async () => {
     const html = await render(<WelcomeEmail {...props} />);
 
