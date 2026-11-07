@@ -27,6 +27,20 @@ const DESKTOP_QUERY = '(min-width: 768px)';
 /** The ratio of a photo that could not be measured: the design's 310x400 slide. */
 const FALLBACK_RATIO = '310 / 400';
 
+/** The mobile slide height; the strip's end padding is derived from it. */
+const MOBILE_SLIDE_HEIGHT_PX = 388;
+
+/**
+ * How far past the photo's edge each arrow's hit area reaches.
+ *
+ * The `<<` / `>>` glyphs sit OUTSIDE the active photo, over the gap and the
+ * dimmed neighbour, so they never cover the garment. The glyph is about 40px
+ * wide and is pushed to the outer end of its button, which puts its inner edge
+ * roughly 32px clear of the photo; the button extends this far so the whole
+ * strip (outside part plus half the photo) is still one tap target.
+ */
+const ARROW_OUTSET_PX = 72;
+
 /** Same reasoning as the buy gallery's hero: the original is downscaled by Next. */
 const QUALITY = 90;
 
@@ -138,7 +152,16 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
     <div
       ref={root}
       className='relative w-full md:[--preview-h:min(400px,max(240px,calc(var(--pdp-viewport-height,100svh)-var(--pdp-band-height,11.25rem)-344px)))]'
-      style={{ '--first-ratio': ordered[0] ? ratioOf(ordered[0]) : FALLBACK_RATIO } as CSSProperties}
+      style={
+        {
+          '--first-ratio': ordered[0] ? ratioOf(ordered[0]) : FALLBACK_RATIO,
+          // Padding on the scroller itself, each end from ITS OWN photo: a
+          // spacer derived from one ratio left a last photo of another width
+          // off-centre and clipped by the edge.
+          '--pad-start': `calc((100vw - ${MOBILE_SLIDE_HEIGHT_PX}px * ${numericRatio(ordered[0])}) / 2)`,
+          '--pad-end': `calc((100vw - ${MOBILE_SLIDE_HEIGHT_PX}px * ${numericRatio(ordered.at(-1))}) / 2)`,
+        } as CSSProperties
+      }
     >
       <Carousel
         setApi={setApi}
@@ -146,7 +169,7 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
         aria-label={`Galería de imágenes de ${title}`}
       >
         <CarouselContent
-          viewportClassName='max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory max-md:scrollbar-none [&::-webkit-scrollbar]:hidden'
+          viewportClassName='max-md:ps-(--pad-start) max-md:pe-(--pad-end) max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory max-md:scrollbar-none [&::-webkit-scrollbar]:hidden'
           // Before Embla starts (the server render, the first paint) the
           // track is nudged so the first photo already sits in the middle; the
           // engine's own inline transform replaces this the moment it runs,
@@ -168,10 +191,7 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
                     opacity: opacities[index] ?? 1,
                   } as CSSProperties
                 }
-                // The first and last slide get the margin that lets them reach
-                // the middle of the native strip (half the viewport less half
-                // the slide: 388px tall, so 194px x ratio).
-                className='relative basis-auto pl-0 transition-[filter,opacity] duration-300 max-md:snap-center max-md:first:ml-[calc(50vw-194px*var(--slide-ratio))] max-md:last:mr-[calc(50vw-194px*var(--slide-ratio))] motion-reduce:transition-none'
+                className='relative basis-auto pl-0 transition-[filter,opacity] duration-300 max-md:snap-center motion-reduce:transition-none'
               >
                 <div className='relative h-97 aspect-(--slide-ratio) md:h-(--preview-h)'>
                   <Image
@@ -211,8 +231,14 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
           {badge && <div className='absolute top-0 left-0'>{badge}</div>}
           {hasControls && (
             <>
-              <CarouselPrevious className='pointer-events-auto max-md:hidden' />
-              <CarouselNext className='pointer-events-auto max-md:hidden' />
+              <CarouselPrevious
+                className='pointer-events-auto justify-start px-0 max-md:hidden'
+                style={{ left: -ARROW_OUTSET_PX, width: `calc(50% + ${ARROW_OUTSET_PX}px)` }}
+              />
+              <CarouselNext
+                className='pointer-events-auto justify-end px-0 max-md:hidden'
+                style={{ right: -ARROW_OUTSET_PX, width: `calc(50% + ${ARROW_OUTSET_PX}px)` }}
+              />
             </>
           )}
         </div>

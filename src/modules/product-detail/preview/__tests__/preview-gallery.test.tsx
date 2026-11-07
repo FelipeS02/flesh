@@ -179,6 +179,45 @@ describe("PreviewGallery", () => {
     expect(overlay().style.getPropertyValue("--active-ratio")).toBe("2");
   });
 
+  // The native strip's end padding is what lets snap-center park a slide
+  // exactly in the middle. One shared spacer was derived from a single ratio,
+  // so a last photo wider or narrower than the first sat off-centre and clipped.
+  it("pads the mobile strip from the first and last photos' own widths", () => {
+    embla.count = 3;
+    setViewport("mobile");
+    const photos: ImageView[] = [
+      { id: 1, src: "/a.png", position: 1, width: 1000, height: 1000 },
+      { id: 2, src: "/b.png", position: 2, width: 1000, height: 1000 },
+      { id: 3, src: "/c.png", position: 3, width: 1000, height: 500 },
+    ];
+    const { container } = render(<PreviewGallery images={photos} title='Army' />);
+    const root = container.firstElementChild as HTMLElement;
+    const viewport = container.querySelector('[data-slot="carousel-content"]')!;
+
+    expect(root.style.getPropertyValue("--pad-start")).toBe("calc((100vw - 388px * 1) / 2)");
+    expect(root.style.getPropertyValue("--pad-end")).toBe("calc((100vw - 388px * 2) / 2)");
+    expect(viewport.className).toContain("max-md:ps-(--pad-start)");
+    expect(viewport.className).toContain("max-md:pe-(--pad-end)");
+  });
+
+  it("no longer spaces the strip with per-slide margins", () => {
+    const { container } = renderGallery(3, "mobile");
+
+    expect(slides(container).some((slide) => slide.className.includes("first:ml"))).toBe(false);
+  });
+
+  it("puts the arrows' hit areas outside the photo, on its sides", () => {
+    renderGallery(3);
+
+    const prev = screen.getByRole("button", { name: "Imagen anterior" });
+    const next = screen.getByRole("button", { name: "Imagen siguiente" });
+
+    expect(prev.style.left).toBe("-72px");
+    expect(next.style.right).toBe("-72px");
+    expect(prev.style.width).toBe("calc(50% + 72px)");
+    expect(next.style.width).toBe("calc(50% + 72px)");
+  });
+
   it("sizes each slide from its own photo's ratio", () => {
     const { container } = renderGallery(2);
 
