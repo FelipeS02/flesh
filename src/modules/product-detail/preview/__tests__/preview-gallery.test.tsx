@@ -234,16 +234,27 @@ describe("PreviewGallery", () => {
     expect(overlay.className).not.toContain("--preview-h");
   });
 
-  it("puts the arrows' hit areas outside the photo, on its sides", () => {
+  it("shrinks each hit area to its glyph, hung 100px outside the photo", () => {
     renderGallery(3);
 
     const prev = screen.getByRole("button", { name: "Imagen anterior" });
     const next = screen.getByRole("button", { name: "Imagen siguiente" });
 
-    expect(prev.style.left).toBe("-72px");
-    expect(next.style.right).toBe("-72px");
-    expect(prev.style.width).toBe("calc(50% + 72px)");
-    expect(next.style.width).toBe("calc(50% + 72px)");
+    // Only the glyph is a tap target: neither the photo nor the gap is.
+    for (const button of [prev, next]) {
+      expect(button.className).toContain("w-auto");
+      expect(button.className).toContain("h-auto");
+      expect(button.className).not.toContain("w-1/2");
+      expect(button.className).not.toContain("h-full");
+      // Centred by margins, not a transform any press state could replace.
+      expect(button.className).toContain("my-auto");
+      expect(button.className).not.toContain("translate-y-1/2");
+    }
+
+    expect(prev.style.right).toBe("calc(100% + 100px)");
+    expect(prev.style.left).toBe("auto");
+    expect(next.style.left).toBe("calc(100% + 100px)");
+    expect(next.style.right).toBe("auto");
   });
 
   it("sizes each slide from its own photo's ratio", () => {

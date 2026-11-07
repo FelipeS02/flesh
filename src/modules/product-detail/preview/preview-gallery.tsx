@@ -39,15 +39,15 @@ function spacerWidth(image: ImageView | undefined): string {
 }
 
 /**
- * How far past the photo's edge each arrow's hit area reaches.
+ * Air between the active photo's edge and its `<<` / `>>` button. The buttons
+ * sit OUTSIDE the photo, over the dimmed neighbour, so they never cover the
+ * garment; this is the knob for how far.
  *
- * The `<<` / `>>` glyphs sit OUTSIDE the active photo, over the gap and the
- * dimmed neighbour, so they never cover the garment. The glyph is about 40px
- * wide and is pushed to the outer end of its button, which puts its inner edge
- * roughly 32px clear of the photo; the button extends this far so the whole
- * strip (outside part plus half the photo) is still one tap target.
+ * The button is shrunk to its glyph on purpose (owner's call): neither the
+ * photo nor this gap is a tap target, so a shopper tapping the garment to look
+ * closer never flips it away by accident.
  */
-const ARROW_OUTSET_PX = 72;
+const ARROW_GAP_PX = 100;
 
 /** Same reasoning as the buy gallery's hero: the original is downscaled by Next. */
 const QUALITY = 90;
@@ -259,13 +259,16 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
           {badge && <div className='absolute top-0 left-0'>{badge}</div>}
           {hasControls && (
             <>
+              {/* `left`/`right: auto` in the style, not only the class: the
+                  component's own `left-0`/`right-0` would otherwise stretch
+                  the shrunk button back across the photo. */}
               <CarouselPrevious
-                className='pointer-events-auto justify-start px-0 max-md:hidden'
-                style={{ left: -ARROW_OUTSET_PX, width: `calc(50% + ${ARROW_OUTSET_PX}px)` }}
+                className='pointer-events-auto inset-y-0 my-auto h-auto max-h-fit w-auto px-0 max-md:hidden'
+                style={{ right: `calc(100% + ${ARROW_GAP_PX}px)`, left: 'auto' }}
               />
               <CarouselNext
-                className='pointer-events-auto justify-end px-0 max-md:hidden'
-                style={{ right: -ARROW_OUTSET_PX, width: `calc(50% + ${ARROW_OUTSET_PX}px)` }}
+                className='pointer-events-auto inset-y-0 my-auto h-auto max-h-fit w-auto px-0 max-md:hidden'
+                style={{ left: `calc(100% + ${ARROW_GAP_PX}px)`, right: 'auto' }}
               />
             </>
           )}

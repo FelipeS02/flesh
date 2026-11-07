@@ -154,4 +154,17 @@ describe("CarouselPrevious / CarouselNext", () => {
     expect(className).toContain("hover:text-primary");
     expect(className).toContain("rounded-none");
   });
+
+  // Button's press feedback is a 1px translate. On an absolutely positioned
+  // arrow that translate REPLACES any centring transform, so the arrow jumped
+  // on every click; the colour change is the arrow's press feedback instead.
+  it("cancels the button's press translate", () => {
+    mountWithApi(true, true);
+
+    for (const name of ["Imagen anterior", "Imagen siguiente"]) {
+      expect(screen.getByRole("button", { name }).className).toContain(
+        "active:not-aria-[haspopup]:translate-y-0",
+      );
+    }
+  });
 });

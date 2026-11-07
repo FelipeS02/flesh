@@ -191,8 +191,11 @@ function CarouselItem({ className, ...props }: React.ComponentProps<"div">) {
  * light grey the brand picked (oklch .87); hover and press go to `primary`.
  * The hard black shadow keeps the glyph legible over any photo.
  */
+// `active:…:translate-y-0` cancels Button's 1px press translate: on an
+// absolutely positioned arrow that translate replaces any centring transform,
+// so the arrow jumped on every click. The colour change is the press feedback.
 const ARROW_CLASS =
-  "absolute z-5 cursor-pointer rounded-none border-0 bg-transparent px-4 font-display text-4xl tracking-[-2px] text-muted-foreground text-shadow-[4px_4px_0_black] hover:bg-transparent hover:text-primary active:text-primary dark:hover:bg-transparent"
+  "absolute z-5 cursor-pointer rounded-none border-0 bg-transparent px-4 font-display text-4xl tracking-[-2px] text-muted-foreground text-shadow-[4px_4px_0_black] hover:bg-transparent hover:text-primary active:text-primary active:not-aria-[haspopup]:translate-y-0 dark:hover:bg-transparent"
 
 function CarouselPrevious({
   className,
