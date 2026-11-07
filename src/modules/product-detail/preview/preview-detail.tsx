@@ -20,7 +20,7 @@ type PreviewDetailProps = {
  */
 export function PreviewDetail({ product }: PreviewDetailProps) {
   return (
-    <main className='mx-auto mb-10 flex w-full flex-1 flex-col items-center md:mt-6'>
+    <main className='mx-auto flex w-full flex-1 flex-col items-center md:mt-6'>
       {/* The -mx-4 undoes the page wrapper's mobile gutter so the neighbouring
           slides can bleed to the screen edge. */}
       <div className='-mx-4 w-[calc(100%+2rem)] md:mx-0 md:w-full'>

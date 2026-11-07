@@ -34,6 +34,11 @@ function ratioOf(image: ImageView): string {
   return image.width && image.height ? `${image.width} / ${image.height}` : FALLBACK_RATIO;
 }
 
+/** The same ratio as a number, for the `calc()` that sizes the stage overlay. */
+function numericRatio(image: ImageView | undefined): number {
+  return image?.width && image.height ? image.width / image.height : 310 / 400;
+}
+
 type PreviewGalleryProps = {
   images: ImageView[];
   title: string;
@@ -132,7 +137,7 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
   return (
     <div
       ref={root}
-      className='relative w-full md:[--preview-h:min(400px,max(240px,calc(var(--pdp-viewport-height,100svh)-var(--pdp-band-height,11.25rem)-320px)))]'
+      className='relative w-full md:[--preview-h:min(400px,max(240px,calc(var(--pdp-viewport-height,100svh)-var(--pdp-band-height,11.25rem)-344px)))]'
       style={{ '--first-ratio': ordered[0] ? ratioOf(ordered[0]) : FALLBACK_RATIO } as CSSProperties}
     >
       <Carousel
@@ -151,7 +156,6 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
         >
           {ordered.map((image, index) => {
             const source = mediaSource(image.src, { width: 640 });
-            const active = index === selected;
 
             return (
               <CarouselItem
@@ -186,22 +190,32 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
                     loading={index === 0 ? 'eager' : 'lazy'}
                   />
                 </div>
-                {active && badge && (
-                  <div className='pointer-events-none absolute top-0 left-0'>{badge}</div>
-                )}
-                {active && hasControls && (
-                  <>
-                    {/* Each arrow is half of THIS slide (the primitive's own
-                        geometry), so they live inside the active slide and
-                        follow it. Swipe is the gesture on mobile. */}
-                    <CarouselPrevious className='max-md:hidden' />
-                    <CarouselNext className='max-md:hidden' />
-                  </>
-                )}
               </CarouselItem>
             );
           })}
         </CarouselContent>
+
+        {/* Badge and arrows are drawn ONCE, over the stage, not inside
+            whichever slide is active: moving between slides then re-renders
+            nothing here and remounts nothing, which an in-slide copy would do
+            on every step. The layer sits where the active slide sits (centred
+            by Embla on desktop, by scroll-snap on mobile) and is as wide as
+            that slide, from the catalogue's measured ratio, so each arrow
+            still covers half of the photo. The layer is click-through; only
+            the arrows take pointer events. */}
+        <div
+          data-stage-overlay
+          style={{ '--active-ratio': numericRatio(ordered[selected]) } as CSSProperties}
+          className='pointer-events-none absolute top-0 left-1/2 z-10 h-97 w-[calc(388px*var(--active-ratio))] -translate-x-1/2 transition-[width] duration-300 md:h-(--preview-h) md:w-[calc(var(--preview-h)*var(--active-ratio))] motion-reduce:transition-none'
+        >
+          {badge && <div className='absolute top-0 left-0'>{badge}</div>}
+          {hasControls && (
+            <>
+              <CarouselPrevious className='pointer-events-auto max-md:hidden' />
+              <CarouselNext className='pointer-events-auto max-md:hidden' />
+            </>
+          )}
+        </div>
       </Carousel>
 
       {hasControls && (

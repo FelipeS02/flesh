@@ -127,15 +127,56 @@ describe("PreviewGallery", () => {
     expect(filters).toEqual([`blur(${MAX_BLUR_PX}px)`, "blur(0px)", `blur(${MAX_BLUR_PX}px)`]);
   });
 
-  it("badges and arms only the active slide", () => {
+  // The badge and the arrows are one overlay over the stage, not a copy per
+  // slide: they exist exactly once and survive a step without remounting.
+  it("renders the badge and each arrow exactly once, whatever the slide count", () => {
+    for (const count of [2, 5]) {
+      const { unmount } = renderGallery(count);
+
+      expect(screen.getAllByText("PREVIEW")).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "Imagen siguiente" })).toHaveLength(1);
+      expect(screen.getAllByRole("button", { name: "Imagen anterior" })).toHaveLength(1);
+      unmount();
+    }
+  });
+
+  it("keeps the same badge and arrow nodes when the selection changes", () => {
     const { container } = renderGallery(3);
+    const badge = screen.getByText("PREVIEW");
+    const next = screen.getByRole("button", { name: "Imagen siguiente" });
+
+    fireEvent.click(next);
+
+    expect(screen.getByText("PREVIEW")).toBe(badge);
+    expect(screen.getByRole("button", { name: "Imagen siguiente" })).toBe(next);
+    expect(container.querySelector("[data-stage-overlay]")?.contains(badge)).toBe(true);
+    expect(slides(container).some((slide) => slide.contains(badge))).toBe(false);
+  });
+
+  it("lets clicks through the overlay but not the arrows", () => {
+    const { container } = renderGallery(3);
+
+    expect(container.querySelector("[data-stage-overlay]")?.className).toContain("pointer-events-none");
+    expect(screen.getByRole("button", { name: "Imagen siguiente" }).className).toContain(
+      "pointer-events-auto",
+    );
+  });
+
+  it("sizes the overlay from the selected photo's ratio", () => {
+    embla.count = 2;
+    setViewport("desktop");
+    const photos: ImageView[] = [
+      { id: 1, src: "/a.png", position: 1, width: 1000, height: 1000 },
+      { id: 2, src: "/b.png", position: 2, width: 1000, height: 500 },
+    ];
+    const { container } = render(<PreviewGallery images={photos} title='Army' />);
+    const overlay = () => container.querySelector<HTMLElement>("[data-stage-overlay]")!;
+
+    expect(overlay().style.getPropertyValue("--active-ratio")).toBe("1");
+
     fireEvent.click(screen.getByRole("button", { name: "Imagen siguiente" }));
 
-    const active = slides(container)[1]!;
-
-    expect(screen.getAllByText("PREVIEW")).toHaveLength(1);
-    expect(active.textContent).toContain("PREVIEW");
-    expect(screen.getAllByRole("button", { name: "Imagen siguiente" })).toHaveLength(1);
+    expect(overlay().style.getPropertyValue("--active-ratio")).toBe("2");
   });
 
   it("sizes each slide from its own photo's ratio", () => {
