@@ -14,6 +14,7 @@ import { MailCheckIcon, TriangleAlertIcon, XIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils';
 import {
   browserCookieNoticeStorage,
   type CookieNoticeStorage,
@@ -26,6 +27,13 @@ import { createSubscribePort, type SubscribePort } from './newsletter.client';
 
 /** How long the confirmation stays before the banner leaves on its own. */
 const SUCCESS_VISIBLE_MS = 4_000;
+
+/**
+ * The exit runs on a timer matched to `duration-300`, not on `animationend`:
+ * under reduced motion no animation runs, so that event would never fire and
+ * the strip would stay mounted forever.
+ */
+export const BANNER_EXIT_MS = 300;
 
 /**
  * The plate is a full-bleed texture under a strip that is at most ~1600px
@@ -108,6 +116,7 @@ export function NewsletterBanner({
   cookieNotice,
 }: NewsletterBannerProps) {
   const [open, setOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
   const [status, setStatus] = useState<Status>({ kind: 'idle', error: null });
   const [email, setEmail] = useState('');
   const fieldId = useId();
@@ -159,15 +168,27 @@ export function NewsletterBanner({
   useEffect(() => {
     if (!done) return;
 
-    const timer = setTimeout(() => setOpen(false), SUCCESS_VISIBLE_MS);
+    const timer = setTimeout(() => setLeaving(true), SUCCESS_VISIBLE_MS);
 
     return () => clearTimeout(timer);
   }, [done]);
 
+  useEffect(() => {
+    if (!leaving) return;
+
+    const timer = setTimeout(() => {
+      setOpen(false);
+      setLeaving(false);
+    }, BANNER_EXIT_MS);
+
+    return () => clearTimeout(timer);
+  }, [leaving]);
+
   if (!open) return null;
 
   function dismiss() {
-    setOpen(false);
+    if (leaving) return;
+    setLeaving(true);
     (storage ?? browserBannerStorage()).dismiss(Date.now());
   }
 
@@ -208,11 +229,23 @@ export function NewsletterBanner({
     // of it instead of hiding the add-to-cart button. z-40 is the widget's
     // layer; the cookie notice (z-50) can never coexist with it, and a sheet
     // opened over the page (z-50) rightly covers it.
+    //
+    // While leaving it is `inert`: a strip on its way out must not take a
+    // second click or a keystroke. `fill-mode-forwards` holds the last frame so
+    // it cannot flash back in before unmounting; under reduced motion there is
+    // no slide, so it goes `invisible` at once instead.
     <section
       role='region'
       aria-label='Newsletter'
+      data-state={leaving ? 'closed' : 'open'}
+      inert={leaving}
       onKeyDown={onKeyDown}
-      className='fixed inset-x-0 bottom-[var(--bottom-dock,0px)] z-40 isolate overflow-hidden border-t border-border bg-popover px-5 py-[22px] text-popover-foreground transition-[bottom] duration-300 animate-in fade-in slide-in-from-bottom ease-out motion-reduce:transition-none motion-reduce:animate-none md:px-10 md:py-7'
+      className={cn(
+        'fixed inset-x-0 bottom-[var(--bottom-dock,0px)] z-40 isolate overflow-hidden border-t border-border bg-popover px-5 py-[22px] text-popover-foreground transition-[bottom] duration-300 motion-reduce:transition-none motion-reduce:animate-none md:px-10 md:py-7',
+        leaving
+          ? 'animate-out fade-out slide-out-to-bottom ease-in fill-mode-forwards motion-reduce:invisible'
+          : 'animate-in fade-in slide-in-from-bottom ease-out',
+      )}
     >
       <picture>
         <source media={DESKTOP_MEDIA} srcSet={desktopSrcSet} />

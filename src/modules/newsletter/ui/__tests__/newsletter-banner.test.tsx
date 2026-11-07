@@ -4,7 +4,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createCookieNoticeStorage } from "@/modules/legal/cookie-notice.storage";
 import { BANNER_DELAY_MS, BANNER_DISMISS_MS } from "../../domain/banner-policy";
 import { createBannerStorage } from "../banner-storage";
-import { NewsletterBanner, NewsletterBannerPreload } from "../newsletter-banner";
+import { BANNER_EXIT_MS, NewsletterBanner, NewsletterBannerPreload } from "../newsletter-banner";
 import type { SubscribePort } from "../newsletter.client";
 
 function memory(seed: Record<string, string> = {}) {
@@ -172,11 +172,31 @@ describe("NewsletterBanner dismissal", () => {
 
   it("closes on the X and remembers it", () => {
     const { storage } = open();
+    const clickedAt = Date.now();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
+    advance(BANNER_EXIT_MS);
+
+    expect(banner()).toBeNull();
+    expect(storage.dismissedAt()).toBe(clickedAt);
+  });
+
+  it("plays its exit before leaving the page, out of reach while it does", () => {
+    const { storage } = open();
 
     fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
 
-    expect(banner()).toBeNull();
+    // The dismissal is stored at the click, not when the animation ends: a
+    // reload mid-exit must not bring the banner back.
     expect(storage.dismissedAt()).toBe(Date.now());
+    expect(banner()?.getAttribute("data-state")).toBe("closed");
+    expect(banner()?.hasAttribute("inert")).toBe(true);
+
+    advance(BANNER_EXIT_MS - 1);
+    expect(banner()).not.toBeNull();
+
+    advance(1);
+    expect(banner()).toBeNull();
   });
 
   it("stays away for 14 days after the X, then returns", () => {
@@ -205,6 +225,7 @@ describe("NewsletterBanner dismissal", () => {
     expect(banner()).not.toBeNull();
 
     fireEvent.keyDown(screen.getByLabelText("Email"), { key: "Escape" });
+    advance(BANNER_EXIT_MS);
     expect(banner()).toBeNull();
   });
 
@@ -302,14 +323,17 @@ describe("NewsletterBanner submission", () => {
     expect(view.storage.subscribed()).toBe(true);
   });
 
-  it("closes itself 4 seconds after the confirmation", async () => {
+  it("starts its exit 4 seconds after the confirmation, then leaves", async () => {
     open();
 
     await submit("fan@flesh.test");
     advance(3_999);
-    expect(banner()).not.toBeNull();
+    expect(banner()?.getAttribute("data-state")).toBe("open");
 
     advance(1);
+    expect(banner()?.getAttribute("data-state")).toBe("closed");
+
+    advance(BANNER_EXIT_MS);
     expect(banner()).toBeNull();
   });
 
