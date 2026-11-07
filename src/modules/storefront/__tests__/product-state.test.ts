@@ -3,9 +3,15 @@ import { cardBadge, productState } from "../product-state";
 
 type Units = { stockManagement: boolean; stock: number | null };
 
-const product = (tags: string[], inStock = true, variants: Units[] = []) => ({
+const product = (
+  tags: string[],
+  inStock = true,
+  variants: Units[] = [],
+  preview = false,
+) => ({
   tags,
   inStock,
+  preview,
   variants: variants.map((units) => ({ ...units, inStock: units.stock !== 0 })),
 });
 
@@ -51,7 +57,36 @@ describe("productState", () => {
   });
 });
 
+describe("preview state", () => {
+  it("wins over sold out, since an unreleased product has no stock yet", () => {
+    expect(productState(product(["nuevo"], false, [], true))).toBe("preview");
+  });
+
+  it("wins over every tag", () => {
+    expect(productState(product(["destacado", "nuevo"], true, [], true))).toBe(
+      "preview",
+    );
+  });
+});
+
 describe("cardBadge", () => {
+  it("badges a preview product as preview, whatever else is true of it", () => {
+    // Zero stock, one unit left and a markdown are all facts about a sale that
+    // has not started; none of them may outrank the announcement.
+    expect(
+      cardBadge(
+        product(["destacado"], false, [tracked(0)], true),
+        priced(1_890_000, 2_700_000),
+      ),
+    ).toEqual({ kind: "state", state: "preview" });
+    expect(
+      cardBadge(
+        product([], true, [tracked(1)], true),
+        priced(1_890_000, 2_700_000),
+      ),
+    ).toEqual({ kind: "state", state: "preview" });
+  });
+
   it("badges the state when there is no markdown", () => {
     expect(cardBadge(product(["nuevo"]), priced(2_700_000))).toEqual({
       kind: "state",

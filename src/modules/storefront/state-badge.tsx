@@ -27,6 +27,13 @@ const TREATMENT: Record<ProductState, { label: string; className: string }> = {
     label: "Agotado",
     className: "border border-muted-foreground bg-black/80 text-muted-foreground",
   },
+  // The loud one, like `new`, but in the brand's primary: the Preview PDP
+  // draws the same badge over its carousel, so one product wears one mark on
+  // every surface.
+  preview: {
+    label: "Preview",
+    className: "bg-primary text-primary-foreground",
+  },
   // Featured's treatment: a quiet mark over the photo, kept apart from
   // sold-out's muted grey so "almost gone" never reads as "gone".
   lowStock: {

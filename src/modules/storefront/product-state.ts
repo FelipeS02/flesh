@@ -11,7 +11,12 @@ import { discountPercent } from "./pricing";
  * so the choice has to be made somewhere, and making it here means every
  * surface makes it the same way.
  */
-export type ProductState = "soldOut" | "lowStock" | "featured" | "new";
+export type ProductState =
+  | "preview"
+  | "soldOut"
+  | "lowStock"
+  | "featured"
+  | "new";
 
 /**
  * Tag → state, in the order the badge is decided.
@@ -37,8 +42,14 @@ const TAGGED_STATES: ReadonlyArray<readonly [tag: string, state: ProductState]> 
  * it as new.
  */
 export function productState(
-  product: Pick<ProductView, "tags" | "inStock">,
+  product: Pick<ProductView, "tags" | "inStock" | "preview">,
 ): ProductState | null {
+  // Before stock, on purpose: an unreleased product has nothing to sell yet, so
+  // "Agotado" would tell the shopper it sold out when it never went on sale.
+  if (product.preview) {
+    return "preview";
+  }
+
   if (!product.inStock) {
     return "soldOut";
   }
@@ -83,7 +94,9 @@ export type CardBadge =
  * where the state sits over the photo and the markdown sits against the price,
  * here the two compete and the order has to be decided:
  *
- * 1. **Gone beats everything.** A discount on a garment you cannot buy is not
+ * 0. **Not yet released beats even that.** A preview product has no sale to be
+ *    sold out of, no scarcity to announce and no price to mark down.
+ * 1. **Gone beats everything else.** A discount on a garment you cannot buy is not
  *    an offer.
  * 2. **Almost gone beats a markdown.** Scarcity expires and the markdown does
  *    not; the card still shows the struck-through price beside it.
@@ -97,14 +110,14 @@ export type CardBadge =
  * `StockNote`, since there the shopper has already picked one.
  */
 export function cardBadge(
-  product: Pick<ProductView, "tags" | "inStock"> & {
+  product: Pick<ProductView, "tags" | "inStock" | "preview"> & {
     variants: readonly Pick<VariantView, "inStock" | "stockManagement" | "stock">[];
   },
   variant: Pick<VariantView, "price" | "compareAt"> | undefined,
 ): CardBadge | null {
   const state = productState(product);
 
-  if (state === "soldOut") {
+  if (state === "preview" || state === "soldOut") {
     return { kind: "state", state };
   }
 

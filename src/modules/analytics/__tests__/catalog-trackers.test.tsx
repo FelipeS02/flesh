@@ -64,4 +64,65 @@ describe("catalog analytics trackers", () => {
       expect.objectContaining({ name: "select_item" }),
     );
   });
+
+  it("leaves preview products out of the list impression", () => {
+    const send = vi.fn();
+    const products = [
+      makeProduct({ title: "Remera A", variants: [makeVariant({ id: 201 })] }),
+      makeProduct({
+        title: "Remera Preview",
+        preview: true,
+        variants: [makeVariant({ id: 202 })],
+      }),
+    ];
+
+    render(<CatalogViewTracker products={products} send={send} />);
+
+    const items = send.mock.calls[0]?.[0].params.items;
+    expect(items).toHaveLength(1);
+    expect(items[0]).toMatchObject({ item_id: "201" });
+  });
+
+  it("sends no list impression when every product is a preview", () => {
+    const send = vi.fn();
+
+    render(
+      <CatalogViewTracker
+        products={[makeProduct({ preview: true })]}
+        send={send}
+      />,
+    );
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("emits no product view for a preview product", () => {
+    const send = vi.fn();
+
+    render(
+      <ProductViewTracker
+        product={makeProduct({ preview: true })}
+        send={send}
+      />,
+    );
+
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it("emits no select_item for a preview product's link", () => {
+    const send = vi.fn();
+
+    render(
+      <ProductAnalyticsLink
+        href="/producto/tee"
+        product={makeProduct({ preview: true })}
+        send={send}
+      >
+        Ver producto
+      </ProductAnalyticsLink>,
+    );
+
+    fireEvent.click(screen.getByRole("link", { name: "Ver producto" }));
+    expect(send).not.toHaveBeenCalled();
+  });
 });

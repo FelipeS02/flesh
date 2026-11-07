@@ -9,6 +9,12 @@ import type { AnalyticsEvent, AnalyticsItem } from "./events";
 
 type Send = (event: AnalyticsEvent) => unknown;
 
+// Preview products are unbuyable, so none of the commerce events below may
+// carry them: a `view_item` becomes Meta ViewContent with a price, and
+// reporting a price for something nobody can purchase pollutes the catalogue
+// signal Meta optimises ad delivery on.
+const isReportable = (product: ProductView) => !product.preview;
+
 function selectedItem(product: ProductView): AnalyticsItem {
   const variant =
     product.variants.find(
@@ -42,9 +48,10 @@ export function CatalogViewTracker({
   const sent = useRef(false);
 
   useEffect(() => {
-    if (sent.current || products.length === 0) return;
+    const reportable = products.filter(isReportable);
+    if (sent.current || reportable.length === 0) return;
     sent.current = true;
-    send(createEcommerceEvent("view_item_list", products.map(selectedItem)));
+    send(createEcommerceEvent("view_item_list", reportable.map(selectedItem)));
   }, [products, send]);
 
   return null;
@@ -60,7 +67,7 @@ export function ProductViewTracker({
   const sent = useRef(false);
 
   useEffect(() => {
-    if (sent.current) return;
+    if (sent.current || !isReportable(product)) return;
     sent.current = true;
     send(createEcommerceEvent("view_item", [selectedItem(product)]));
   }, [product, send]);
@@ -85,7 +92,7 @@ export function ProductAnalyticsLink({
       data-analytics-select-item=""
       onClick={(event) => {
         onClick?.(event);
-        if (!event.defaultPrevented) {
+        if (!event.defaultPrevented && isReportable(product)) {
           send(createEcommerceEvent("select_item", [selectedItem(product)]));
         }
       }}

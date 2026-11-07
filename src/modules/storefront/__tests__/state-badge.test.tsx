@@ -15,6 +15,9 @@ describe("StateBadge", () => {
 
     render(<StateBadge state="lowStock" />);
     expect(screen.getByText("Últimas unidades")).toBeDefined();
+
+    render(<StateBadge state="preview" />);
+    expect(screen.getByText("Preview")).toBeDefined();
   });
 
   it("renders nothing for an ordinary product", () => {

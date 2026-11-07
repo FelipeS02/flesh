@@ -26,7 +26,8 @@ export type ProductJsonLd = {
   image: string[];
   url: string;
   brand: { "@type": "Brand"; name: string };
-  offers: ProductOffer[];
+  /** Absent for a preview product — see `productJsonLd`. */
+  offers?: ProductOffer[];
 };
 
 /**
@@ -59,7 +60,11 @@ export function productJsonLd(product: ProductView, base: URL): ProductJsonLd {
       .map((image) => new URL(image.src, base).toString()),
     url,
     brand: { "@type": "Brand", name: BRAND },
-    offers: colourwayOffers(product, url),
+    // A preview product carries NO `offers` key at all, not an empty list.
+    // Announcing a price or an availability for something that is not on sale
+    // would be a false offer to search engines (and a rich result promising a
+    // purchase the checkout refuses).
+    ...(product.preview ? {} : { offers: colourwayOffers(product, url) }),
   };
 }
 
