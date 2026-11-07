@@ -71,9 +71,10 @@ export function PreviewCarousel({ images, title, badge }: PreviewCarouselProps) 
         opts={{ align: 'center', containScroll: false }}
         aria-label={`Galería de imágenes de ${title}`}
       >
-        {/* Each item carries 16px of left padding (the primitive's gutter), so
-            the basis is the slide plus that gutter. */}
-        <CarouselContent>
+        {/* The design has a 14px gap between slides on mobile and 40px on
+            desktop. Each item carries it as left padding (the primitive's
+            gutter), so the basis is the slide plus that gap. */}
+        <CarouselContent className='-ml-3.5 md:-ml-10'>
           {ordered.map((image, index) => {
             const source = mediaSource(image.src, { width: SLIDE_WIDTH });
             const active = index === selected;
@@ -84,7 +85,7 @@ export function PreviewCarousel({ images, title, badge }: PreviewCarouselProps) 
                 aria-label={`Imagen ${index + 1} de ${ordered.length}`}
                 data-active={active ? '' : undefined}
                 className={cn(
-                  'basis-[286px] transition-opacity duration-300 md:basis-[536px] motion-reduce:transition-none',
+                  'basis-[284px] pl-3.5 transition-opacity duration-300 md:basis-[560px] md:pl-10 motion-reduce:transition-none',
                   !active && 'opacity-35',
                 )}
               >
@@ -125,8 +126,8 @@ export function PreviewCarousel({ images, title, badge }: PreviewCarouselProps) 
           {/* The primitive's own CarouselPrevious/Next are round and labelled
               in English, and this design is square and Spanish, so the design
               system's Button drives the same Embla API instead. They sit on
-              the active slide's edges, hence the 260px (half of 520) offsets
-              from the centre. Hidden on mobile: there you swipe. */}
+              the active slide's edges, 24px outside them and over the dimmed
+              neighbours, hence the 332px (260 + 24 + 48) offsets from the centre. Hidden on mobile: there you swipe. */}
           <Button
             type='button'
             variant='ghost'
@@ -134,7 +135,7 @@ export function PreviewCarousel({ images, title, badge }: PreviewCarouselProps) 
             aria-label='Imagen anterior'
             disabled={atStart}
             onClick={() => api?.scrollPrev()}
-            className='absolute top-1/2 left-[calc(50%-260px)] z-10 hidden size-12 -translate-y-1/2 border-border bg-black/70 text-foreground hover:bg-black/70 md:inline-flex'
+            className='absolute top-1/2 left-[calc(50%-332px)] z-10 hidden size-12 -translate-y-1/2 border-border bg-black/70 text-foreground hover:bg-black/70 md:inline-flex'
           >
             <ArrowLeftIcon className='size-5' />
           </Button>
@@ -145,7 +146,7 @@ export function PreviewCarousel({ images, title, badge }: PreviewCarouselProps) 
             aria-label='Imagen siguiente'
             disabled={atEnd}
             onClick={() => api?.scrollNext()}
-            className='absolute top-1/2 right-[calc(50%-260px)] z-10 hidden size-12 -translate-y-1/2 border-border bg-black/70 text-foreground hover:bg-black/70 md:inline-flex'
+            className='absolute top-1/2 right-[calc(50%-332px)] z-10 hidden size-12 -translate-y-1/2 border-border bg-black/70 text-foreground hover:bg-black/70 md:inline-flex'
           >
             <ArrowRightIcon className='size-5' />
           </Button>
