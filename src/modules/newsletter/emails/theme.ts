@@ -13,8 +13,10 @@ export const emailTheme = {
   },
   font: {
     // The web font only loads in Apple Mail and iOS Mail; Gmail and Outlook
-    // strip @font-face, so the serif stack must hold the layout on its own.
-    display: '"Kraut", Georgia, "Times New Roman", serif',
+    // strip @font-face, so the fallback stack must hold the layout on its own.
+    // Sans rather than serif: a bold grotesque reads closer to Kraut's heavy
+    // caps than Times does, so the Gmail render keeps the brand's weight.
+    display: '"Kraut", "Helvetica Neue", Helvetica, Arial, sans-serif',
     body: '"Courier Prime", "Courier New", Courier, monospace',
   },
   size: {

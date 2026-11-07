@@ -28,7 +28,7 @@ export function EmailLayout({ baseUrl, preview, footer, children }: EmailLayoutP
             is sent. Replace both files together when the font changes. */}
         <Font
           fontFamily="Kraut"
-          fallbackFontFamily="serif"
+          fallbackFontFamily="sans-serif"
           webFont={{ url: `${baseUrl}/email/kraut.woff2`, format: "woff2" }}
         />
       </Head>
