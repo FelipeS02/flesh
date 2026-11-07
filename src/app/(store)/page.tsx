@@ -1,6 +1,7 @@
 import { Footer } from "@/components/shared/footer";
 import { Header } from "@/components/shared/header";
 import { getColourwayIndex, getProducts } from "@/modules/catalog";
+import { NewsletterBannerPreload } from "@/modules/newsletter/client";
 import { DropCatalog } from "@/modules/storefront/drop-catalog";
 
 /**
@@ -27,6 +28,10 @@ export default async function Home() {
 
   return (
     <div className="relative flex min-h-screen flex-1 flex-col justify-between gap-10 px-4 md:px-0">
+      {/* Only the home can show the newsletter strip, so only the home pays
+          for its textures. React 19 hoists `<link rel=preload>` to `<head>`
+          from wherever it renders; low priority keeps it off the LCP image. */}
+      <NewsletterBannerPreload />
       <Header />
       <main>
         <DropCatalog products={products} colourways={colourways} />

@@ -7,10 +7,7 @@ import { BackgroundPlate } from '@/components/shared/background-plate';
 import { SheetBackgroundPreload } from '@/components/ui/sheet-background';
 import { SkullsBackgroundPreload } from '@/components/ui/skulls-background';
 import { CookieNotice } from '@/modules/legal/cookie-notice';
-import {
-  NewsletterBanner,
-  NewsletterBannerPreload,
-} from '@/modules/newsletter/client';
+import { NewsletterBanner } from '@/modules/newsletter/client';
 import {
   googleTagBootstrap,
   googleTagSource,
@@ -80,9 +77,6 @@ export default async function StoreLayout({
           announces an add to cart: it can appear on any store route, and its
           first appearance should not be a bare panel. */}
       <SkullsBackgroundPreload />
-      {/* Same bargain for the newsletter strip, which rises ten seconds into
-          a session: warmed at low priority so it never races the LCP image. */}
-      <NewsletterBannerPreload />
       {/* Here and not in a page: a layout survives client-side navigation,
           a page does not. Rendered per page, the plate's <video> was
           remounted on every route change and restarted from the first
@@ -105,8 +99,10 @@ export default async function StoreLayout({
           bring it straight back on the PDP. */}
       <CookieNotice />
       {/* Next to the notice and for the same reason: it must survive a
-          client-side navigation or its 10 s clock would restart on every
-          page. It waits for the notice to be acknowledged before showing. */}
+          client-side navigation between renders of the home, or its timers
+          would restart. It gates itself to `/` and starts its 10 s clock on
+          the first home visit, not the first store page. It waits for the
+          notice to be acknowledged before showing. */}
       <NewsletterBanner />
       {/* One tracker for both destinations, so it has to outlive either one
           being switched off: gating it on GA4 alone would leave a
