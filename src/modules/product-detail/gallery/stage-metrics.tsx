@@ -38,7 +38,9 @@ export function StageMetrics() {
     const band = document.querySelector('[data-header-band]');
     const widget = document.querySelector('[data-purchase-widget]');
 
-    if (!band || !widget) return;
+    // The widget is optional: a preview product has none, and its stage then
+    // gives back the band alone (a 0px widget) rather than a fallback height.
+    if (!band) return;
 
     const root = document.documentElement;
 
@@ -49,7 +51,7 @@ export function StageMetrics() {
       );
       root.style.setProperty(
         '--pdp-widget-height',
-        `${widget.getBoundingClientRect().height}px`,
+        `${widget?.getBoundingClientRect().height ?? 0}px`,
       );
       root.style.setProperty('--pdp-viewport-height', `${window.innerHeight}px`);
     };
