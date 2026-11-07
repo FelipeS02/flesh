@@ -159,7 +159,15 @@ export function createTiendanubeCatalogLoader(
     const colourwayField = await loadOwners(config, "colourway", requestJson);
     const fitField = await loadOwners(config, "fit", requestJson);
     const sizeChartField = await loadOwners(config, "size_chart", requestJson);
-    const previewField = await loadOwners(config, "preview", requestJson);
+    // An absent definition means no product can carry the field, so "no
+    // previews" is the truth and a 404 is read that way. ONLY a 404, ONLY here:
+    // swallowing a transient failure would fail OPEN and make preview products
+    // purchasable, so every other error stays fatal.
+    const previewField = await loadOwners(config, "preview", requestJson).catch((error: unknown) => {
+      if (!(error instanceof TiendanubeRequestError) || error.status !== 404) throw error;
+      warn("[catalog] The preview custom field is not defined; treating every product as released.");
+      return { id: "preview", namespace: "custom", slug: "preview", key: "custom/preview", value_type: "object", owner_resource: "products" as const, owners: [], has_more: false };
+    });
 
     const validColourwayOwners = colourwayField.owners.flatMap((owner) => {
       const parsed = ColourwayOwnerSchema.safeParse(owner);

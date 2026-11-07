@@ -150,6 +150,38 @@ describe("Tiendanube catalog loader", () => {
     expect(snapshot.checkout.map((entry) => entry.productId)).toEqual([102]);
   });
 
+  function withPreviewResponse(respond: () => Response) {
+    const base = successfulFetch();
+    return vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
+      String(input).includes("/preview/") ? respond() : base(input, init));
+  }
+
+  it("reads a missing preview definition (404) as no previews and warns", async () => {
+    const warn = vi.fn();
+    const fetchImpl = withPreviewResponse(() => new Response("{}", { status: 404 }));
+    const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl, warn })();
+
+    expect(snapshot.purchasable.map((view) => view.preview)).toEqual([false]);
+    expect(snapshot.checkout.map((entry) => entry.productId)).toEqual([101]);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/preview/));
+  });
+
+  it("keeps a failing preview read fatal so a transient error cannot fail open", async () => {
+    const sleep = vi.fn(async () => undefined);
+    const serverError = withPreviewResponse(() => new Response("{}", { status: 500 }));
+    await expect(createTiendanubeCatalogLoader(config, { fetchImpl: serverError, sleep, random: () => 0 })()).rejects.toThrow(/preview/);
+
+    const malformed = withPreviewResponse(() => json({ nope: true }));
+    await expect(createTiendanubeCatalogLoader(config, { fetchImpl: malformed })()).rejects.toThrow(/preview/);
+  });
+
+  it("does not forgive a 404 on any other field", async () => {
+    const base = successfulFetch();
+    const fetchImpl = vi.fn(async (input: string | URL | Request, init?: RequestInit) =>
+      String(input).includes("/fit/") ? new Response("{}", { status: 404 }) : base(input, init));
+    await expect(createTiendanubeCatalogLoader(config, { fetchImpl })()).rejects.toThrow(/fit/);
+  });
+
   it("treats a malformed preview value as off and warns", async () => {
     const warn = vi.fn();
     const fetchImpl = successfulFetch([product], [{ entity_id: "101", value: { enabled: "yes" } }]);
