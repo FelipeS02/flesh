@@ -24,6 +24,11 @@ vi.mock("@/modules/product-detail/gallery/product-gallery", () => ({
     </div>
   ),
 }));
+vi.mock("@/modules/product-detail/preview/preview-gallery", () => ({
+  PreviewGallery: ({ badge }: { badge?: React.ReactNode }) => (
+    <div data-testid='preview-gallery'>{badge}</div>
+  ),
+}));
 vi.mock("@/modules/product-detail/purchase/purchase-panel", () => ({
   PurchasePanel: () => <button type='button'>Agregar al carrito</button>,
   PurchasePanelFallback: () => null,
@@ -31,7 +36,7 @@ vi.mock("@/modules/product-detail/purchase/purchase-panel", () => ({
 vi.mock("@/modules/newsletter/client", () => ({
   LaunchNotifyForm: () => (
     <form>
-      <input type='email' aria-label='Email' />
+      <input type='email' aria-label='RECIBÍ NOVEDADES:' />
       <button type='submit'>Avisame</button>
     </form>
   ),
@@ -48,19 +53,18 @@ describe("ProductPage", () => {
     catalog.product = makeProduct({ title: "Army", preview: true });
   });
 
-  it("renders the title, status and launch form for a preview product", async () => {
+  it("renders the gallery, title and launch form for a preview product", async () => {
     await renderPage();
 
     expect(screen.getByRole("heading", { level: 1, name: "Army" })).not.toBeNull();
-    expect(screen.getByTestId("buy-gallery")).not.toBeNull();
-    expect(screen.getByRole("textbox", { name: /email/i })).not.toBeNull();
+    expect(screen.getByTestId("preview-gallery")).not.toBeNull();
+    expect(screen.getByRole("textbox", { name: /recibí novedades/i })).not.toBeNull();
     expect(screen.getByRole("button", { name: /avisame/i })).not.toBeNull();
   });
 
-  it("badges a preview product on the regular gallery, undimmed", async () => {
+  it("badges a preview product over its gallery", async () => {
     await renderPage();
 
-    expect(screen.getByTestId("buy-gallery").getAttribute("data-dimmed")).toBe("false");
     expect(screen.getByText(/preview/i)).not.toBeNull();
   });
 
@@ -78,6 +82,7 @@ describe("ProductPage", () => {
 
     expect(screen.getByRole("button", { name: /agregar/i })).not.toBeNull();
     expect(screen.getByTestId("buy-gallery")).not.toBeNull();
+    expect(screen.queryByTestId("preview-gallery")).toBeNull();
     expect(screen.queryByRole("button", { name: /avisame/i })).toBeNull();
   });
 });

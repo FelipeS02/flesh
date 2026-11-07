@@ -12,7 +12,7 @@ import {
   getProductByHandle,
   getProducts,
 } from '@/modules/catalog';
-import { PreviewNotice } from '@/modules/product-detail/preview/preview-notice';
+import { PreviewDetail } from '@/modules/product-detail/preview/preview-detail';
 import { InfoAccordions } from '@/modules/product-detail/accordions/info-accordions';
 import { ProductGallery } from '@/modules/product-detail/gallery/product-gallery';
 import { StageMetrics } from '@/modules/product-detail/gallery/stage-metrics';
@@ -107,6 +107,28 @@ export default async function ProductPage({
   // One badge, decided in one place â€” stock outranks any tag the merchant
   // wrote, because being new is not news about a garment you cannot buy.
   const state = productState(product);
+
+  // A preview product cannot be bought, so it gets its own one-screen layout
+  // and shares only the page chrome. Branching here keeps every buy component
+  // off a page with nothing to buy.
+  if (product.preview) {
+    return (
+      <div className='relative flex min-h-screen flex-1 flex-col px-4 md:px-0'>
+        <script
+          type='application/ld+json'
+          // Escaped by `serializeJsonLd`, as in the buy layout below.
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(productJsonLd(product, siteUrl())),
+          }}
+        />
+        <ProductViewTracker product={product} />
+        <Header />
+        {/* No widget on this page: it publishes the band and a 0px widget. */}
+        <StageMetrics />
+        <PreviewDetail product={product} />
+      </div>
+    );
+  }
 
   // Resolved once. The colour row is drawn twice on mobile — beside the title
   // and again on the fixed widget — and both draw the same list.
@@ -211,81 +233,71 @@ export default async function ProductPage({
             {product.title}
           </h1>
 
-          {/* A preview product keeps this column and its title, and swaps
-              only what sits under it: nothing to buy, so no purchase panel,
-              measurements or accordions (and no widget for `StageMetrics`
-              to measure, which it tolerates). */}
-          {product.preview ? (
-            <PreviewNotice productId={product.id} />
-          ) : (
-            <>
-              <BarbedWireSeparator className='mt-1' />
+          <BarbedWireSeparator className='mt-1' />
 
-              {/* The one dynamic slot on an otherwise prerendered page. Reading
-                  the query string during a static build is a CSR bailout, so the
-                  reader has to sit inside a boundary, and the fallback renders the
-                  DEFAULT selection rather than a skeleton, which is what keeps the
-                  price in the prerendered HTML.
+          {/* The one dynamic slot on an otherwise prerendered page. Reading
+              the query string during a static build is a CSR bailout, so the
+              reader has to sit inside a boundary, and the fallback renders the
+              DEFAULT selection rather than a skeleton, which is what keeps the
+              price in the prerendered HTML.
 
-                  The colourway selector is passed IN as an element rather than
-                  rendered here, because it has to appear between the price and the
-                  variant axes, which are both inside the panel. Built here, it
-                  stays server-rendered: choosing a colour LEAVES this page, so it
-                  is navigation, not state, and nothing in it reads the query
-                  string. Both branches get their own element so the fallback and
-                  the hydrated panel render identical markup. */}
-              <Suspense
-                fallback={
-                  <PurchasePanelFallback
-                    product={{ axes: product.axes, variants: product.variants }}
-                    productTitle={product.title}
-                    productId={product.id}
-                    defaultVariantId={product.defaultVariantId}
-                    colourwaySelector={
-                      <ColourwaySelector links={links} currentSlug={product.slug} />
-                    }
-                    colourways={links}
-                    currentSlug={product.slug}
-                    sizeChart={product.sizeChart}
-                  />
+              The colourway selector is passed IN as an element rather than
+              rendered here, because it has to appear between the price and the
+              variant axes, which are both inside the panel. Built here, it
+              stays server-rendered: choosing a colour LEAVES this page, so it
+              is navigation, not state, and nothing in it reads the query
+              string. Both branches get their own element so the fallback and
+              the hydrated panel render identical markup. */}
+          <Suspense
+            fallback={
+              <PurchasePanelFallback
+                product={{ axes: product.axes, variants: product.variants }}
+                productTitle={product.title}
+                productId={product.id}
+                defaultVariantId={product.defaultVariantId}
+                colourwaySelector={
+                  <ColourwaySelector links={links} currentSlug={product.slug} />
                 }
-              >
-                <PurchasePanel
-                  // Only the variant matrix crosses the boundary â€” the panel has no
-                  // use for `descriptionHtml`, which is already being sent once for
-                  // the block below.
-                  product={{ axes: product.axes, variants: product.variants }}
-                  productTitle={product.title}
-                  productId={product.id}
-                  defaultVariantId={product.defaultVariantId}
-                  colourwaySelector={
-                    <ColourwaySelector links={links} currentSlug={product.slug} />
-                  }
-                  // Only the widget uses these; the panel hands them straight
-                  // through. They are plain link data, not the catalogue.
-                  colourways={links}
-                  currentSlug={product.slug}
-                  // Plain serialisable data, same as `axes`/`variants` above — the
-                  // size-guide trigger next to the size axis needs it in the same
-                  // client bundle that already draws that axis.
-                  sizeChart={product.sizeChart}
-                />
-              </Suspense>
-
-              {product.fit && <FitScale fit={product.fit} />}
-
-              {/* The description moved INTO the first accordion rather than being
-                  duplicated beside it â€” the artboard always filed it there, and
-                  PR8a only rendered it plainly so the page never shipped without
-                  it. Same node, new home. */}
-              <InfoAccordions
-                product={{
-                  descriptionHtml: product.descriptionHtml,
-                  sizeChart: product.sizeChart,
-                }}
+                colourways={links}
+                currentSlug={product.slug}
+                sizeChart={product.sizeChart}
               />
-            </>
-          )}
+            }
+          >
+            <PurchasePanel
+              // Only the variant matrix crosses the boundary â€” the panel has no
+              // use for `descriptionHtml`, which is already being sent once for
+              // the block below.
+              product={{ axes: product.axes, variants: product.variants }}
+              productTitle={product.title}
+              productId={product.id}
+              defaultVariantId={product.defaultVariantId}
+              colourwaySelector={
+                <ColourwaySelector links={links} currentSlug={product.slug} />
+              }
+              // Only the widget uses these; the panel hands them straight
+              // through. They are plain link data, not the catalogue.
+              colourways={links}
+              currentSlug={product.slug}
+              // Plain serialisable data, same as `axes`/`variants` above — the
+              // size-guide trigger next to the size axis needs it in the same
+              // client bundle that already draws that axis.
+              sizeChart={product.sizeChart}
+            />
+          </Suspense>
+
+          {product.fit && <FitScale fit={product.fit} />}
+
+          {/* The description moved INTO the first accordion rather than being
+              duplicated beside it â€” the artboard always filed it there, and
+              PR8a only rendered it plainly so the page never shipped without
+              it. Same node, new home. */}
+          <InfoAccordions
+            product={{
+              descriptionHtml: product.descriptionHtml,
+              sizeChart: product.sizeChart,
+            }}
+          />
         </div>
       </main>
     </div>
