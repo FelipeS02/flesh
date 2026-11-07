@@ -1,7 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import type { ColourwayLink, GarmentSize, VariantMatrix, VariantView } from "@/modules/catalog";
+import { BOTTOM_DOCK_PROPERTY } from "@/hooks/use-bottom-dock";
+import { RESTOCK_PITCH } from "@/modules/newsletter/client";
+import { installControllableResizeObserver } from "../../../../../test/fixtures/observers";
 import { PurchaseWidget } from "../purchase-widget";
+
+const restockActionSpy = vi.hoisted(() => vi.fn());
+
+// Stubbed so the sheet's form never reaches the real service.
+vi.mock("@/modules/newsletter/api/restock.action", () => ({
+  requestRestockNotice: restockActionSpy,
+}));
 
 const ARS = "ARS";
 const LIST = { amount: 2_700_000, currency: ARS };
@@ -89,14 +99,17 @@ describe("PurchaseWidget", () => {
     expect(props.onSelect).toHaveBeenCalledWith(0, "XL");
   });
 
-  it("keeps an unbuyable option unselectable here too", () => {
-    renderWidget();
+  it("lets a sold-out option be chosen here too, so its restock form is reachable", () => {
+    const { props } = renderWidget();
 
     const sizes = within(screen.getByRole("group", { name: "Talle" }));
+    const soldOut = sizes.getByRole("button", { name: "L" });
 
-    expect(sizes.getByRole("button", { name: /agotado/i }).hasAttribute("disabled")).toBe(
-      true,
-    );
+    expect(soldOut.hasAttribute("disabled")).toBe(false);
+
+    fireEvent.click(soldOut);
+
+    expect(props.onSelect).toHaveBeenCalledWith(0, "L");
   });
 
   it("links each colour to its own page rather than setting state", () => {
@@ -164,5 +177,107 @@ describe("PurchaseWidget", () => {
     renderWidget();
 
     expect(within(widget()).queryByRole("button", { name: "Guía" })).toBeNull();
+  });
+});
+
+describe("PurchaseWidget as a bottom dock", () => {
+  let resize: ReturnType<typeof installControllableResizeObserver>;
+  let descriptor: PropertyDescriptor | undefined;
+
+  beforeEach(() => {
+    resize = installControllableResizeObserver();
+    descriptor = Object.getOwnPropertyDescriptor(HTMLElement.prototype, "offsetHeight");
+    Object.defineProperty(HTMLElement.prototype, "offsetHeight", {
+      configurable: true,
+      get: () => 132,
+    });
+  });
+
+  afterEach(() => {
+    resize.restore();
+    if (descriptor) Object.defineProperty(HTMLElement.prototype, "offsetHeight", descriptor);
+    document.documentElement.style.removeProperty(BOTTOM_DOCK_PROPERTY);
+  });
+
+  // The newsletter banner reads this to sit ABOVE the widget instead of
+  // covering the one control the PDP exists for.
+  it("publishes its height while it is on screen", () => {
+    renderWidget();
+
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_DOCK_PROPERTY)).toBe("132px");
+  });
+
+  it("stops publishing when it leaves the page", () => {
+    const { unmount } = renderWidget();
+
+    unmount();
+
+    expect(document.documentElement.style.getPropertyValue(BOTTOM_DOCK_PROPERTY)).toBe("");
+  });
+});
+
+describe("PurchaseWidget on a sold-out variant", () => {
+  const RESTOCK = { productId: 101, variantId: 202, variantLine: "NEGRO · L" };
+
+  function renderSoldOut() {
+    return renderWidget({
+      canAddToCart: false,
+      ctaLabel: "Sin stock",
+      selection: ["L"],
+      restock: RESTOCK,
+    });
+  }
+
+  it("swaps the dead 'Sin stock' button for the way to ask for a restock", () => {
+    const { props } = renderSoldOut();
+
+    const cta = within(widget()).getByRole("button", { name: "Avisame cuando vuelva" });
+
+    expect(within(widget()).queryByRole("button", { name: /sin stock/i })).toBeNull();
+    expect((cta as HTMLButtonElement).disabled).toBe(false);
+
+    fireEvent.click(cta);
+
+    expect(props.onAdd).not.toHaveBeenCalled();
+  });
+
+  it("does not show it, and keeps adding to the cart, while the variant is buyable", () => {
+    renderWidget();
+
+    expect(screen.queryByRole("button", { name: "Avisame cuando vuelva" })).toBeNull();
+    expect(within(widget()).getByRole("button", { name: /agregar al carrito/i })).toBeDefined();
+  });
+
+  it("opens a bottom sheet with the form, titled and pitched", () => {
+    renderSoldOut();
+
+    fireEvent.click(within(widget()).getByRole("button", { name: "Avisame cuando vuelva" }));
+
+    const sheet = screen.getByRole("dialog", { name: "Avisame cuando vuelva" });
+
+    expect(sheet.getAttribute("data-side")).toBe("bottom");
+    expect(within(sheet).getByText(RESTOCK_PITCH)).toBeDefined();
+    expect(within(sheet).queryByText("NEGRO · L")).toBeNull();
+    expect(within(sheet).getByLabelText("EMAIL")).toBeDefined();
+    expect(within(sheet).getByRole("checkbox").getAttribute("aria-checked")).toBe("false");
+  });
+
+  it("sends the request for the variant it was given", async () => {
+    restockActionSpy.mockResolvedValue({ ok: true, status: "created" });
+    renderSoldOut();
+
+    fireEvent.click(within(widget()).getByRole("button", { name: "Avisame cuando vuelva" }));
+    const sheet = screen.getByRole("dialog");
+    fireEvent.change(within(sheet).getByLabelText("EMAIL"), { target: { value: "fan@flesh.test" } });
+    await act(async () => {
+      fireEvent.click(within(sheet).getByRole("button", { name: "Avisame" }));
+    });
+
+    expect(restockActionSpy).toHaveBeenCalledWith({
+      email: "fan@flesh.test",
+      productId: 101,
+      variantId: 202,
+      newsletter: false,
+    });
   });
 });

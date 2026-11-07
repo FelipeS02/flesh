@@ -68,4 +68,63 @@ describe("createCookieNoticeStorage", () => {
     expect(setItem).toHaveBeenCalledTimes(1);
     expect(setItem.mock.calls[0]?.[0]).toBe(COOKIE_NOTICE_STORAGE_KEY);
   });
+
+  describe("settled / subscribe", () => {
+    // The banner must not wait forever on a browser that blocks site data:
+    // `acknowledged()` stays false there on purpose (the notice returns next
+    // visit), but within THIS page lifetime the shopper did acknowledge it.
+    it("counts an acknowledgement as settled for this page even when the write fails", () => {
+      const storage = createCookieNoticeStorage(throwingBacking);
+
+      expect(storage.settled()).toBe(false);
+
+      storage.acknowledge();
+
+      expect(storage.settled()).toBe(true);
+      expect(storage.acknowledged()).toBe(false);
+    });
+
+    it("is settled from the start when a previous visit acknowledged", () => {
+      const storage = createCookieNoticeStorage(
+        memoryBacking({ [COOKIE_NOTICE_STORAGE_KEY]: "1" }),
+      );
+
+      expect(storage.settled()).toBe(true);
+    });
+
+    it("notifies subscribers in the same tab when the notice is acknowledged", () => {
+      const storage = createCookieNoticeStorage(memoryBacking());
+      const listener = vi.fn();
+
+      storage.subscribe(listener);
+      storage.acknowledge();
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops notifying once unsubscribed", () => {
+      const storage = createCookieNoticeStorage(memoryBacking());
+      const listener = vi.fn();
+
+      storage.subscribe(listener)();
+      storage.acknowledge();
+
+      expect(listener).not.toHaveBeenCalled();
+    });
+
+    // A listener that throws must not take the notice's own dismissal down
+    // with it: the write has already happened by then.
+    it("keeps notifying the rest when one subscriber throws", () => {
+      const storage = createCookieNoticeStorage(memoryBacking());
+      const survivor = vi.fn();
+
+      storage.subscribe(() => {
+        throw new Error("boom");
+      });
+      storage.subscribe(survivor);
+
+      expect(() => storage.acknowledge()).not.toThrow();
+      expect(survivor).toHaveBeenCalledTimes(1);
+    });
+  });
 });

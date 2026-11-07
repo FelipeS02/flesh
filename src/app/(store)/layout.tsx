@@ -8,6 +8,10 @@ import { SheetBackgroundPreload } from '@/components/ui/sheet-background';
 import { SkullsBackgroundPreload } from '@/components/ui/skulls-background';
 import { CookieNotice } from '@/modules/legal/cookie-notice';
 import {
+  NewsletterBanner,
+  NewsletterBannerPreload,
+} from '@/modules/newsletter/client';
+import {
   googleTagBootstrap,
   googleTagSource,
   readAnalyticsConfig,
@@ -76,6 +80,9 @@ export default async function StoreLayout({
           announces an add to cart: it can appear on any store route, and its
           first appearance should not be a bare panel. */}
       <SkullsBackgroundPreload />
+      {/* Same bargain for the newsletter strip, which rises ten seconds into
+          a session: warmed at low priority so it never races the LCP image. */}
+      <NewsletterBannerPreload />
       {/* Here and not in a page: a layout survives client-side navigation,
           a page does not. Rendered per page, the plate's <video> was
           remounted on every route change and restarted from the first
@@ -97,6 +104,10 @@ export default async function StoreLayout({
           client-side navigation, or dismissing it on the landing would
           bring it straight back on the PDP. */}
       <CookieNotice />
+      {/* Next to the notice and for the same reason: it must survive a
+          client-side navigation or its 10 s clock would restart on every
+          page. It waits for the notice to be acknowledged before showing. */}
+      <NewsletterBanner />
       {/* One tracker for both destinations, so it has to outlive either one
           being switched off: gating it on GA4 alone would leave a
           Meta-only deployment without a single pageview. */}

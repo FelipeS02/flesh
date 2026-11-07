@@ -58,6 +58,34 @@ describe("handleCatalogWebhook", () => {
     expect(revalidate).not.toHaveBeenCalled();
   });
 
+  // A bare 401 left a real misconfiguration undiagnosable in production, so each
+  // rejection names its cause — and only its cause: the signature and body are
+  // caller-controlled and the body carries store data, so neither is logged.
+  it.each([
+    ["missing-signature", BODY, null],
+    ["malformed-signature", BODY, "abc123"],
+    ["malformed-signature", BODY, "z".repeat(64)],
+    ["signature-mismatch", BODY, sign(BODY, "not-the-secret")],
+  ])("logs %s as the rejection reason, and nothing else", async (reason, body, signature) => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { dependencies: deps } = dependencies();
+
+    await handleCatalogWebhook(webhookRequest(body, signature), deps);
+
+    expect(warn).toHaveBeenCalledExactlyOnceWith("[catalog] tiendanube webhook rejected", { reason });
+    warn.mockRestore();
+  });
+
+  it("logs nothing for an authentic delivery", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { dependencies: deps } = dependencies();
+
+    await handleCatalogWebhook(webhookRequest(BODY, sign(BODY)), deps);
+
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   // The provider serialises `store_id` as a string on some deliveries and a
   // number on others, so the handler must verify the bytes it actually
   // received rather than anything re-serialised from a parsed body.
@@ -103,6 +131,80 @@ describe("handleCatalogWebhook", () => {
 
     expect(revalidate).toHaveBeenCalledTimes(3);
     expect(revalidate).toHaveBeenLastCalledWith("tiendanube-catalog");
+  });
+});
+
+describe("handleCatalogWebhook product hook", () => {
+  function hooked() {
+    const onProductUpdated = vi.fn();
+    const { dependencies: deps, revalidate } = dependencies();
+    return { deps: { ...deps, onProductUpdated }, onProductUpdated, revalidate };
+  }
+
+  it("reports the product id of an authentic product/updated delivery, after revalidating", async () => {
+    const { deps, onProductUpdated, revalidate } = hooked();
+
+    const response = await handleCatalogWebhook(webhookRequest(BODY, sign(BODY)), deps);
+
+    expect(response.status).toBe(204);
+    expect(onProductUpdated).toHaveBeenCalledExactlyOnceWith(366252433);
+    expect(revalidate.mock.invocationCallOrder[0]).toBeLessThan(onProductUpdated.mock.invocationCallOrder[0]!);
+  });
+
+  it("accepts the id as a string, like store_id", async () => {
+    const { deps, onProductUpdated } = hooked();
+    const body = JSON.stringify({ store_id: "8176730", event: "product/updated", id: "42" });
+
+    await handleCatalogWebhook(webhookRequest(body, sign(body)), deps);
+
+    expect(onProductUpdated).toHaveBeenCalledExactlyOnceWith(42);
+  });
+
+  it("still reports when the event name is absent", async () => {
+    const { deps, onProductUpdated } = hooked();
+    const body = JSON.stringify({ store_id: 8176730, id: 7 });
+
+    await handleCatalogWebhook(webhookRequest(body, sign(body)), deps);
+
+    expect(onProductUpdated).toHaveBeenCalledExactlyOnceWith(7);
+  });
+
+  it.each([
+    ["no id", JSON.stringify({ store_id: 8176730, event: "product/updated" })],
+    ["a non-numeric id", JSON.stringify({ store_id: 8176730, event: "product/updated", id: "abc" })],
+    ["a zero id", JSON.stringify({ store_id: 8176730, event: "product/updated", id: 0 })],
+    ["another event", JSON.stringify({ store_id: 8176730, event: "product/deleted", id: 5 })],
+    ["a body that is not JSON", "not json at all"],
+    ["another store", JSON.stringify({ store_id: 1, event: "product/updated", id: 5 })],
+  ])("does not report a delivery with %s, yet keeps the cache invalidation behaviour", async (label, body) => {
+    void label;
+    const { deps, onProductUpdated, revalidate } = hooked();
+
+    const response = await handleCatalogWebhook(webhookRequest(body, sign(body)), deps);
+
+    expect(response.status).toBe(204);
+    expect(onProductUpdated).not.toHaveBeenCalled();
+    expect(revalidate).toHaveBeenCalledTimes(label === "another store" ? 0 : 1);
+  });
+
+  it("never reports an unauthentic delivery", async () => {
+    const { deps, onProductUpdated } = hooked();
+
+    const response = await handleCatalogWebhook(webhookRequest(BODY, "0".repeat(64)), deps);
+
+    expect(response.status).toBe(401);
+    expect(onProductUpdated).not.toHaveBeenCalled();
+  });
+
+  // A throwing hook must not become a 500: the provider would retry the
+  // delivery for 48 hours over a failure that is not the delivery's fault.
+  it("answers 204 even when the hook throws", async () => {
+    const { deps, onProductUpdated } = hooked();
+    onProductUpdated.mockImplementation(() => { throw new Error("boom"); });
+
+    const response = await handleCatalogWebhook(webhookRequest(BODY, sign(BODY)), deps);
+
+    expect(response.status).toBe(204);
   });
 });
 

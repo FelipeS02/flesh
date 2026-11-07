@@ -6,7 +6,7 @@ import type { ProductView } from "../domain/product";
 import { readTiendanubeConfig } from "./config";
 import { cachedImageMeasurer, readImageDimensions } from "./image-dimensions";
 import type { CatalogPort, CheckoutProduct } from "./port";
-import { createTiendanubeCatalogLoader, type CatalogSnapshot } from "./tiendanube";
+import { createTiendanubeCatalogLoader, createTiendanubeProductReader, type CatalogSnapshot } from "./tiendanube";
 
 export const CATALOG_CACHE_TAG = "tiendanube-catalog";
 
@@ -42,4 +42,9 @@ function getCheckoutProducts(): Promise<CheckoutProduct[]> { return Promise.reso
 function getProductByHandle(slug: string): Promise<ProductView | null> { return Promise.resolve(source.getProductByHandle(slug)); }
 function getColourwayIndex(): Promise<ColourwayIndex> { return Promise.resolve(source.getColourwayIndex()); }
 
-export { getProducts, getPurchasableProducts, getCheckoutProducts, getProductByHandle, getColourwayIndex, source };
+/** Uncached on purpose — see `createTiendanubeProductReader`. */
+function getFreshProductById(productId: number): Promise<ProductView | null> {
+  return createTiendanubeProductReader(readTiendanubeConfig())(productId);
+}
+
+export { getFreshProductById, getProducts, getPurchasableProducts, getCheckoutProducts, getProductByHandle, getColourwayIndex, source };

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useBottomDock } from '@/hooks/use-bottom-dock';
 import { cn } from '@/lib/utils';
 import {
   deriveAxisStates,
@@ -19,6 +20,17 @@ import { StockNote } from './stock-note';
 import Image from 'next/image';
 import { SHEET_BACKGROUND_SIZES, SheetBackground } from '@/components/ui/sheet-background';
 import BarbedWireSeparator from '@/components/shared/barbed-wire-separator';
+import { BellIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
+import { RESTOCK_PITCH, RestockForm } from '@/modules/newsletter/client';
 
 /**
  * The sentinel the widget watches, and the reason it exists.
@@ -56,6 +68,12 @@ type PurchaseWidgetProps = {
   onAdd?: () => void;
   /** See `PurchasePanelProps.sizeChart` — same optional pass-through, same reason it is not part of `VariantMatrix`. */
   sizeChart?: readonly GarmentSize[] | null;
+  /**
+   * Present exactly when the selected variant exists and is sold out. The
+   * panel decides it, like `ctaLabel`, so the widget never re-derives stock.
+   * It replaces the dead 'Sin stock' button with the way to ask for a restock.
+   */
+  restock?: { productId: number; variantId: number; variantLine: string };
 };
 
 /**
@@ -82,12 +100,19 @@ export function PurchaseWidget({
   onSelect,
   onAdd,
   sizeChart,
+  restock,
 }: PurchaseWidgetProps) {
   const visible = useWidgetVisible();
+  const rootRef = useRef<HTMLDivElement>(null);
+  // Published only while on screen: a widget slid off the bottom still has a
+  // box, but it is not covering anything, so it must not push the newsletter
+  // banner (or any other bottom-pinned element) up.
+  useBottomDock(rootRef, visible);
   const { axes } = product;
 
   return (
     <div
+      ref={rootRef}
       data-purchase-widget
       data-visible={visible}
       // `inert` and not just `opacity-0`: a widget that has slid off the
@@ -145,26 +170,63 @@ export function PurchaseWidget({
 
       {lastUnit && <StockNote />}
 
-      <button
-        type='button'
-        // See the panel's own add button: the toast's mobile dismiss hook
-        // reads this so the tap that creates the toast cannot hide it.
-        data-cart-add=''
-        disabled={!canAddToCart}
-        onClick={() => onAdd?.()}
-        // Label left, price right. The price is the transfer price and only
-        // the transfer price — the button is one line, and a line that tried
-        // to carry both figures would have to explain which is which in a
-        // space that has no room to explain anything.
-        className='flex h-12 w-full items-center justify-between bg-primary px-4 font-display text-lg text-primary-foreground transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100'
-      >
-        <span>{ctaLabel}</span>
-        {priced && (
-          <span className='tabular-nums'>
-            {formatMoney(transferPrice(priced.price))}
-          </span>
-        )}
-      </button>
+      {restock ? (
+        <Sheet>
+          {/* The design system's secondary Button (white on black), through the
+              trigger's `render` prop: the sheet's own focus return and
+              aria wiring stay, the button's focus ring and press feedback
+              come along. */}
+          <SheetTrigger
+            render={
+              <Button
+                variant='secondary'
+                className='h-12 w-full gap-2 font-display text-lg'
+              />
+            }
+          >
+            <BellIcon />
+            Avisame cuando vuelva
+          </SheetTrigger>
+          <SheetContent side='bottom' styledBackground>
+            <SheetHeader className='gap-1 px-5 pt-6 pb-0'>
+              <SheetTitle className='text-[28px] leading-none'>
+                Avisame cuando vuelva
+              </SheetTitle>
+              <SheetDescription>{RESTOCK_PITCH}</SheetDescription>
+            </SheetHeader>
+            <div className='px-5 pb-6'>
+              <RestockForm
+                key={restock.variantId}
+                layout='sheet'
+                productId={restock.productId}
+                variantId={restock.variantId}
+                variantLine={restock.variantLine}
+              />
+            </div>
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <button
+          type='button'
+          // See the panel's own add button: the toast's mobile dismiss hook
+          // reads this so the tap that creates the toast cannot hide it.
+          data-cart-add=''
+          disabled={!canAddToCart}
+          onClick={() => onAdd?.()}
+          // Label left, price right. The price is the transfer price and only
+          // the transfer price — the button is one line, and a line that tried
+          // to carry both figures would have to explain which is which in a
+          // space that has no room to explain anything.
+          className='flex h-12 w-full items-center justify-between bg-primary px-4 font-display text-lg text-primary-foreground transition-opacity hover:opacity-90 disabled:bg-muted disabled:text-muted-foreground disabled:opacity-100'
+        >
+          <span>{ctaLabel}</span>
+          {priced && (
+            <span className='tabular-nums'>
+              {formatMoney(transferPrice(priced.price))}
+            </span>
+          )}
+        </button>
+      )}
     </div>
   );
 }

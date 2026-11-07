@@ -102,7 +102,7 @@ describe('Header', () => {
     const svg = link.querySelector('svg');
 
     expect(svg).not.toBeNull();
-    expect(svg?.getAttribute('viewBox')).toBe('0 0 575 229');
+    expect(svg?.getAttribute('viewBox')).toBe('0 0 576 229');
   });
 
   it('keeps the wordmark in the middle column and reserves the third for the cart trigger', () => {

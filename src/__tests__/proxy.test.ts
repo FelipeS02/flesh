@@ -15,7 +15,7 @@ import { config, proxy } from "../proxy";
 const matches = (pathname: string) => new RegExp(`^${config.matcher[0]}$`).test(pathname);
 
 describe("proxy matcher", () => {
-  it.each(["/", "/producto/remera-negra", "/devoluciones", "/accesorios"])(
+  it.each(["/", "/producto/remera-negra", "/devoluciones", "/accesorios", "/newsletter", "/newsletter/bajas"])(
     "gates %s",
     (pathname) => {
       expect(matches(pathname)).toBe(true);
@@ -24,6 +24,9 @@ describe("proxy matcher", () => {
 
   it.each([
     "/acceso",
+    // Reached from a mailed link by people who may never have held the gate
+    // cookie: a 307 to /acceso would make unsubscribing impossible.
+    "/newsletter/baja",
     "/api/webhooks/tiendanube",
     "/_next/static/chunks/main.js",
     "/_next/image",
