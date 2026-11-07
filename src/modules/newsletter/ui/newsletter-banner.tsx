@@ -19,8 +19,8 @@ import {
   type CookieNoticeStorage,
 } from '@/modules/legal/cookie-notice.storage';
 import { decideBanner } from '../domain/banner-policy';
-import desktopTexture from './assets/newsletter-banner-desktop.jpg';
-import mobileTexture from './assets/newsletter-banner-mobile.png';
+import desktopTexture from './assets/newsletter-banner-desktop.webp';
+import mobileTexture from './assets/newsletter-banner-mobile.webp';
 import { browserBannerStorage, type BannerStorage } from './banner-storage';
 import { createSubscribePort, type SubscribePort } from './newsletter.client';
 
