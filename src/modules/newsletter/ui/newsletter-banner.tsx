@@ -274,7 +274,7 @@ export function NewsletterBanner({
               <span>Te vamos a avisar en {status.email}</span>
             </p>
             <p className='font-sans text-[10px] leading-relaxed tracking-control text-muted-foreground'>
-              SOLO DROPS Y RESTOCKS.
+              VAS A SER EL PRIMERO EN TODO.
             </p>
           </div>
         ) : (
