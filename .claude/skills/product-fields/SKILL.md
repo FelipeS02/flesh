@@ -1,6 +1,6 @@
 ---
 name: product-fields
-description: "Trigger: product fields, custom fields, colourway, fit, size chart, tabla de talles, campos personalizados. Edit Tiendanube product custom fields interactively."
+description: "Trigger: product fields, custom fields, colourway, fit, size chart, preview, próximamente, unreleased, tabla de talles, campos personalizados. Edit Tiendanube product custom fields interactively."
 license: Apache-2.0
 metadata:
   author: "FelipeS02"
@@ -9,7 +9,7 @@ metadata:
 
 ## Activation Contract
 
-Use when the user wants to view or change a product's `colourway`, `fit` or `size_chart`. The Tiendanube admin cannot edit these; `scripts/custom-fields.mjs` is the only writer.
+Use when the user wants to view or change a product's `colourway`, `fit`, `size_chart` or `preview`. The Tiendanube admin cannot edit these; `scripts/custom-fields.mjs` is the only writer.
 
 ## Hard Rules
 
@@ -25,6 +25,7 @@ Use when the user wants to view or change a product's `colourway`, `fit` or `siz
 |---|---|
 | `fit` | `{"type":"top"\|"bottom","position":0-100}` |
 | `colourway` | `{"color_name":"…","hex":"#RRGGBB","group":"…"}`; siblings share `group` verbatim |
+| `preview` | `{"enabled":true}` marks the product unreleased (PREVIEW page, not purchasable). Turn it off with `{"enabled":false}`; the script cannot delete a field value, and an off value reads the same as an absent one |
 | `size_chart` | `[{"size":"M","chest_width":56,…}]`; keys: `back_width chest_width waist_width garment_length sleeve_length front_rise leg_opening`, positive integers, omit empty ones |
 
 ## Execution Steps
@@ -43,4 +44,4 @@ Report the product, each field written with its saved value, and any refused or 
 ## References
 
 - `scripts/custom-fields.mjs` — commands, validation, endpoints.
-- `src/modules/catalog/api/` — how the loader reads these fields (`colourways.ts`, `fit.ts`, `size-chart.ts`).
+- `src/modules/catalog/api/` — how the loader reads these fields (`colourways.ts`, `fit.ts`, `size-chart.ts`, `preview.ts`).

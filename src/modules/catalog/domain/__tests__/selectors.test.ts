@@ -37,6 +37,7 @@ function buildProductView(overrides: Partial<ProductView> = {}): ProductView {
     inStock: true,
     tags: [],
     colourway: null,
+    preview: false,
     fit: null,
     sizeChart: null,
     ...overrides,

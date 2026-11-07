@@ -96,6 +96,12 @@ export type ProductView = {
    * `axes` — same garment, same photos, different pattern.
    */
   colourway: Colourway | null;
+  /**
+   * Unreleased: shown and announced, never sold. Enforced where it matters, by
+   * leaving the product out of the checkout list (`api/tiendanube.ts`); this
+   * flag only drives what the storefront renders.
+   */
+  preview: boolean;
   fit: GarmentFit | null;
   sizeChart: readonly GarmentSize[] | null;
 };

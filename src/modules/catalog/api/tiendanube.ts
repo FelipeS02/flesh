@@ -5,6 +5,7 @@ import type { ProductView } from "../domain/product";
 import { ColourwayFieldSchema, ColourwayOwnerSchema, toColourwayIndex } from "./colourways";
 import type { TiendanubeConfig } from "./config";
 import { FitFieldSchema, toFitIndex } from "./fit";
+import { PreviewFieldSchema, toPreviewIndex } from "./preview";
 import type { ImageDimensions, ImageMeasurer } from "./image-dimensions";
 import { ProductSchema } from "./schema";
 import { SizeChartFieldSchema, toSizeChartIndex } from "./size-chart";
@@ -67,12 +68,13 @@ const OwnersEnvelopeSchema = z.object({
 });
 
 type OwnersEnvelope = z.infer<typeof OwnersEnvelopeSchema>;
-type FieldSlug = "colourway" | "fit" | "size_chart";
+type FieldSlug = "colourway" | "fit" | "size_chart" | "preview";
 
 const fieldTypes: Record<FieldSlug, "object" | "object[]"> = {
   colourway: "object",
   fit: "object",
   size_chart: "object[]",
+  preview: "object",
 };
 
 class TiendanubeRequestError extends Error {
@@ -157,6 +159,7 @@ export function createTiendanubeCatalogLoader(
     const colourwayField = await loadOwners(config, "colourway", requestJson);
     const fitField = await loadOwners(config, "fit", requestJson);
     const sizeChartField = await loadOwners(config, "size_chart", requestJson);
+    const previewField = await loadOwners(config, "preview", requestJson);
 
     const validColourwayOwners = colourwayField.owners.flatMap((owner) => {
       const parsed = ColourwayOwnerSchema.safeParse(owner);
@@ -171,9 +174,11 @@ export function createTiendanubeCatalogLoader(
     }));
     const fits = toFitIndex(FitFieldSchema.parse(normalisedField(fitField)));
     const sizeCharts = toSizeChartIndex(SizeChartFieldSchema.parse(normalisedField(sizeChartField)));
+    const previews = toPreviewIndex(PreviewFieldSchema.parse(normalisedField(previewField)));
     if (colourways.diagnostics.length > 0) warn(`[catalog] Ignored ${colourways.diagnostics.length} malformed colourway owner(s).`);
     if (fits.diagnostics.length > 0) warn(`[catalog] Ignored ${fits.diagnostics.length} malformed fit owner(s).`);
     if (sizeCharts.diagnostics.length > 0) warn(`[catalog] Ignored ${sizeCharts.diagnostics.length} malformed size-chart owner(s).`);
+    if (previews.diagnostics.length > 0) warn(`[catalog] Ignored ${previews.diagnostics.length} malformed preview owner(s).`);
 
     const imageSizes = dependencies.measureImage
       ? await measureGalleryImages(products, dependencies.measureImage, warn)
@@ -186,6 +191,7 @@ export function createTiendanubeCatalogLoader(
       const view = mapToProductView(product, colourways.values.get(product.id) ?? null, {
         fit: fits.values.get(product.id) ?? null,
         sizeChart: sizeCharts.values.get(product.id) ?? null,
+        preview: previews.values.get(product.id) ?? false,
       }, imageSizes);
       // Explicit rule, not an accident of the `visibility=visible,unlisted`
       // query param above: if that param is ever widened, or the API ever
@@ -193,6 +199,15 @@ export function createTiendanubeCatalogLoader(
       // become orderable.
       if (product.visibility === "hidden") continue;
       purchasable.push(view);
+      if (view.preview) {
+        // The checkout list is the ONLY thing `startTiendanubeCheckout` and the
+        // restock notice trust: a client can post any variant id, so hiding the
+        // buy button proves nothing. A variant missing from this list is
+        // rejected server-side, which makes an unreleased product unbuyable
+        // even though its PDP and grid card still render.
+        if (product.visibility === "visible") listed.push(view);
+        continue;
+      }
       checkout.push({
         productId: product.id,
         variants: product.variants.map((variant, index) => ({

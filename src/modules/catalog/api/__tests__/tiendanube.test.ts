@@ -62,7 +62,7 @@ function json(body: unknown, init: ResponseInit = {}) {
   });
 }
 
-function successfulFetch(products: unknown[] = [product]) {
+function successfulFetch(products: unknown[] = [product], previewOwners: unknown[] = []) {
   return vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
     const url = String(input);
     expect(init?.cache).toBe("no-store");
@@ -73,6 +73,7 @@ function successfulFetch(products: unknown[] = [product]) {
       return json(owners("colourway", "object", [{ entity_id: "101", value: { group: "tee", hex: "#000", color_name: "Black" } }]));
     }
     if (url.includes("/fit/")) return json(owners("fit", "object", [{ entity_id: "101", value: { type: "top", position: 50 } }]));
+    if (url.includes("/preview/")) return json(owners("preview", "object", previewOwners));
     return json(owners("size_chart", "object[]", [{ entity_id: "101", value: [{ size: "M", chest_width: 50 }] }]));
   });
 }
@@ -120,20 +121,43 @@ describe("readTiendanubeConfig", () => {
 });
 
 describe("Tiendanube catalog loader", () => {
-  it("loads one stable product page and the three unstable owners resources", async () => {
+  it("loads one stable product page and the four unstable owners resources", async () => {
     const fetchImpl = successfulFetch();
     const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
 
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
     expect(String(fetchImpl.mock.calls[0]![0])).toBe("https://api.tiendanube.com/2025-03/123/products?visibility=visible%2Cunlisted&per_page=200");
     expect(fetchImpl.mock.calls.slice(1).map(([url]) => String(url))).toEqual([
       "https://api.tiendanube.com/unstable/123/products/custom-fields/custom/colourway/owners?limit=200",
       "https://api.tiendanube.com/unstable/123/products/custom-fields/custom/fit/owners?limit=200",
       "https://api.tiendanube.com/unstable/123/products/custom-fields/custom/size_chart/owners?limit=200",
+      "https://api.tiendanube.com/unstable/123/products/custom-fields/custom/preview/owners?limit=200",
     ]);
     expect(snapshot.listed).toHaveLength(1);
     expect(snapshot.purchasable[0]).toMatchObject({ slug: "remera", colourway: { group: "tee" }, fit: { type: "top" } });
     expect(snapshot.purchasable[0]?.sizeChart).toEqual([{ size: "M", measurements: { chest_width: 50 } }]);
+    expect(snapshot.purchasable[0]?.preview).toBe(false);
+    expect(snapshot.checkout.map((entry) => entry.productId)).toEqual([101]);
+  });
+
+  it("keeps a preview product listed but out of the checkout list", async () => {
+    const released = { ...product, id: 102, handle: { es: "otra" }, variants: [{ ...product.variants[0], id: 202, product_id: 102 }] };
+    const fetchImpl = successfulFetch([product, released], [{ entity_id: "101", value: { enabled: true } }]);
+    const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
+
+    expect(snapshot.listed.map((view) => [view.id, view.preview])).toEqual([[101, true], [102, false]]);
+    expect(snapshot.purchasable.map((view) => view.id)).toEqual([101, 102]);
+    expect(snapshot.checkout.map((entry) => entry.productId)).toEqual([102]);
+  });
+
+  it("treats a malformed preview value as off and warns", async () => {
+    const warn = vi.fn();
+    const fetchImpl = successfulFetch([product], [{ entity_id: "101", value: { enabled: "yes" } }]);
+    const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl, warn })();
+
+    expect(snapshot.purchasable[0]?.preview).toBe(false);
+    expect(snapshot.checkout).toHaveLength(1);
+    expect(warn).toHaveBeenCalledWith(expect.stringMatching(/preview/));
   });
 
   it("follows safe product Link pagination and rejects an escaping link", async () => {
@@ -346,7 +370,7 @@ describe("Tiendanube catalog loader — image dimensions", () => {
     const fetchImpl = successfulFetch([withImages]);
     const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
 
-    expect(fetchImpl).toHaveBeenCalledTimes(4);
+    expect(fetchImpl).toHaveBeenCalledTimes(5);
     expect(snapshot.purchasable[0]!.images[0]).not.toHaveProperty("width");
   });
 
