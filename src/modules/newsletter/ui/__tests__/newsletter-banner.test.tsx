@@ -281,14 +281,17 @@ describe("NewsletterBanner submission", () => {
     expect(input.placeholder).toBe("EMAIL");
   });
 
-  it("subscribes through the port and confirms where the welcome went", async () => {
+  // Welcome emails are off before launch, so the confirmation must not promise
+  // a mail (nor send the shopper to dig through spam for it).
+  it("subscribes through the port and confirms the address without promising a mail", async () => {
     const view = open();
 
     await submit("fan@flesh.test");
 
     expect(view.port.subscribe).toHaveBeenCalledWith("fan@flesh.test");
     expect(screen.getByRole("heading", { name: "YA ESTÁS ADENTRO" })).toBeDefined();
-    expect(screen.getByText("Te mandamos la bienvenida a fan@flesh.test")).toBeDefined();
+    expect(screen.getByText("Te vamos a avisar en fan@flesh.test")).toBeDefined();
+    expect(screen.queryByText(/bienvenida|SPAM/i)).toBeNull();
   });
 
   it("remembers the subscription as soon as it succeeds, so a reload cannot show it again", async () => {

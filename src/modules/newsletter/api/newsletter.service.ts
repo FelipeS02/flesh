@@ -31,6 +31,8 @@ export type NewsletterDependencies = {
   readClientKey: () => Promise<string>;
   isBot: () => Promise<boolean>;
   siteOrigin: () => string;
+  /** Off: subscriptions are stored, but nobody is mailed on signup. */
+  welcomeEmails: boolean;
   repository: {
     subscribe: (
       client: SupabaseClient,
@@ -71,6 +73,9 @@ function defaultDependencies(): NewsletterDependencies {
     // Pinned to `basic`: Deep Analysis bills per call (see checkout.service).
     isBot: async () => (await checkBotId({ advancedOptions: { checkLevel: "basic" } })).isBot,
     siteOrigin: () => siteUrl().origin,
+    // Opt-in, so a deploy that forgets the variable stays silent instead of
+    // mailing the list before the launch is ready.
+    welcomeEmails: process.env.NEWSLETTER_WELCOME_EMAILS === "true",
     repository: { subscribe, requestRestock },
   };
 }
@@ -160,7 +165,7 @@ async function subscribeAndWelcome(
   const result = await deps.repository.subscribe(deps.createClient(), { email, source });
   // Already-active gets no email: re-mailing on every submit would turn the form
   // into a way to spam a known address, and the answer must not differ anyway.
-  if (result.status === "already-active") return;
+  if (result.status === "already-active" || !deps.welcomeEmails) return;
 
   // After the response, so the shopper does not wait on Resend, and so a
   // failed send can never undo a subscription that is already stored.

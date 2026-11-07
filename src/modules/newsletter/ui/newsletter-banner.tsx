@@ -236,10 +236,12 @@ export function NewsletterBanner({
             </h2>
             <p className='flex items-center gap-2 font-sans text-sm text-foreground'>
               <MailCheckIcon aria-hidden className='size-4 shrink-0' />
-              <span>Te mandamos la bienvenida a {status.email}</span>
+              {/* No welcome mail goes out before launch (`welcomeEmails`), so
+                  this confirms the address instead of promising an inbox. */}
+              <span>Te vamos a avisar en {status.email}</span>
             </p>
             <p className='font-sans text-[10px] leading-relaxed tracking-control text-muted-foreground'>
-              SOLO DROPS Y RESTOCKS. SI NO LO VES, REVISÁ PROMOCIONES O SPAM.
+              SOLO DROPS Y RESTOCKS.
             </p>
           </div>
         ) : (

@@ -43,6 +43,7 @@ function setup(overrides: Partial<NewsletterDependencies> = {}) {
     readClientKey: async () => "client-a",
     isBot: async () => false,
     siteOrigin: () => "https://flesh.test",
+    welcomeEmails: true,
     repository: { subscribe, requestRestock },
     ...overrides,
   };
@@ -74,6 +75,16 @@ describe("subscribeToNewsletter", () => {
     expect(tasks).toHaveLength(1);
     await flush();
     expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("stores the subscription but schedules no mail while welcome emails are off", async () => {
+    const { dependencies, subscribe, send, tasks } = setup({ welcomeEmails: false });
+
+    await expect(subscribeToNewsletter({ email: EMAIL }, dependencies)).resolves.toEqual({ ok: true });
+
+    expect(subscribe).toHaveBeenCalledWith(expect.anything(), { email: EMAIL, source: "newsletter" });
+    expect(tasks).toHaveLength(0);
+    expect(send).not.toHaveBeenCalled();
   });
 
   it("sends the welcome with the RFC 8058 one-click pair and a token-bearing body link", async () => {
