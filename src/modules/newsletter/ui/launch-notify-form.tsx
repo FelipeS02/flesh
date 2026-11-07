@@ -77,10 +77,12 @@ export function LaunchNotifyForm({ productId, port }: LaunchNotifyFormProps) {
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={error === 'invalid-email' || undefined}
           aria-describedby={error ? alertId : undefined}
+          // `md:flex-1` and not `flex-1`: stacked, the field's main axis is
+          // vertical and a flex-basis of 0 collapses it to its content height.
           // Matches the checkout field (buyer dialog) at the artboard's 54px.
           // The brand's alarm colour is its primary, not the registry's
           // destructive red.
-          className='h-[54px] flex-1 border-input bg-foreground/5 px-4 font-sans text-base text-foreground aria-invalid:border-primary aria-invalid:ring-primary/20'
+          className='h-[54px] border-input md:flex-1 bg-foreground/5 px-4 font-sans text-base text-foreground aria-invalid:border-primary aria-invalid:ring-primary/20'
         />
         <Button
           type='submit'

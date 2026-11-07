@@ -16,6 +16,18 @@ async function submit(email: string) {
 }
 
 describe("LaunchNotifyForm", () => {
+  // jsdom lays nothing out, so the layout contract is read off the class list:
+  // a bare `flex-1` in the stacked (column) layout sets flex-basis 0 and
+  // collapsed the field to 26px at 390px. Growth belongs to the row layout.
+  it("only lets the email field grow when the row layout applies", () => {
+    render(<LaunchNotifyForm productId={7} port={port()} />);
+
+    const classes = screen.getByRole("textbox", { name: "Email" }).className.split(" ");
+
+    expect(classes).not.toContain("flex-1");
+    expect(classes).toContain("md:flex-1");
+  });
+
   it("asks for an email in a typed, labelled field and promises a single message", () => {
     render(<LaunchNotifyForm productId={7} port={port()} />);
 
