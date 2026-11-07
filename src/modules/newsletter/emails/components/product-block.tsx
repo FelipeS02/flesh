@@ -5,7 +5,8 @@ type ProductBlockProps = {
   baseUrl: string;
   imageUrl: string;
   name: string;
-  variantLabel: string;
+  /** Absent for a notice about the whole product rather than one variant. */
+  variantLabel?: string;
   price: string;
 };
 
@@ -59,19 +60,23 @@ export function ProductBlock({ baseUrl, imageUrl, name, variantLabel, price }: P
         >
           {name}
         </Text>
+        {variantLabel ? (
+          <Text
+            style={{
+              margin: "4px 0 12px",
+              fontFamily: t.font.body,
+              fontSize: t.size.body,
+              color: t.color.mutedForeground,
+            }}
+          >
+            {variantLabel}
+          </Text>
+        ) : null}
         <Text
           style={{
-            margin: "4px 0 12px",
-            fontFamily: t.font.body,
-            fontSize: t.size.body,
-            color: t.color.mutedForeground,
-          }}
-        >
-          {variantLabel}
-        </Text>
-        <Text
-          style={{
-            margin: 0,
+            // The variant line's margins are what separate name from price;
+            // without it the price would butt against the name.
+            margin: variantLabel ? 0 : "8px 0 0",
             fontFamily: t.font.display,
             fontSize: t.size.price,
             color: t.color.foreground,
