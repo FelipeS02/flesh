@@ -1,4 +1,5 @@
-import type { RestockOutcome, SubscribeOutcome } from "../api/newsletter.service";
+import { requestLaunchNotice } from "../api/launch.action";
+import type { LaunchOutcome, RestockOutcome, SubscribeOutcome } from "../api/newsletter.service";
 import { requestRestockNotice } from "../api/restock.action";
 import { subscribeToNewsletter } from "../api/subscribe.action";
 
@@ -49,6 +50,30 @@ export type RestockRequest = {
 export type RestockPort = {
   request(input: RestockRequest): Promise<RestockOutcome>;
 };
+
+type LaunchAction = (input: unknown) => Promise<LaunchOutcome>;
+
+export type LaunchRequest = {
+  email: string;
+  productId: number;
+};
+
+export type LaunchPort = {
+  request(input: LaunchRequest): Promise<LaunchOutcome>;
+};
+
+/** Same contract as `createSubscribePort`, for the per-product launch request. */
+export function createLaunchPort(action: LaunchAction = requestLaunchNotice): LaunchPort {
+  return {
+    async request(input) {
+      try {
+        return await action(input);
+      } catch {
+        return UNAVAILABLE;
+      }
+    },
+  };
+}
 
 /** Same contract as `createSubscribePort`, for the per-variant restock request. */
 export function createRestockPort(action: RestockAction = requestRestockNotice): RestockPort {
