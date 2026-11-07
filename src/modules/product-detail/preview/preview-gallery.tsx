@@ -27,8 +27,16 @@ const DESKTOP_QUERY = '(min-width: 768px)';
 /** The ratio of a photo that could not be measured: the design's 310x400 slide. */
 const FALLBACK_RATIO = '310 / 400';
 
-/** The mobile slide height; the strip's end padding is derived from it. */
+/** The mobile slide height; the strip's end spacers are derived from it. */
 const MOBILE_SLIDE_HEIGHT_PX = 388;
+
+/** The gap between mobile slides (`gap-3.5`), which a spacer must make up for. */
+const MOBILE_GAP_PX = 14;
+
+/** Width of a strip spacer that parks a slide of this ratio in the middle. */
+function spacerWidth(image: ImageView | undefined): string {
+  return `calc((100vw - ${MOBILE_SLIDE_HEIGHT_PX}px * ${numericRatio(image)}) / 2 - ${MOBILE_GAP_PX}px)`;
+}
 
 /**
  * How far past the photo's edge each arrow's hit area reaches.
@@ -151,32 +159,46 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
   return (
     <div
       ref={root}
-      className='relative w-full md:[--preview-h:min(400px,max(240px,calc(var(--pdp-viewport-height,100svh)-var(--pdp-band-height,11.25rem)-344px)))]'
+      // `--slide-h` is the ONE height every slide and the overlay read: the
+      // mobile 388px, or from md the viewport budget. The overlay used to carry
+      // its own copy of the formula and drifted from the slides.
+      className='relative w-full [--slide-h:388px] md:[--slide-h:min(400px,max(240px,calc(var(--pdp-viewport-height,100svh)-var(--pdp-band-height,11.25rem)-344px)))]'
       style={
         {
           '--first-ratio': ordered[0] ? ratioOf(ordered[0]) : FALLBACK_RATIO,
-          // Padding on the scroller itself, each end from ITS OWN photo: a
-          // spacer derived from one ratio left a last photo of another width
-          // off-centre and clipped by the edge.
-          '--pad-start': `calc((100vw - ${MOBILE_SLIDE_HEIGHT_PX}px * ${numericRatio(ordered[0])}) / 2)`,
-          '--pad-end': `calc((100vw - ${MOBILE_SLIDE_HEIGHT_PX}px * ${numericRatio(ordered.at(-1))}) / 2)`,
         } as CSSProperties
       }
     >
       <Carousel
         setApi={setApi}
-        opts={{ align: 'center', containScroll: false, active: isDesktop }}
+        // `slides` names the photos so the spacers below are not counted as
+        // slides by Embla.
+        opts={{
+          align: 'center',
+          containScroll: false,
+          active: isDesktop,
+          slides: '[data-slot="carousel-item"]',
+        }}
         aria-label={`Galería de imágenes de ${title}`}
       >
         <CarouselContent
-          viewportClassName='max-md:ps-(--pad-start) max-md:pe-(--pad-end) max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory max-md:scrollbar-none [&::-webkit-scrollbar]:hidden'
+          viewportClassName='max-md:overflow-x-auto max-md:snap-x max-md:snap-mandatory max-md:scrollbar-none [&::-webkit-scrollbar]:hidden'
           // Before Embla starts (the server render, the first paint) the
           // track is nudged so the first photo already sits in the middle; the
           // engine's own inline transform replaces this the moment it runs,
           // so there is no jump. It is a `transform`, not Tailwind's `translate`
           // property, precisely so Embla's replaces it instead of adding to it.
-          className='ml-0 gap-3.5 md:gap-10 md:[transform:translateX(calc(50vw-var(--preview-h)*var(--first-ratio)/2))]'
+          className='ml-0 gap-3.5 md:gap-10 md:[transform:translateX(calc(50vw-var(--slide-h)*var(--first-ratio)/2))]'
         >
+          {/* Real elements, not padding: end padding of a flex scroll
+              container is not part of its scrollable overflow, so the last
+              slide could never reach the middle. */}
+          <div
+            aria-hidden='true'
+            data-strip-spacer
+            style={{ width: spacerWidth(ordered[0]) }}
+            className='flex-none md:hidden'
+          />
           {ordered.map((image, index) => {
             const source = mediaSource(image.src, { width: 640 });
 
@@ -193,7 +215,7 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
                 }
                 className='relative basis-auto pl-0 transition-[filter,opacity] duration-300 max-md:snap-center motion-reduce:transition-none'
               >
-                <div className='relative h-97 aspect-(--slide-ratio) md:h-(--preview-h)'>
+                <div className='relative h-(--slide-h) aspect-(--slide-ratio)'>
                   <Image
                     src={source.src}
                     unoptimized={source.unoptimized}
@@ -213,6 +235,12 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
               </CarouselItem>
             );
           })}
+          <div
+            aria-hidden='true'
+            data-strip-spacer
+            style={{ width: spacerWidth(ordered.at(-1)) }}
+            className='flex-none md:hidden'
+          />
         </CarouselContent>
 
         {/* Badge and arrows are drawn ONCE, over the stage, not inside
@@ -226,7 +254,7 @@ export function PreviewGallery({ images, title, badge }: PreviewGalleryProps) {
         <div
           data-stage-overlay
           style={{ '--active-ratio': numericRatio(ordered[selected]) } as CSSProperties}
-          className='pointer-events-none absolute top-0 left-1/2 z-10 h-97 w-[calc(388px*var(--active-ratio))] -translate-x-1/2 transition-[width] duration-300 md:h-(--preview-h) md:w-[calc(var(--preview-h)*var(--active-ratio))] motion-reduce:transition-none'
+          className='pointer-events-none absolute top-0 left-1/2 z-10 h-(--slide-h) w-[calc(var(--slide-h)*var(--active-ratio))] -translate-x-1/2'
         >
           {badge && <div className='absolute top-0 left-0'>{badge}</div>}
           {hasControls && (

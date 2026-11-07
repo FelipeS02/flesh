@@ -179,10 +179,11 @@ describe("PreviewGallery", () => {
     expect(overlay().style.getPropertyValue("--active-ratio")).toBe("2");
   });
 
-  // The native strip's end padding is what lets snap-center park a slide
-  // exactly in the middle. One shared spacer was derived from a single ratio,
-  // so a last photo wider or narrower than the first sat off-centre and clipped.
-  it("pads the mobile strip from the first and last photos' own widths", () => {
+  // Spacer ELEMENTS, not container padding: end padding of a flex scroll
+  // container was not part of its scrollable overflow, so the last slide could
+  // never reach the middle. Each is sized from its own photo (minus the gap
+  // that follows it), so a last photo of another width still parks centred.
+  it("brackets the mobile strip with spacers sized from the first and last photos", () => {
     embla.count = 3;
     setViewport("mobile");
     const photos: ImageView[] = [
@@ -191,19 +192,46 @@ describe("PreviewGallery", () => {
       { id: 3, src: "/c.png", position: 3, width: 1000, height: 500 },
     ];
     const { container } = render(<PreviewGallery images={photos} title='Army' />);
-    const root = container.firstElementChild as HTMLElement;
-    const viewport = container.querySelector('[data-slot="carousel-content"]')!;
+    const spacers = container.querySelectorAll<HTMLElement>("[data-strip-spacer]");
 
-    expect(root.style.getPropertyValue("--pad-start")).toBe("calc((100vw - 388px * 1) / 2)");
-    expect(root.style.getPropertyValue("--pad-end")).toBe("calc((100vw - 388px * 2) / 2)");
-    expect(viewport.className).toContain("max-md:ps-(--pad-start)");
-    expect(viewport.className).toContain("max-md:pe-(--pad-end)");
+    expect(spacers).toHaveLength(2);
+    // jsdom folds the calc, so the photo widths (388 x ratio) are what it shows.
+    expect(spacers[0]!.style.width).toContain("388px");
+    expect(spacers[1]!.style.width).toContain("776px");
+    expect(spacers[0]!.style.width).not.toBe(spacers[1]!.style.width);
+    expect(spacers[0]!.getAttribute("aria-hidden")).toBe("true");
+    expect(spacers[0]!.className).toContain("flex-none");
+    // Desktop has no spacers to render: Embla centres by itself.
+    expect(spacers[0]!.className).toContain("md:hidden");
   });
 
-  it("no longer spaces the strip with per-slide margins", () => {
+  it("keeps the spacers out of Embla's slides", () => {
+    renderGallery(3, "desktop");
+
+    expect(embla.options.at(-1)).toMatchObject({ slides: '[data-slot="carousel-item"]' });
+  });
+
+  it("no longer spaces the strip with per-slide margins or container padding", () => {
     const { container } = renderGallery(3, "mobile");
+    const viewport = container.querySelector('[data-slot="carousel-content"]')!;
 
     expect(slides(container).some((slide) => slide.className.includes("first:ml"))).toBe(false);
+    expect(viewport.className).not.toContain("max-md:ps-");
+    expect(viewport.className).not.toContain("max-md:pe-");
+  });
+
+  // One height drives both: an overlay sized from its own copy of the formula
+  // drifted from the slides (332px against 353px in a browser).
+  it("sizes the overlay and the slides from the same height variable", () => {
+    const { container } = renderGallery(3, "desktop");
+    const overlay = container.querySelector<HTMLElement>("[data-stage-overlay]")!;
+    const photo = container.querySelector<HTMLElement>('[data-slot="carousel-item"] > div')!;
+
+    expect(photo.className).toContain("h-(--slide-h)");
+    expect(overlay.className).toContain("h-(--slide-h)");
+    expect(overlay.className).toContain("w-[calc(var(--slide-h)*var(--active-ratio))]");
+    expect(overlay.className).not.toContain("388px");
+    expect(overlay.className).not.toContain("--preview-h");
   });
 
   it("puts the arrows' hit areas outside the photo, on its sides", () => {
