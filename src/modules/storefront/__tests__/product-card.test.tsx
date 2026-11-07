@@ -92,6 +92,53 @@ describe("ProductCard", () => {
     expect(screen.getByText(/con transferencia/i)).not.toBeNull();
   });
 
+  describe("a preview product", () => {
+    const preview = () =>
+      makeProduct({
+        preview: true,
+        inStock: false,
+        variants: [
+          makeVariant({
+            inStock: false,
+            price: { amount: 2_700_000, currency: "ARS" },
+            compareAt: { amount: 3_600_000, currency: "ARS" },
+          }),
+        ],
+      });
+
+    it("shows no price, no markdown and no transfer line", () => {
+      const { container } = render(
+        <ProductCard product={preview()} colourways={NO_COLOURWAYS} />,
+      );
+
+      expect(container.textContent).not.toContain("$");
+      expect(screen.queryByText(/con transferencia/i)).toBeNull();
+      expect(container.querySelector("s")).toBeNull();
+    });
+
+    it("says it is coming, badges it as a preview, and does not dim it", () => {
+      const { container } = render(
+        <ProductCard product={preview()} colourways={NO_COLOURWAYS} />,
+      );
+
+      expect(screen.getByText("Próximamente")).not.toBeNull();
+      expect(
+        container.querySelector("[data-card-badge]")?.textContent,
+      ).toMatch(/preview/i);
+      expect(container.textContent).not.toMatch(/agotado/i);
+      expect(container.querySelector(".opacity-40")).toBeNull();
+    });
+
+    it("reports no select_item when its link is clicked", () => {
+      render(<ProductCard product={preview()} colourways={NO_COLOURWAYS} />);
+
+      fireEvent.click(
+        screen.getByRole("link", { name: "Musculosa Demon Wash Black" }),
+      );
+      expect(analyticsSpy).not.toHaveBeenCalled();
+    });
+  });
+
   it("prices the default variant, not simply the first one", () => {
     const cheap = makeVariant({ id: 201, inStock: false });
     const chosen = makeVariant({

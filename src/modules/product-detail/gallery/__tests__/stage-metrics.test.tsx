@@ -46,6 +46,17 @@ describe("StageMetrics", () => {
     expect(root.style.getPropertyValue("--pdp-viewport-height")).toBe("664px");
   });
 
+  // A preview product has no purchase widget: the stage then gives back the
+  // band only, instead of leaving the widget's fallback height unclaimed.
+  it("publishes a zero widget height when the page has no widget", () => {
+    document.querySelector("[data-purchase-widget]")?.remove();
+
+    render(<StageMetrics />);
+
+    expect(root.style.getPropertyValue("--pdp-band-height")).toBe("104px");
+    expect(root.style.getPropertyValue("--pdp-widget-height")).toBe("0px");
+  });
+
   it("keeps the first viewport height while the toolbar collapses", () => {
     render(<StageMetrics />);
 

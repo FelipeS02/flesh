@@ -83,13 +83,13 @@ describe("productJsonLd", () => {
     const jsonLd = productJsonLd(oneColourway(), BASE);
 
     expect(jsonLd.offers).toHaveLength(1);
-    expect(jsonLd.offers[0]!.name).toBe("Noir");
+    expect(jsonLd.offers![0]!.name).toBe("Noir");
   });
 
   it("prices the garment at its cheapest size, in major units", () => {
     const jsonLd = productJsonLd(oneColourway(), BASE);
 
-    expect(jsonLd.offers[0]).toMatchObject({
+    expect(jsonLd.offers![0]).toMatchObject({
       "@type": "Offer",
       price: "27000.00",
       priceCurrency: "ARS",
@@ -99,7 +99,7 @@ describe("productJsonLd", () => {
   it("keeps the offer on the canonical URL, since the variants share it", () => {
     const jsonLd = productJsonLd(oneColourway(), BASE);
 
-    expect(jsonLd.offers[0]!.url).toBe(
+    expect(jsonLd.offers![0]!.url).toBe(
       "https://flesh.com.ar/producto/musculosa-demon",
     );
   });
@@ -115,7 +115,7 @@ describe("productJsonLd", () => {
       BASE,
     );
 
-    expect(jsonLd.offers[0]!.availability).toBe("https://schema.org/InStock");
+    expect(jsonLd.offers![0]!.availability).toBe("https://schema.org/InStock");
   });
 
   it("marks it out of stock only when every size is gone", () => {
@@ -129,7 +129,7 @@ describe("productJsonLd", () => {
       BASE,
     );
 
-    expect(jsonLd.offers[0]!.availability).toBe("https://schema.org/OutOfStock");
+    expect(jsonLd.offers![0]!.availability).toBe("https://schema.org/OutOfStock");
   });
 
   it("emits a single unnamed offer for a garment in no colour group", () => {
@@ -145,8 +145,31 @@ describe("productJsonLd", () => {
     );
 
     expect(jsonLd.offers).toHaveLength(1);
-    expect(jsonLd.offers[0]).toMatchObject({ price: "27000.00" });
-    expect(jsonLd.offers[0]!.name).toBeUndefined();
+    expect(jsonLd.offers![0]).toMatchObject({ price: "27000.00" });
+    expect(jsonLd.offers![0]!.name).toBeUndefined();
+  });
+});
+
+describe("productJsonLd for a preview product", () => {
+  it("announces no offer, so no price and no availability", () => {
+    const jsonLd = productJsonLd(makeProduct({ preview: true }), BASE);
+
+    expect("offers" in jsonLd).toBe(false);
+    expect(serializeJsonLd(jsonLd)).not.toMatch(/price|availability/i);
+  });
+
+  it("keeps the rest of the product", () => {
+    const jsonLd = productJsonLd(
+      makeProduct({ preview: true, title: "Musculosa Demon" }),
+      BASE,
+    );
+
+    expect(jsonLd).toMatchObject({
+      "@type": "Product",
+      name: "Musculosa Demon",
+      brand: { "@type": "Brand" },
+    });
+    expect(jsonLd.image.length).toBeGreaterThan(0);
   });
 });
 

@@ -8,7 +8,7 @@ export type SubscribeResult = {
   id: string;
 };
 
-const UNIQUE_VIOLATION = "23505";
+export const UNIQUE_VIOLATION = "23505";
 
 /**
  * Carries only which step failed. A Supabase error message can echo the row it

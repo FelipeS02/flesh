@@ -50,7 +50,9 @@ export function ProductCard({
     ) ?? product.variants[0];
   const href = `/producto/${product.slug}`;
   const badge = cardBadge(product, variant);
-  const soldOut = !product.inStock;
+  // A preview product has no stock yet by design, so zero units must not dim
+  // its photo into looking sold out.
+  const soldOut = !product.inStock && !product.preview;
 
   return (
     <article className='flex w-full max-w-sm flex-col md:w-75.25 md:max-w-none '>
@@ -113,7 +115,15 @@ export function ProductCard({
           </ProductAnalyticsLink>
         </h3>
 
-        {variant && (
+        {product.preview ? (
+          // The price slot says when, not how much: an unreleased garment has
+          // no price to quote, and a number here would be an offer we cannot
+          // honour (checkout refuses preview products).
+          <span className='mt-2 -ml-1 font-display text-base text-muted-foreground md:text-2xl'>
+            Próximamente
+          </span>
+        ) : (
+          variant && (
           <div className='flex flex-col mt-2 -ml-1'>
             <span className='font-display text-base text-muted-foreground md:text-2xl '>
               {formatMoney(variant.price)}
@@ -145,6 +155,7 @@ export function ProductCard({
               </span>
             </div>
           </div>
+          )
         )}
 
         <SwatchRow

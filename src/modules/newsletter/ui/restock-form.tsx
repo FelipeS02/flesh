@@ -153,7 +153,12 @@ export function RestockForm({
               aria-describedby={error ? alertId : undefined}
               // The brand's alarm colour is its primary, not the registry's
               // destructive red.
-              className='h-11 flex-1 bg-background/60 px-3 aria-invalid:border-primary aria-invalid:ring-primary/20'
+              // `flex-1` only in the panel's row: in the sheet's column it is
+              // flex-basis 0 on the vertical axis and crushed the field to ~26px.
+              className={cn(
+                'h-11 bg-background/60 px-3 aria-invalid:border-primary aria-invalid:ring-primary/20',
+                !sheet && 'flex-1',
+              )}
             />
             <Button
               type='submit'

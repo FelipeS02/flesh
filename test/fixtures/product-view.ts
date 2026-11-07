@@ -37,6 +37,7 @@ export function makeProduct(overrides: Partial<ProductView> = {}): ProductView {
     inStock: variants.some((variant) => variant.inStock),
     tags: ["drop-1"],
     colourway: null,
+    preview: false,
     fit: null,
     sizeChart: null,
     ...overrides,

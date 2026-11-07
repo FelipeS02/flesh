@@ -12,6 +12,7 @@ import {
   getProductByHandle,
   getProducts,
 } from '@/modules/catalog';
+import { PreviewDetail } from '@/modules/product-detail/preview/preview-detail';
 import { InfoAccordions } from '@/modules/product-detail/accordions/info-accordions';
 import { ProductGallery } from '@/modules/product-detail/gallery/product-gallery';
 import { StageMetrics } from '@/modules/product-detail/gallery/stage-metrics';
@@ -106,6 +107,28 @@ export default async function ProductPage({
   // One badge, decided in one place â€” stock outranks any tag the merchant
   // wrote, because being new is not news about a garment you cannot buy.
   const state = productState(product);
+
+  // A preview product cannot be bought, so it gets its own one-screen layout
+  // and shares only the page chrome. Branching here keeps every buy component
+  // off a page with nothing to buy.
+  if (product.preview) {
+    return (
+      <div className='relative flex min-h-screen flex-1 flex-col px-4 md:px-0'>
+        <script
+          type='application/ld+json'
+          // Escaped by `serializeJsonLd`, as in the buy layout below.
+          dangerouslySetInnerHTML={{
+            __html: serializeJsonLd(productJsonLd(product, siteUrl())),
+          }}
+        />
+        <ProductViewTracker product={product} />
+        <Header />
+        {/* No widget on this page: it publishes the band and a 0px widget. */}
+        <StageMetrics />
+        <PreviewDetail product={product} />
+      </div>
+    );
+  }
 
   // Resolved once. The colour row is drawn twice on mobile — beside the title
   // and again on the fixed widget — and both draw the same list.

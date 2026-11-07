@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Editor for the product custom fields the catalog loader reads (`colourway`,
-// `fit`, `size_chart`). Not part of the app: the Tiendanube admin does not show
+// `fit`, `size_chart`, `preview`). Not part of the app: the Tiendanube admin does not show
 // these fields on the product page, so the API is the only way to write them.
 //
 // Reads credentials from an env file directly so no secret is ever pasted into
@@ -9,7 +9,7 @@
 //
 //   node scripts/custom-fields.mjs list
 //   node scripts/custom-fields.mjs show <product-id>
-//   node scripts/custom-fields.mjs set <product-id> <colourway|fit|size_chart> '<json value>'
+//   node scripts/custom-fields.mjs set <product-id> <colourway|fit|size_chart|preview> '<json value>'
 //   node scripts/custom-fields.mjs list --env .env.local
 //
 // The endpoints are `/unstable/` and undocumented; the routes below were found
@@ -24,7 +24,7 @@ import { fileURLToPath } from "node:url";
 // absolute path baked in here would only ever work on one machine.
 const REPO = process.env.FLESH_REPO ?? resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const API_ORIGIN = "https://api.tiendanube.com";
-const SLUGS = ["colourway", "fit", "size_chart"];
+const SLUGS = ["colourway", "fit", "size_chart", "preview"];
 
 // Mirrors src/modules/catalog/domain/garment.ts. A key the loader does not know
 // would be stored and then silently dropped when the page renders.
@@ -123,6 +123,12 @@ function validate(slug, value) {
     if (!Number.isInteger(value.position) || value.position < 0 || value.position > 100) return "fit.position must be an integer 0-100.";
     return null;
   }
+  if (slug === "preview") {
+    // A bare boolean: the loader treats any other shape as off, so storing one
+    // would silently release a product that was meant to be held back.
+    if (typeof value !== "boolean") return "preview must be the JSON boolean true or false.";
+    return null;
+  }
   if (slug === "colourway") {
     if (!isObject(value)) return "colourway must be an object.";
     if (!/^#[0-9A-Fa-f]{6}$/.test(value.hex ?? "")) return "colourway.hex must look like #D10101.";
@@ -157,7 +163,7 @@ if (command === "list") {
   const values = await loadValues();
   console.log(JSON.stringify(values.get(productId) ?? {}, null, 2));
 } else if (command === "set") {
-  if (!productId || !SLUGS.includes(slug) || rawValue === undefined) fail("Usage: set <product-id> <colourway|fit|size_chart> '<json value>'");
+  if (!productId || !SLUGS.includes(slug) || rawValue === undefined) fail("Usage: set <product-id> <colourway|fit|size_chart|preview> '<json value>'");
   let value;
   try {
     value = JSON.parse(rawValue);

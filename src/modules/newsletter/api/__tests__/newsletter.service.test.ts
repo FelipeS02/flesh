@@ -4,6 +4,7 @@ import { WELCOME_SUBJECT } from "../../emails/templates/welcome";
 import { NewsletterStorageError } from "../subscribers";
 import { createRateGuard } from "../rate-guard";
 import {
+  requestLaunchNotice,
   requestRestockNotice,
   subscribeToNewsletter,
   type NewsletterDependencies,
@@ -28,29 +29,37 @@ const CATALOG = [
   },
 ];
 
+// Only the two fields the launch gate reads; the rest of a ProductView is noise here.
+const PURCHASABLE = [
+  { id: 50, preview: true },
+  { id: 51, preview: false },
+] as never;
+
 function setup(overrides: Partial<NewsletterDependencies> = {}) {
   const tasks: (() => Promise<void>)[] = [];
   const send = vi.fn(async () => ({ ok: true as const, ids: ["m1"] }));
   const subscribe = vi.fn(async () => ({ status: "created" as "created" | "resubscribed" | "already-active", id: ID }));
   const requestRestock = vi.fn(async () => "created" as "created" | "already-requested");
+  const requestLaunch = vi.fn(async () => "created" as "created" | "already-requested");
   const dependencies: NewsletterDependencies = {
     createClient: () => ({}) as SupabaseClient,
     createMailer: () => ({ send, sendBatch: vi.fn() }) as never,
     schedule: (task) => void tasks.push(task),
     getCheckoutProducts: async () => CATALOG,
+    getPurchasableProducts: async () => PURCHASABLE,
     clientGuard: createRateGuard({ limit: 5, windowMs: 600_000 }),
     globalGuard: createRateGuard({ limit: 100, windowMs: 600_000 }),
     readClientKey: async () => "client-a",
     isBot: async () => false,
     siteOrigin: () => "https://flesh.test",
     welcomeEmails: true,
-    repository: { subscribe, requestRestock },
+    repository: { subscribe, requestRestock, requestLaunch },
     ...overrides,
   };
   const flush = async () => {
     for (const task of tasks.splice(0)) await task();
   };
-  return { dependencies, tasks, send, subscribe, requestRestock, flush };
+  return { dependencies, tasks, send, subscribe, requestRestock, requestLaunch, flush };
 }
 
 let errorLog: ReturnType<typeof vi.spyOn>;
@@ -335,6 +344,93 @@ describe("requestRestockNotice", () => {
       },
     });
     await expect(requestRestockNotice(valid, dependencies)).resolves.toEqual({ ok: false, error: "unavailable" });
+    expect(loggedText()).not.toContain(EMAIL);
+  });
+});
+
+describe("requestLaunchNotice", () => {
+  const valid = { email: EMAIL, productId: 50 };
+
+  it("stores a request for a preview product and never touches the subscriber list", async () => {
+    const { dependencies, requestLaunch, subscribe, tasks } = setup();
+
+    await expect(requestLaunchNotice(valid, dependencies)).resolves.toEqual({ ok: true, status: "created" });
+
+    expect(requestLaunch).toHaveBeenCalledWith(expect.anything(), { email: EMAIL, productId: 50 });
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(tasks).toHaveLength(0);
+  });
+
+  it("passes a duplicate request through as already-requested", async () => {
+    const { dependencies, requestLaunch } = setup();
+    requestLaunch.mockResolvedValue("already-requested");
+
+    await expect(requestLaunchNotice(valid, dependencies)).resolves.toEqual({
+      ok: true,
+      status: "already-requested",
+    });
+  });
+
+  it("refuses a released product, writing nothing, and logs why", async () => {
+    const { dependencies, requestLaunch, subscribe } = setup();
+
+    await expect(requestLaunchNotice({ ...valid, productId: 51 }, dependencies)).resolves.toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+    expect(requestLaunch).not.toHaveBeenCalled();
+    expect(subscribe).not.toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledWith("[newsletter] unavailable", { reason: "not_preview" });
+  });
+
+  it("refuses an unknown product, writing nothing, and logs why", async () => {
+    const { dependencies, requestLaunch } = setup();
+
+    await expect(requestLaunchNotice({ ...valid, productId: 999 }, dependencies)).resolves.toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+    expect(requestLaunch).not.toHaveBeenCalled();
+    expect(errorLog).toHaveBeenCalledWith("[newsletter] unavailable", { reason: "unknown_product" });
+  });
+
+  it("reports invalid-email for a bad address", async () => {
+    const { dependencies, requestLaunch } = setup();
+    await expect(requestLaunchNotice({ ...valid, email: "nope" }, dependencies)).resolves.toEqual({
+      ok: false,
+      error: "invalid-email",
+    });
+    expect(requestLaunch).not.toHaveBeenCalled();
+  });
+
+  it.each([{ ...valid, productId: "50" }, { ...valid, productId: -1 }, { ...valid, productId: 1.5 }, { email: EMAIL }, null])(
+    "is unavailable for malformed input %j",
+    async (input) => {
+      const { dependencies, requestLaunch } = setup();
+      await expect(requestLaunchNotice(input, dependencies)).resolves.toEqual({ ok: false, error: "unavailable" });
+      expect(requestLaunch).not.toHaveBeenCalled();
+    },
+  );
+
+  it("refuses bots, and spent client budgets, before reading the catalog", async () => {
+    const getPurchasableProducts = vi.fn(async () => PURCHASABLE);
+    const bot = setup({ isBot: async () => true, getPurchasableProducts });
+    await expect(requestLaunchNotice(valid, bot.dependencies)).resolves.toEqual({ ok: false, error: "unavailable" });
+
+    const limited = setup({ clientGuard: createRateGuard({ limit: 0, windowMs: 1_000 }), getPurchasableProducts });
+    await expect(requestLaunchNotice(valid, limited.dependencies)).resolves.toEqual({
+      ok: false,
+      error: "unavailable",
+    });
+    expect(getPurchasableProducts).not.toHaveBeenCalled();
+    expect(bot.requestLaunch).not.toHaveBeenCalled();
+    expect(limited.requestLaunch).not.toHaveBeenCalled();
+  });
+
+  it("is unavailable, logging only a name, when storage fails", async () => {
+    const { dependencies, requestLaunch } = setup();
+    requestLaunch.mockRejectedValue(new NewsletterStorageError("launch_insert"));
+    await expect(requestLaunchNotice(valid, dependencies)).resolves.toEqual({ ok: false, error: "unavailable" });
     expect(loggedText()).not.toContain(EMAIL);
   });
 });

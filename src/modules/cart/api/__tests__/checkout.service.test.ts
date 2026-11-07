@@ -52,6 +52,17 @@ describe("startTiendanubeCheckout", () => {
     expect(createDraftOrder).not.toHaveBeenCalled();
   });
 
+  // The catalog loader leaves preview products out of the checkout list (see
+  // catalog/api/__tests__/tiendanube.test.ts); this pins the other half: a
+  // variant absent from that list is refused even with a well-formed request,
+  // which is what makes an unreleased product unbuyable from a forged client.
+  it("rejects a variant of a product the catalog left out of the checkout list", async () => {
+    const { dependencies: deps, createDraftOrder } = dependencies();
+    await expect(startTiendanubeCheckout({ ...INPUT, lines: [{ productId: 301, variantId: 401, quantity: 1 }] }, deps))
+      .resolves.toEqual({ status: "rejected", lines: [401] });
+    expect(createDraftOrder).not.toHaveBeenCalled();
+  });
+
   it("permits an unmanaged variant within the bounded quantity", async () => {
     const { dependencies: deps, createDraftOrder } = dependencies();
     await startTiendanubeCheckout({ ...INPUT, lines: [{ productId: 101, variantId: 203, quantity: 10 }] }, deps);

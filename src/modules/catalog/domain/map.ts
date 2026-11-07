@@ -25,7 +25,7 @@ export function mapToProductView(
   // (see `api/colourways.ts`), so they are passed in rather than read off the
   // product. `null` is the ordinary case: a garment that comes one way.
   colourway: Colourway | null = null,
-  garment: { fit?: GarmentFit | null; sizeChart?: readonly GarmentSize[] | null } = {},
+  garment: { fit?: GarmentFit | null; sizeChart?: readonly GarmentSize[] | null; preview?: boolean } = {},
   // Measured separately (see `api/image-dimensions.ts`), keyed by image id,
   // for the same reason colours are: it is not on the wire.
   imageSizes: ReadonlyMap<number, { width: number; height: number }> = new Map(),
@@ -76,6 +76,7 @@ export function mapToProductView(
       .map((tag) => tag.trim())
       .filter(Boolean),
     colourway,
+    preview: garment.preview ?? false,
     fit: garment.fit ?? null,
     sizeChart: garment.sizeChart ? selectSizeChart(garment.sizeChart, axes) : null,
   };

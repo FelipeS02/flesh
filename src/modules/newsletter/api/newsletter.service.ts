@@ -7,11 +7,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { readClientKey } from "@/lib/client-key";
 import { siteUrl } from "@/lib/site-url";
-import { getCheckoutProducts, type CheckoutProduct } from "@/modules/catalog";
+import { getCheckoutProducts, getPurchasableProducts, type CheckoutProduct, type ProductView } from "@/modules/catalog";
 import { parseEmail } from "../domain/email";
 import WelcomeEmail, { WELCOME_SUBJECT } from "../emails/templates/welcome";
 import { createMailerFromEnvironment, type Mailer } from "./mailer";
 import { createRateGuard, type RateGuard } from "./rate-guard";
+import { requestLaunch } from "./launch-requests";
 import { createSupabaseServerClient } from "./supabase";
 import { requestRestock, subscribe, type SubscribeResult, type SubscriptionSource } from "./subscribers";
 
@@ -20,12 +21,16 @@ export type RestockOutcome =
   | { ok: true; status: "created" | "already-requested" }
   | { ok: false; error: "invalid-email" | "unavailable" };
 
+export type LaunchOutcome = RestockOutcome;
+
 export type NewsletterDependencies = {
   createClient: () => SupabaseClient;
   createMailer: () => Mailer;
   /** Runs `task` after the response is sent (`after()` in production). */
   schedule: (task: () => Promise<void>) => void;
   getCheckoutProducts: () => Promise<CheckoutProduct[]>;
+  /** Carries `preview`, which the checkout list deliberately lacks. */
+  getPurchasableProducts: () => Promise<ProductView[]>;
   clientGuard: RateGuard;
   globalGuard: RateGuard;
   readClientKey: () => Promise<string>;
@@ -41,6 +46,10 @@ export type NewsletterDependencies = {
     requestRestock: (
       client: SupabaseClient,
       input: { email: string; productId: number; variantId: number },
+    ) => Promise<"created" | "already-requested">;
+    requestLaunch: (
+      client: SupabaseClient,
+      input: { email: string; productId: number },
     ) => Promise<"created" | "already-requested">;
   };
 };
@@ -67,6 +76,7 @@ function defaultDependencies(): NewsletterDependencies {
     createMailer: () => createMailerFromEnvironment(),
     schedule: (task) => after(task),
     getCheckoutProducts,
+    getPurchasableProducts,
     clientGuard: defaultClientGuard,
     globalGuard: defaultGlobalGuard,
     readClientKey: async () => readClientKey(await headers()),
@@ -76,9 +86,14 @@ function defaultDependencies(): NewsletterDependencies {
     // Opt-in, so a deploy that forgets the variable stays silent instead of
     // mailing the list before the launch is ready.
     welcomeEmails: process.env.NEWSLETTER_WELCOME_EMAILS === "true",
-    repository: { subscribe, requestRestock },
+    repository: { subscribe, requestRestock, requestLaunch },
   };
 }
+
+const LaunchInputSchema = z.object({
+  email: z.unknown(),
+  productId: z.number().int().positive().safe(),
+});
 
 const RestockInputSchema = z.object({
   // Validated separately so a bad address is reported as such, not lumped
@@ -141,6 +156,43 @@ export async function requestRestockNotice(
     // and subscribes, so nothing is lost. Restock-only requesters are never
     // written to the subscriber list — consent is the ticked box, nothing else.
     if (newsletter) await subscribeAndWelcome(deps, email, "restock");
+    return { ok: true, status };
+  } catch (error) {
+    return unavailable(error);
+  }
+}
+
+/** Stores a one-time launch request for a product that is still in preview. */
+export async function requestLaunchNotice(
+  input: unknown,
+  dependencies?: NewsletterDependencies,
+): Promise<LaunchOutcome> {
+  const parsed = LaunchInputSchema.safeParse(input);
+  if (!parsed.success) return unavailable({ reason: "invalid_input" });
+  const email = parseEmail(parsed.data.email);
+  if (!email) return { ok: false, error: "invalid-email" };
+
+  try {
+    const deps = dependencies ?? defaultDependencies();
+    const refusal = await refuse(deps);
+    if (refusal) return unavailable(refusal);
+
+    // The purchasable list, not the checkout one: preview products are left
+    // out of checkout on purpose, so that list can never say "this is a
+    // preview". A request for a released product would wait for a launch email
+    // that never comes (the webhook fires on the preview flag turning off).
+    const product = (await deps.getPurchasableProducts()).find((candidate) => candidate.id === parsed.data.productId);
+    if (!product) return unavailable({ reason: "unknown_product" });
+    if (!product.preview) return unavailable({ reason: "not_preview" });
+
+    // No newsletter opt-in and no write to `newsletter_subscribers`: the form
+    // has no consent box and the shopper asked for exactly one email, the
+    // launch notice. Subscribing them would turn a one-off request into a
+    // marketing list entry nobody agreed to (Ley 25.326).
+    const status = await deps.repository.requestLaunch(deps.createClient(), {
+      email,
+      productId: parsed.data.productId,
+    });
     return { ok: true, status };
   } catch (error) {
     return unavailable(error);

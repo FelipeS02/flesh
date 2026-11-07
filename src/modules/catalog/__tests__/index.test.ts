@@ -22,6 +22,7 @@ const catalogProduct = vi.hoisted(() => ({
   inStock: true,
   tags: [],
   colourway: null,
+  preview: false,
   fit: null,
   sizeChart: null,
 }));
