@@ -1,10 +1,10 @@
 import { Section, Text } from "react-email";
-import { BodyText } from "../components/BodyText";
-import { CtaButton } from "../components/CtaButton";
-import { EmailFooter } from "../components/EmailFooter";
-import { EmailLayout } from "../components/EmailLayout";
-import { Eyebrow } from "../components/Eyebrow";
-import { Title } from "../components/Title";
+import { BodyText } from "../components/body-text";
+import { CtaButton } from "../components/cta-button";
+import { EmailFooter } from "../components/email-footer";
+import { EmailLayout } from "../components/email-layout";
+import { Eyebrow } from "../components/eyebrow";
+import { Title } from "../components/title";
 import { emailTheme as t } from "../theme";
 
 export const WELCOME_SUBJECT = "Ya sos parte de FLESH";
