@@ -176,6 +176,18 @@ describe("RestockForm (sheet)", () => {
     return renderForm(restockPort, { layout: "sheet" });
   }
 
+  // In the sheet the field and the button stack in a column, where `flex-1`
+  // means flex-basis 0 on the vertical axis and collapsed the input to ~26px.
+  // jsdom does no layout, so the class contract is what can be observed.
+  it("does not let the stacked email field shrink below its height", () => {
+    renderSheet();
+
+    const field = screen.getByLabelText("EMAIL");
+
+    expect(field.className).not.toMatch(/(^|\s)flex-1(\s|$)/);
+    expect(field.className).toContain("h-11");
+  });
+
   // The sheet's own header already carries the title and the pitch.
   it("leaves the heading and the pitch to the sheet while idle", () => {
     renderSheet();
