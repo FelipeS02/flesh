@@ -9,33 +9,46 @@ function port(outcome: LaunchOutcome = { ok: true, status: "created" }) {
 }
 
 async function submit(email: string) {
-  fireEvent.change(screen.getByRole("textbox", { name: "Email" }), { target: { value: email } });
+  fireEvent.change(screen.getByRole("textbox", { name: "RECIBÍ NOVEDADES:" }), { target: { value: email } });
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: "Avisame" }));
   });
 }
 
 describe("LaunchNotifyForm", () => {
-  // jsdom lays nothing out, so the layout contract is read off the class list:
-  // a bare `flex-1` in the stacked (column) layout sets flex-basis 0 and
-  // collapsed the field to 26px at 390px. Growth belongs to the row layout.
-  it("only lets the email field grow when the row layout applies", () => {
+  // jsdom lays nothing out, so the layout contract is read off the class list.
+  // The form is stacked on every viewport: a growing field would collapse to
+  // its content height in a column (flex-basis 0 took it from 54px to 26px).
+  it("stacks the field above the button and never lets the field flex-grow", () => {
     render(<LaunchNotifyForm productId={7} port={port()} />);
 
-    const classes = screen.getByRole("textbox", { name: "Email" }).className.split(" ");
+    const input = screen.getByRole("textbox", { name: "RECIBÍ NOVEDADES:" });
+    const classes = input.className.split(" ");
 
     expect(classes).not.toContain("flex-1");
-    expect(classes).toContain("md:flex-1");
+    expect(classes).not.toContain("md:flex-1");
+    expect(input.parentElement?.className).not.toContain("flex-row");
   });
 
-  it("asks for an email in a typed, labelled field and promises a single message", () => {
+  it("shows its label, which is also the field's accessible name", () => {
     render(<LaunchNotifyForm productId={7} port={port()} />);
 
-    const input = screen.getByRole("textbox", { name: "Email" }) as HTMLInputElement;
+    const label = screen.getByText("RECIBÍ NOVEDADES:");
+
+    expect(label.className).not.toContain("sr-only");
+    expect(screen.getByLabelText("RECIBÍ NOVEDADES:")).toBe(
+      screen.getByRole("textbox", { name: "RECIBÍ NOVEDADES:" }),
+    );
+  });
+
+  it("asks for an email in a typed, labelled field", () => {
+    render(<LaunchNotifyForm productId={7} port={port()} />);
+
+    const input = screen.getByRole("textbox", { name: "RECIBÍ NOVEDADES:" }) as HTMLInputElement;
     expect(input.type).toBe("email");
     expect(input.getAttribute("autocomplete")).toBe("email");
     expect(input.placeholder).toBe("tu@email.com");
-    expect(screen.getByText("Te escribimos una sola vez, el día que salga.")).toBeDefined();
+    expect(screen.queryByText(/te escribimos una sola vez/i)).toBeNull();
   });
 
   // The shopper asked for one email, so the form must not smuggle in a
@@ -62,7 +75,7 @@ describe("LaunchNotifyForm", () => {
 
     expect(screen.getByRole("status").textContent).toContain("Listo. Te escribimos el día que salga.");
     expect(screen.queryByRole("button", { name: "Avisame" })).toBeNull();
-    expect(screen.queryByRole("textbox", { name: "Email" })).toBeNull();
+    expect(screen.queryByRole("textbox", { name: "RECIBÍ NOVEDADES:" })).toBeNull();
   });
 
   it("confirms the same way when the address was already waiting", async () => {
@@ -79,7 +92,7 @@ describe("LaunchNotifyForm", () => {
     await submit("nope");
 
     expect(screen.getByRole("alert").textContent).toContain("Revisá el email, le falta algo.");
-    expect(screen.getByRole("textbox", { name: "Email" }).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByRole("textbox", { name: "RECIBÍ NOVEDADES:" }).getAttribute("aria-invalid")).toBe("true");
   });
 
   it("offers a retry when unavailable, keeping what was typed", async () => {
@@ -88,7 +101,7 @@ describe("LaunchNotifyForm", () => {
     await submit("fan@flesh.test");
 
     expect(screen.getByRole("alert").textContent).toContain("No pudimos anotarte. Probá de nuevo.");
-    expect((screen.getByRole("textbox", { name: "Email" }) as HTMLInputElement).value).toBe("fan@flesh.test");
+    expect((screen.getByRole("textbox", { name: "RECIBÍ NOVEDADES:" }) as HTMLInputElement).value).toBe("fan@flesh.test");
     expect((screen.getByRole("button", { name: "Avisame" }) as HTMLButtonElement).disabled).toBe(false);
   });
 

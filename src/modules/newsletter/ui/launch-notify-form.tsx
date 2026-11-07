@@ -62,10 +62,11 @@ export function LaunchNotifyForm({ productId, port }: LaunchNotifyFormProps) {
   }
 
   return (
-    <form onSubmit={onSubmit} noValidate className='flex w-full flex-col gap-2.5'>
-      <div className='flex flex-col gap-2.5 md:flex-row md:gap-0'>
-        <Label htmlFor={fieldId} className='sr-only'>
-          Email
+    <form onSubmit={onSubmit} noValidate className='flex w-full flex-col gap-2 md:max-w-100'>
+      <div className='flex flex-col gap-2'>
+        {/* Visible, and the field's accessible name: the label is the prompt. */}
+        <Label htmlFor={fieldId} className='font-sans text-sm text-foreground md:text-base'>
+          RECIBÍ NOVEDADES:
         </Label>
         <Input
           id={fieldId}
@@ -77,19 +78,19 @@ export function LaunchNotifyForm({ productId, port }: LaunchNotifyFormProps) {
           onChange={(event) => setEmail(event.target.value)}
           aria-invalid={error === 'invalid-email' || undefined}
           aria-describedby={error ? alertId : undefined}
-          // `md:flex-1` and not `flex-1`: stacked, the field's main axis is
-          // vertical and a flex-basis of 0 collapses it to its content height.
+          // No `flex-1`: the form is a column on every viewport, where a
+          // flex-basis of 0 collapses the field to its content height.
           // Matches the checkout field (buyer dialog) at the artboard's 54px.
           // The brand's alarm colour is its primary, not the registry's
           // destructive red.
-          className='h-[54px] border-input md:flex-1 bg-foreground/5 px-4 font-sans text-base text-foreground aria-invalid:border-primary aria-invalid:ring-primary/20'
+          className='h-[54px] border-input bg-foreground/5 px-4 font-sans text-base text-foreground aria-invalid:border-primary aria-invalid:ring-primary/20'
         />
         <Button
           type='submit'
           disabled={status.kind === 'pending'}
           // Label stays "Avisame" while pending: the disabled state is the
-          // feedback, and a swapped label would shift the 150px cell.
-          className='h-[54px] w-full shrink-0 font-display text-2xl md:w-[150px] md:text-[26px]'
+          // feedback, and a swapped label would shift the button.
+          className='h-12 w-full shrink-0 font-display text-2xl md:text-[26px]'
         >
           Avisame
         </Button>
@@ -100,9 +101,6 @@ export function LaunchNotifyForm({ productId, port }: LaunchNotifyFormProps) {
           {ERROR_COPY[error]}
         </p>
       )}
-      <p className='font-sans text-[11px] text-muted-foreground md:text-xs'>
-        Te escribimos una sola vez, el día que salga.
-      </p>
     </form>
   );
 }
