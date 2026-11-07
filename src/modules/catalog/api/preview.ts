@@ -1,16 +1,15 @@
 import { z } from "zod";
 import type { OwnerIndex } from "./fit";
 
-// `.strict()`: a value carrying anything beyond `enabled` was written by
-// something that is not our script, so it is treated as malformed (off) rather
-// than trusted for the one flag that decides whether a product can be sold.
-const PreviewValueSchema = z.object({ enabled: z.boolean() }).strict();
+// A native boolean field, created by hand in Tiendanube. Anything that is not a
+// bare boolean (a string, an object) is malformed and reads as off.
+const PreviewValueSchema = z.boolean();
 
 export const PreviewFieldSchema = z.object({
   id: z.string(),
   namespace: z.string(),
   key: z.string(),
-  value_type: z.literal("object"),
+  value_type: z.literal("boolean"),
   owner_resource: z.literal("product"),
   owners: z.array(z.object({ entity_id: z.string(), value: z.unknown() })),
   has_more: z.boolean(),
@@ -33,7 +32,7 @@ export function toPreviewIndex(field: PreviewField): OwnerIndex<boolean> {
       diagnostics.push(`Ignored malformed Preview owner ${owner.entity_id}.`);
       continue;
     }
-    values.set(productId, preview.data.enabled);
+    values.set(productId, preview.data);
   }
   return { values, diagnostics };
 }

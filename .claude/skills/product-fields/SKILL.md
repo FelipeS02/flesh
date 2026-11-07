@@ -25,7 +25,7 @@ Use when the user wants to view or change a product's `colourway`, `fit`, `size_
 |---|---|
 | `fit` | `{"type":"top"\|"bottom","position":0-100}` |
 | `colourway` | `{"color_name":"…","hex":"#RRGGBB","group":"…"}`; siblings share `group` verbatim |
-| `preview` | `{"enabled":true}` marks the product unreleased (PREVIEW page, not purchasable). Turn it off with `{"enabled":false}`; the script cannot delete a field value, and an off value reads the same as an absent one |
+| `preview` | bare boolean: `true` marks the product unreleased (PREVIEW page, not purchasable), `false` turns it off (same as absent; the script cannot delete a value). The definition is created by hand in Tiendanube as a boolean field; the script only writes values |
 | `size_chart` | `[{"size":"M","chest_width":56,…}]`; keys: `back_width chest_width waist_width garment_length sleeve_length front_rise leg_opening`, positive integers, omit empty ones |
 
 ## Execution Steps

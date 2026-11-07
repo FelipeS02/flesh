@@ -70,11 +70,11 @@ const OwnersEnvelopeSchema = z.object({
 type OwnersEnvelope = z.infer<typeof OwnersEnvelopeSchema>;
 type FieldSlug = "colourway" | "fit" | "size_chart" | "preview";
 
-const fieldTypes: Record<FieldSlug, "object" | "object[]"> = {
+const fieldTypes: Record<FieldSlug, "object" | "object[]" | "boolean"> = {
   colourway: "object",
   fit: "object",
   size_chart: "object[]",
-  preview: "object",
+  preview: "boolean",
 };
 
 class TiendanubeRequestError extends Error {
@@ -166,7 +166,7 @@ export function createTiendanubeCatalogLoader(
     const previewField = await loadOwners(config, "preview", requestJson).catch((error: unknown) => {
       if (!(error instanceof TiendanubeRequestError) || error.status !== 404) throw error;
       warn("[catalog] The preview custom field is not defined; treating every product as released.");
-      return { id: "preview", namespace: "custom", slug: "preview", key: "custom/preview", value_type: "object", owner_resource: "products" as const, owners: [], has_more: false };
+      return { id: "preview", namespace: "custom", slug: "preview", key: "custom/preview", value_type: "boolean", owner_resource: "products" as const, owners: [], has_more: false };
     });
 
     const validColourwayOwners = colourwayField.owners.flatMap((owner) => {

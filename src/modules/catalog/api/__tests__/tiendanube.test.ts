@@ -38,7 +38,7 @@ const product = {
   updated_at: "2026-01-01T00:00:00Z",
 };
 
-function owners(slug: string, valueType: "object" | "object[]", entries: unknown[] = []) {
+function owners(slug: string, valueType: "object" | "object[]" | "boolean", entries: unknown[] = []) {
   return {
     id: slug,
     namespace: "custom",
@@ -73,7 +73,7 @@ function successfulFetch(products: unknown[] = [product], previewOwners: unknown
       return json(owners("colourway", "object", [{ entity_id: "101", value: { group: "tee", hex: "#000", color_name: "Black" } }]));
     }
     if (url.includes("/fit/")) return json(owners("fit", "object", [{ entity_id: "101", value: { type: "top", position: 50 } }]));
-    if (url.includes("/preview/")) return json(owners("preview", "object", previewOwners));
+    if (url.includes("/preview/")) return json(owners("preview", "boolean", previewOwners));
     return json(owners("size_chart", "object[]", [{ entity_id: "101", value: [{ size: "M", chest_width: 50 }] }]));
   });
 }
@@ -142,7 +142,7 @@ describe("Tiendanube catalog loader", () => {
 
   it("keeps a preview product listed but out of the checkout list", async () => {
     const released = { ...product, id: 102, handle: { es: "otra" }, variants: [{ ...product.variants[0], id: 202, product_id: 102 }] };
-    const fetchImpl = successfulFetch([product, released], [{ entity_id: "101", value: { enabled: true } }]);
+    const fetchImpl = successfulFetch([product, released], [{ entity_id: "101", value: true }]);
     const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl })();
 
     expect(snapshot.listed.map((view) => [view.id, view.preview])).toEqual([[101, true], [102, false]]);
@@ -182,9 +182,14 @@ describe("Tiendanube catalog loader", () => {
     await expect(createTiendanubeCatalogLoader(config, { fetchImpl })()).rejects.toThrow(/fit/);
   });
 
+  it("rejects a preview definition that is not a boolean, naming the field", async () => {
+    const fetchImpl = withPreviewResponse(() => json(owners("preview", "object")));
+    await expect(createTiendanubeCatalogLoader(config, { fetchImpl })()).rejects.toThrow(/definition contract error for preview/);
+  });
+
   it("treats a malformed preview value as off and warns", async () => {
     const warn = vi.fn();
-    const fetchImpl = successfulFetch([product], [{ entity_id: "101", value: { enabled: "yes" } }]);
+    const fetchImpl = successfulFetch([product], [{ entity_id: "101", value: "yes" }]);
     const snapshot = await createTiendanubeCatalogLoader(config, { fetchImpl, warn })();
 
     expect(snapshot.purchasable[0]?.preview).toBe(false);

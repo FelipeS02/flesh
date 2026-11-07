@@ -124,9 +124,9 @@ function validate(slug, value) {
     return null;
   }
   if (slug === "preview") {
-    // Exactly { enabled: boolean }: the loader treats any other shape as off, so
-    // storing one would silently release a product that was meant to be held back.
-    if (!isObject(value) || typeof value.enabled !== "boolean" || Object.keys(value).length !== 1) return "preview must be exactly {\"enabled\": true|false}.";
+    // A bare boolean: the loader treats any other shape as off, so storing one
+    // would silently release a product that was meant to be held back.
+    if (typeof value !== "boolean") return "preview must be the JSON boolean true or false.";
     return null;
   }
   if (slug === "colourway") {
