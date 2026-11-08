@@ -44,7 +44,7 @@ export default function RestockEmail({
     >
       <Section style={{ padding: `0 ${t.space.side}px` }}>
         <Eyebrow>AVISO DE RESTOCK</Eyebrow>
-        <Title>TALLE {variantLabel} DISPONIBLE</Title>
+        <Title>{productName} {variantLabel} DISPONIBLE</Title>
         <ProductBlock
           baseUrl={baseUrl}
           imageUrl={imageUrl}
