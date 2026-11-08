@@ -4,9 +4,8 @@ import { emailTheme as t, legacyBackground } from "../theme";
 type ProductBlockProps = {
   baseUrl: string;
   imageUrl: string;
+  /** The image's alt text only: each template's title already prints the name. */
   name: string;
-  /** Absent for a notice about the whole product rather than one variant. */
-  variantLabel?: string;
   price: string;
 };
 
@@ -16,15 +15,11 @@ const FRAME_WIDTH = t.width - 2 * t.space.side - 2;
 // plates and the chain the backdrop keeps around its edges.
 const GARMENT_SHARE = 0.64;
 const GARMENT_WIDTH = Math.round(FRAME_WIDTH * GARMENT_SHARE);
-const FLOOR_PADDING = 150;
+// Fixed pixels, so on a phone they are a far larger share of the frame than on
+// desktop: 150 made the floor taller than the screen in Gmail for iOS.
+const FLOOR_PADDING = 48;
 
-export function ProductBlock({
-  baseUrl,
-  imageUrl,
-  name,
-  variantLabel,
-  price,
-}: ProductBlockProps) {
+export function ProductBlock({ baseUrl, imageUrl, name, price }: ProductBlockProps) {
   return (
     <Section
       style={{
@@ -65,23 +60,9 @@ export function ProductBlock({
         </Column>
       </Row>
       <Section style={{ padding: t.space.gap }}>
-        {variantLabel ? (
-          <Text
-            style={{
-              margin: "4px 0 12px",
-              fontFamily: t.font.body,
-              fontSize: t.size.body,
-              color: t.color.mutedForeground,
-            }}
-          >
-            {variantLabel}
-          </Text>
-        ) : null}
         <Text
           style={{
-            // The name lives in the template's title now, so the price opens
-            // the block; a variant line above it supplies the gap itself.
-            margin: variantLabel ? 0 : "8px 0 0",
+            margin: 0,
             fontFamily: t.font.display,
             fontSize: t.size.price,
             color: t.color.foreground,

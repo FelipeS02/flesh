@@ -28,13 +28,16 @@ export const emailTheme = {
     small: 11,
   },
   space: {
-    side: 48,
+    // No side gutter of our own: Gmail and Apple Mail already inset the message,
+    // and a second 48px on a phone squeezed the content to two thirds of it.
+    side: 0,
     section: 32,
     gap: 16,
   },
   // Square corners only: the storefront runs at --radius: 0, so no token for it.
   width: 600,
-  logo: { width: 190, height: 75 },
+  // The asset's 190:75 ratio, scaled down: at 190px it filled half a phone screen.
+  logo: { width: 120, height: 47 },
 } as const;
 
 // bgcolor mirrors the inline background: some clients invert inline colours in

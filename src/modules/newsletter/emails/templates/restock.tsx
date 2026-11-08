@@ -49,7 +49,6 @@ export default function RestockEmail({
           baseUrl={baseUrl}
           imageUrl={imageUrl}
           name={productName}
-          variantLabel={variantLabel}
           price={price}
         />
         <CtaButton href={productUrl}>NO DUERMAS</CtaButton>
