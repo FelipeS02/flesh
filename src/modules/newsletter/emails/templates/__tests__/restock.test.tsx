@@ -60,6 +60,13 @@ describe("RestockEmail", () => {
     expect(await render(<RestockEmail {...props} />)).not.toMatch(/border-radius/i);
   });
 
+  // The title already names the variant; repeating it over the price read as noise.
+  it("names the variant in the title only, not as its own line in the price block", async () => {
+    const html = await render(<RestockEmail {...props} />);
+
+    expect(html).not.toMatch(/<p[^>]*>\s*Negro \/ M\s*<\/p>/);
+  });
+
   it("builds the subject from product and variant", () => {
     expect(restockSubject("Remera Oversize", "Negro / M")).toBe(
       "Volvió tu talle: Remera Oversize (Negro / M)",

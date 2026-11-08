@@ -11,7 +11,9 @@ export function Title({ children }: { children: ReactNode }) {
         fontFamily: t.font.display,
         fontSize: t.size.title,
         lineHeight: 1.05,
-        fontWeight: 400,
+        // Bold, though Kraut ships one weight: Gmail and Outlook render the
+        // Helvetica fallback, where 400 read thin next to the storefront's caps.
+        fontWeight: 700,
         textTransform: "uppercase",
         color: t.color.primary,
       }}

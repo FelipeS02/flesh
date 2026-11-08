@@ -49,7 +49,6 @@ export default function RestockEmail({
           baseUrl={baseUrl}
           imageUrl={imageUrl}
           name={productName}
-          variantLabel={variantLabel}
           price={price}
         />
         <CtaButton href={productUrl}>NO DUERMAS</CtaButton>
@@ -69,5 +68,5 @@ RestockEmail.PreviewProps = {
   // A real catalogue cover: the transparent cutout is what sits on the floor.
   imageUrl:
     "https://dcdn-us.mitiendanube.com/stores/007/556/699/products/mesa-de-trabajo-1-4-c6d8c60ce377cb164217913292534958-1024-1024.png",
-  productUrl: "http://localhost:3000/productos/remera-oversize",
+  productUrl: "http://localhost:3000/producto/remera-oversize",
 } satisfies RestockEmailProps;

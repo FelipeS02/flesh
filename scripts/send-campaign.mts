@@ -117,8 +117,13 @@ async function testSend(to: string, template: Parameters<typeof buildCampaignMes
   return 0;
 }
 
+// exitCode, never process.exit(): on Windows, exiting while Resend's keep-alive
+// socket is still closing aborts Node with a libuv assertion (exit 3221226505)
+// AFTER the mail went out, which reads as a failed send.
 main().then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (error: unknown) => {
     // Usage mistakes and config errors are plain messages; anything else keeps
     // its stack, because that is a bug worth seeing.
@@ -126,6 +131,6 @@ main().then(
     else if (error instanceof Error && error.name === "NewsletterStorageError") console.error(`${error.message} Check SUPABASE_URL and the network.`);
     else if (error instanceof Error && /^Invalid (Supabase|mail) configuration/.test(error.message)) console.error(error.message);
     else console.error(error);
-    process.exit(2);
+    process.exitCode = 2;
   },
 );
