@@ -109,6 +109,23 @@ Campaign files are disposable: delete `<slug>.tsx` after sending, git history
 keeps it. Images are loaded from the site, so a campaign sent from your machine
 needs `SITE_URL` set to an origin that already serves them.
 
+## Testing a notice email in a real inbox
+
+The launch and restock emails are sent by webhook dispatches that only run on
+a deployment. To check a template change in Gmail or Apple Mail first, mail one
+copy to yourself:
+
+```sh
+pnpm email:test launch --to you@example.com --origin https://dev.flesh.ar
+pnpm email:test restock --to you@example.com
+```
+
+The markup comes from your checkout; the product is the template's preview
+fixture. Images and the font load from `--origin` (default `SITE_URL`), which
+must be a deployed site serving `public/email/`: Gmail fetches images through
+its proxy and cannot reach localhost, so the script refuses it. The subject is
+prefixed `[TEST]`.
+
 ## Product custom fields
 
 `colourway`, `fit` and `size_chart` are Tiendanube custom fields the admin
