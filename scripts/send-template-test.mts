@@ -33,14 +33,19 @@ async function main(): Promise<number> {
   return 0;
 }
 
+// exitCode, never process.exit(): on Windows, exiting while Resend's keep-alive
+// socket is still closing aborts Node with a libuv assertion (exit 3221226505)
+// AFTER the mail went out, which reads as a failed send.
 main().then(
-  (code) => process.exit(code),
+  (code) => {
+    process.exitCode = code;
+  },
   (error: unknown) => {
     // By name, not instanceof: tsx loads args.ts once as ESM for this file and
     // once as CommonJS behind the .tsx templates, so there are two classes.
     if (error instanceof Error && error.name === CampaignUsageError.name) console.error(error.message);
     else if (error instanceof Error && /^Invalid mail configuration/.test(error.message)) console.error(error.message);
     else console.error(error);
-    process.exit(2);
+    process.exitCode = 2;
   },
 );
