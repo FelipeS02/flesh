@@ -23,6 +23,8 @@ export function CtaButton({ href, children }: { href: string; children: ReactNod
                 padding: "18px 24px",
                 fontFamily: t.font.display,
                 fontSize: t.size.button,
+                // Matches the title: same fallback, same reason.
+                fontWeight: 700,
                 letterSpacing: "0.04em",
                 textTransform: "uppercase",
                 textDecoration: "none",
