@@ -6,7 +6,7 @@ import type { ProductView } from "../domain/product";
 import { readTiendanubeConfig } from "./config";
 import { cachedImageMeasurer, readImageDimensions } from "./image-dimensions";
 import type { CatalogPort, CheckoutProduct } from "./port";
-import { createTiendanubeCatalogLoader, createTiendanubeProductReader, type CatalogSnapshot } from "./tiendanube";
+import { createTiendanubeCatalogLoader, createTiendanubePreviewReader, createTiendanubeProductReader, type CatalogSnapshot } from "./tiendanube";
 
 export const CATALOG_CACHE_TAG = "tiendanube-catalog";
 
@@ -47,4 +47,12 @@ function getFreshProductById(productId: number): Promise<ProductView | null> {
   return createTiendanubeProductReader(readTiendanubeConfig())(productId);
 }
 
-export { getFreshProductById, getProducts, getPurchasableProducts, getCheckoutProducts, getProductByHandle, getColourwayIndex, source };
+/**
+ * Uncached on purpose. `getFreshProductById` always reports `preview: false`,
+ * so anything that must know whether a product is still unreleased asks here.
+ */
+function isProductInPreview(productId: number): Promise<boolean> {
+  return createTiendanubePreviewReader(readTiendanubeConfig())(productId);
+}
+
+export { getFreshProductById, isProductInPreview, getProducts, getPurchasableProducts, getCheckoutProducts, getProductByHandle, getColourwayIndex, source };

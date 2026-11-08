@@ -3,10 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const after = vi.fn();
 const handleCatalogWebhook = vi.fn();
 const dispatchRestockNotices = vi.fn();
+const dispatchLaunchNotices = vi.fn();
 
 vi.mock("next/server", () => ({ after }));
 vi.mock("@/modules/catalog", () => ({ handleCatalogWebhook }));
-vi.mock("@/modules/newsletter", () => ({ dispatchRestockNotices }));
+vi.mock("@/modules/newsletter", () => ({ dispatchRestockNotices, dispatchLaunchNotices }));
 
 beforeEach(() => vi.clearAllMocks());
 
@@ -32,8 +33,25 @@ describe("POST /api/webhooks/tiendanube", () => {
     onProductUpdated(42);
 
     expect(dispatchRestockNotices).not.toHaveBeenCalled();
-    expect(after).toHaveBeenCalledTimes(1);
-    await (after.mock.calls[0]![0] as () => Promise<void>)();
+    expect(dispatchLaunchNotices).not.toHaveBeenCalled();
+    expect(after).toHaveBeenCalledTimes(2);
+    for (const [task] of after.mock.calls) await (task as () => Promise<void>)();
     expect(dispatchRestockNotices).toHaveBeenCalledExactlyOnceWith(42);
+    expect(dispatchLaunchNotices).toHaveBeenCalledExactlyOnceWith(42);
+  });
+
+  // A failure in one mailing must not cost the other its delivery.
+  it("schedules each dispatcher in its own after() task", async () => {
+    handleCatalogWebhook.mockResolvedValue(new Response(null, { status: 204 }));
+    dispatchRestockNotices.mockRejectedValueOnce(new Error("restock down"));
+    const { POST } = await import("../api/webhooks/tiendanube/route");
+    await POST(new Request("https://flesh.test/api/webhooks/tiendanube", { method: "POST" }));
+    const { onProductUpdated } = handleCatalogWebhook.mock.calls[0]![1] as { onProductUpdated: (id: number) => void };
+
+    onProductUpdated(42);
+    await expect((after.mock.calls[0]![0] as () => Promise<void>)()).rejects.toThrow("restock down");
+    await (after.mock.calls[1]![0] as () => Promise<void>)();
+
+    expect(dispatchLaunchNotices).toHaveBeenCalledExactlyOnceWith(42);
   });
 });

@@ -22,6 +22,7 @@ export {
   getCheckoutProducts,
   getProductByHandle,
   getFreshProductById,
+  isProductInPreview,
   getColourwayIndex,
 } from "./api/source";
 export type { CatalogPort, CheckoutProduct, CheckoutVariant } from "./api/port";

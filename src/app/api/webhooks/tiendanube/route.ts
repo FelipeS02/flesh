@@ -1,6 +1,6 @@
 import { after } from "next/server";
 import { handleCatalogWebhook } from "@/modules/catalog";
-import { dispatchRestockNotices } from "@/modules/newsletter";
+import { dispatchLaunchNotices, dispatchRestockNotices } from "@/modules/newsletter";
 
 /**
  * Public boundary for Tiendanube's `product/updated` deliveries. Signature
@@ -17,6 +17,13 @@ export function POST(request: Request): Promise<Response> {
     // `after()` runs once the 204 is sent: the provider drops a delivery that
     // takes longer than three seconds, and the dispatch reads Tiendanube and
     // mails in batches.
-    onProductUpdated: (productId) => after(() => dispatchRestockNotices(productId)),
+    //
+    // Two separate `after()` calls, not one that awaits both: each dispatcher
+    // never throws, but if one ever did, a shared callback would silently drop
+    // the other's mail.
+    onProductUpdated: (productId) => {
+      after(() => dispatchRestockNotices(productId));
+      after(() => dispatchLaunchNotices(productId));
+    },
   });
 }
