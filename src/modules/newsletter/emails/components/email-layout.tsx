@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { Body, Container, Font, Head, Html, Img, Preview, Section } from "react-email";
-import { emailTheme as t, legacyBackground } from "../theme";
+import { emailTheme as t, legacyBackground, solidBackground } from "../theme";
+import { GMAIL_DARK_SAFE_CSS } from "./gmail-dark-safe";
 
 type EmailLayoutProps = {
   baseUrl: string;
@@ -31,14 +32,17 @@ export function EmailLayout({ baseUrl, preview, footer, children }: EmailLayoutP
           fallbackFontFamily="sans-serif"
           webFont={{ url: `${baseUrl}/email/kraut.woff2`, format: "woff2" }}
         />
+        <style>{GMAIL_DARK_SAFE_CSS}</style>
       </Head>
       <Preview>{preview}</Preview>
+      {/* "body" is what the Gmail-only `u + .body` rules key on. */}
       <Body
+        className="body"
         {...legacyBackground(t.color.background)}
         style={{
           margin: 0,
           padding: 0,
-          backgroundColor: t.color.background,
+          ...solidBackground(t.color.background),
           color: t.color.foreground,
           fontFamily: t.font.body,
         }}
@@ -49,7 +53,7 @@ export function EmailLayout({ baseUrl, preview, footer, children }: EmailLayoutP
             width: "100%",
             maxWidth: t.width,
             margin: "0 auto",
-            backgroundColor: t.color.background,
+            ...solidBackground(t.color.background),
           }}
         >
           <Section style={{ padding: `${t.space.section}px ${t.space.side}px 0`, textAlign: "center" }}>

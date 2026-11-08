@@ -1,5 +1,6 @@
 import { Column, Img, Row, Section, Text } from "react-email";
 import { emailTheme as t, legacyBackground } from "../theme";
+import { GmailDarkSafe } from "./gmail-dark-safe";
 
 type ProductBlockProps = {
   baseUrl: string;
@@ -60,27 +61,29 @@ export function ProductBlock({ baseUrl, imageUrl, name, price }: ProductBlockPro
         </Column>
       </Row>
       <Section style={{ padding: t.space.gap }}>
-        <Text
-          style={{
-            margin: 0,
-            fontFamily: t.font.display,
-            fontSize: t.size.price,
-            color: t.color.foreground,
-          }}
-        >
-          {price}
-        </Text>
-        <Text
-          style={{
-            margin: 0,
-            fontFamily: t.font.body,
-            fontSize: t.size.small,
-            letterSpacing: "0.2em",
-            color: t.color.mutedForeground,
-          }}
-        >
-          CON TRANSFERENCIA
-        </Text>
+        <GmailDarkSafe>
+          <Text
+            style={{
+              margin: 0,
+              fontFamily: t.font.display,
+              fontSize: t.size.price,
+              color: t.color.foreground,
+            }}
+          >
+            {price}
+          </Text>
+          <Text
+            style={{
+              margin: 0,
+              fontFamily: t.font.body,
+              fontSize: t.size.small,
+              letterSpacing: "0.2em",
+              color: t.color.mutedForeground,
+            }}
+          >
+            CON TRANSFERENCIA
+          </Text>
+        </GmailDarkSafe>
       </Section>
     </Section>
   );

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-email";
-import { emailTheme as t, legacyBackground } from "../theme";
+import { emailTheme as t, legacyBackground, solidBackground } from "../theme";
 
 // A table cell with bgcolor plus a text link, not an image: with remote images
 // blocked (the default in several clients) the button must still read and click.
@@ -15,7 +15,7 @@ export function CtaButton({ href, children }: { href: string; children: ReactNod
     >
       <tbody>
         <tr>
-          <td align="center" {...legacyBackground(t.color.primary)} style={{ backgroundColor: t.color.primary }}>
+          <td align="center" {...legacyBackground(t.color.primary)} style={solidBackground(t.color.primary)}>
             <Link
               href={href}
               style={{
