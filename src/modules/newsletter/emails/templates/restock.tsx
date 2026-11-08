@@ -44,7 +44,7 @@ export default function RestockEmail({
     >
       <Section style={{ padding: `0 ${t.space.side}px` }}>
         <Eyebrow>AVISO DE RESTOCK</Eyebrow>
-        <Title>Volvió tu talle</Title>
+        <Title>{productName} {variantLabel}</Title>
         <ProductBlock
           baseUrl={baseUrl}
           imageUrl={imageUrl}
@@ -54,7 +54,7 @@ export default function RestockEmail({
         />
         <CtaButton href={productUrl}>NO DUERMAS</CtaButton>
         <BodyText>
-          Entraron pocas unidades y no te la reservamos: se la lleva el primero que paga.
+          3 Y 6 CUOTAS † 10%OFF TRANSFERENCIAS
         </BodyText>
       </Section>
     </EmailLayout>

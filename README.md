@@ -83,9 +83,10 @@ Changing any of them requires a new build and deployment.
 One-off emails (a new drop, an announcement) are sent from your machine with
 `pnpm campaign`. Each campaign is one disposable file; there is no admin UI.
 
-1. **Create the template.** Copy
-   [`example-drop.tsx`](src/modules/newsletter/emails/campaigns/example-drop.tsx)
-   to `src/modules/newsletter/emails/campaigns/<slug>.tsx`. It default-exports
+1. **Create the template.** Write
+   `src/modules/newsletter/emails/campaigns/<slug>.tsx`; the last sent campaign
+   in git history is the quickest start (`git show
+   aab2dc4:src/modules/newsletter/emails/campaigns/example-drop.tsx`). It default-exports
    the component (props `{ baseUrl, unsubscribeUrl }`) and exports `subject`
    and `previewText`. The slug is lowercase letters, digits and hyphens.
 2. **Preview it.** `pnpm email` serves the templates and campaigns on
