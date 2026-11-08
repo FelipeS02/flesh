@@ -33,7 +33,7 @@ export const emailTheme = {
   space: {
     // No side gutter of our own: Gmail and Apple Mail already inset the message,
     // and a second 48px on a phone squeezed the content to two thirds of it.
-    side: 0,
+    side: 8,
     section: 32,
     gap: 16,
   },
