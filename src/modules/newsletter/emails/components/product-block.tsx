@@ -18,9 +18,20 @@ const GARMENT_SHARE = 0.64;
 const GARMENT_WIDTH = Math.round(FRAME_WIDTH * GARMENT_SHARE);
 const FLOOR_PADDING = 150;
 
-export function ProductBlock({ baseUrl, imageUrl, name, variantLabel, price }: ProductBlockProps) {
+export function ProductBlock({
+  baseUrl,
+  imageUrl,
+  name,
+  variantLabel,
+  price,
+}: ProductBlockProps) {
   return (
-    <Section style={{ margin: `${t.space.gap}px 0`, border: `1px solid ${t.color.border}` }}>
+    <Section
+      style={{
+        margin: `${t.space.gap}px 0`,
+        border: `1px solid ${t.color.border}`,
+      }}
+    >
       {/* The floor is a CSS background under the transparent cutout, not a second
           <img> overlapped on it: Gmail strips position and negative margins, so
           an overlap would stack the two images instead. Where the background is
@@ -44,22 +55,16 @@ export function ProductBlock({ baseUrl, imageUrl, name, variantLabel, price }: P
             // against the file's own width and would push a 1024px cutout past
             // the frame; every other client takes the CSS width.
             width={GARMENT_WIDTH}
-            style={{ display: "block", margin: "0 auto", width: `${GARMENT_SHARE * 100}%`, height: "auto" }}
+            style={{
+              display: "block",
+              margin: "0 auto",
+              width: `${GARMENT_SHARE * 100}%`,
+              height: "auto",
+            }}
           />
         </Column>
       </Row>
       <Section style={{ padding: t.space.gap }}>
-        <Text
-          style={{
-            margin: 0,
-            fontFamily: t.font.body,
-            fontSize: t.size.body,
-            fontWeight: 700,
-            color: t.color.foreground,
-          }}
-        >
-          {name}
-        </Text>
         {variantLabel ? (
           <Text
             style={{
@@ -74,8 +79,8 @@ export function ProductBlock({ baseUrl, imageUrl, name, variantLabel, price }: P
         ) : null}
         <Text
           style={{
-            // The variant line's margins are what separate name from price;
-            // without it the price would butt against the name.
+            // The name lives in the template's title now, so the price opens
+            // the block; a variant line above it supplies the gap itself.
             margin: variantLabel ? 0 : "8px 0 0",
             fontFamily: t.font.display,
             fontSize: t.size.price,

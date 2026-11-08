@@ -20,7 +20,13 @@ type LaunchEmailProps = {
   productUrl: string;
 };
 
-export default function LaunchEmail({ baseUrl, productName, price, imageUrl, productUrl }: LaunchEmailProps) {
+export default function LaunchEmail({
+  baseUrl,
+  productName,
+  price,
+  imageUrl,
+  productUrl,
+}: LaunchEmailProps) {
   return (
     <EmailLayout
       baseUrl={baseUrl}
@@ -35,11 +41,16 @@ export default function LaunchEmail({ baseUrl, productName, price, imageUrl, pro
       }
     >
       <Section style={{ padding: `0 ${t.space.side}px` }}>
-        <Eyebrow>AVISO DE LANZAMIENTO</Eyebrow>
-        <Title>Ya salió</Title>
-        <ProductBlock baseUrl={baseUrl} imageUrl={imageUrl} name={productName} price={price} />
+        <Eyebrow>NUEVO DROP</Eyebrow>
+        <Title>{productName}</Title>
+        <ProductBlock
+          baseUrl={baseUrl}
+          imageUrl={imageUrl}
+          name={productName}
+          price={price}
+        />
         <CtaButton href={productUrl}>NO DUERMAS</CtaButton>
-        <BodyText>Es una tirada corta y no te la reservamos: se la lleva el primero que paga.</BodyText>
+        <BodyText>3 Y 6 CUOTAS † 10%OFF TRANSFERENCIAS</BodyText>
       </Section>
     </EmailLayout>
   );

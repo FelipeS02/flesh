@@ -20,7 +20,7 @@ describe("LaunchEmail", () => {
     expect(html).toContain("$ 28.500");
     expect(html).toContain("CON TRANSFERENCIA");
     expect(html).toContain(`src="${props.imageUrl}"`);
-    expect(html).toContain("AVISO DE LANZAMIENTO");
+    expect(html).toContain("NUEVO DROP");
     expect(html).toContain("NO DUERMAS");
   });
 
